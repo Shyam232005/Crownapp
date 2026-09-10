@@ -1,25 +1,20 @@
 'use client';
-
 import React, { useState } from 'react';
 import Link from 'next/link';
 
 const HelpandSupport = () => {
-    const [accountType, setAccountType] = useState('business'); // 'business' | 'ca'
+    const [accountType, setAccountType] = useState('business');
     const [submitted, setSubmitted] = useState(false);
     const [ticketId, setTicketId] = useState('');
 
-    // Form State
     const [formData, setFormData] = useState({
         name: '',
         email: '',
         phone: '',
-        // Business specific
         companyName: '',
         gstin: '',
-        // CA specific
         caFirmName: '',
         icaiNumber: '',
-        // Issue Details
         issueCategory: 'login_issue',
         priority: 'high',
         subject: '',
@@ -31,16 +26,40 @@ const HelpandSupport = () => {
         setFormData((prev) => ({ ...prev, [field]: value }));
     };
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        // Generate simulated support ticket ID
-        const randomTicket = `TKT-${Math.floor(100000 + Math.random() * 900000)}`;
-        setTicketId(randomTicket);
-        setSubmitted(true);
+        try {
+            const res = await fetch("/api/helpcenter", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(formData)
+            })
+
+            if(res.ok){
+                return true
+            }
+        } catch (error) {
+            alert("Server is temporilay down due to overloading")
+        } finally {
+            setFormData({
+                name: '',
+                email: '',
+                phone: '',
+                companyName: '',
+                gstin: '',
+                caFirmName: '',
+                icaiNumber: '',
+                issueCategory: 'login_issue',
+                priority: 'high',
+                subject: '',
+                description: '',
+                affectedInvoiceOrVoucher: '',
+            })
+        }
     };
     return (
         <div className="space-y-8 max-w-4xl mx-auto py-4">
-            {/* Header */}
+            { }
             <div>
                 <div className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-xs font-semibold text-slate-700">
                     <span className="h-2 w-2 rounded-full bg-emerald-600"></span>
@@ -55,7 +74,7 @@ const HelpandSupport = () => {
             </div>
 
             <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
-                {/* Left Column: Support SLAs & Emergency Contact */}
+                { }
                 <div className="space-y-5 lg:col-span-1">
                     <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm space-y-4">
                         <h2 className="text-sm font-bold text-slate-900">Support SLAs</h2>
@@ -82,7 +101,7 @@ const HelpandSupport = () => {
                         </div>
                     </div>
 
-                    {/* Quick Login Links */}
+                    { }
                     <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-5 text-xs text-slate-600 space-y-2.5">
                         <p className="font-semibold text-slate-800">Looking to sign in instead?</p>
                         <div className="flex flex-col gap-2 pt-1">
@@ -102,7 +121,7 @@ const HelpandSupport = () => {
                     </div>
                 </div>
 
-                {/* Right Column: Ticket Submission Form */}
+                { }
                 <div className="rounded-2xl border border-slate-200 bg-white p-6 sm:p-8 shadow-sm lg:col-span-2">
                     {submitted ? (
                         <div className="py-10 text-center space-y-4">
@@ -134,7 +153,7 @@ const HelpandSupport = () => {
                                     Submit Another Ticket
                                 </button>
                                 <Link
-                                    href="/dashboard"
+                                    href="/"
                                     className="rounded-lg border border-emerald-600/30 bg-emerald-700 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-800 shadow-sm"
                                 >
                                     Return to Dashboard
@@ -143,7 +162,7 @@ const HelpandSupport = () => {
                         </div>
                     ) : (
                         <form onSubmit={handleSubmit} className="space-y-6">
-                            {/* Account Type Toggle */}
+                            { }
                             <div>
                                 <label className="block text-xs font-semibold text-slate-700">
                                     I am raising this particular problem: *
@@ -172,7 +191,7 @@ const HelpandSupport = () => {
                                 </div>
                             </div>
 
-                            {/* Identity Verification Fields */}
+                            { }
                             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                                 <div>
                                     <label className="block text-xs font-semibold text-slate-700">Your Full Name *</label>
@@ -210,7 +229,7 @@ const HelpandSupport = () => {
                                     />
                                 </div>
 
-                                {/* Conditional Field: Business GSTIN vs CA ICAI Number */}
+                                { }
                                 {accountType === 'business' ? (
                                     <div>
                                         <label className="block text-xs font-semibold text-slate-700">Company GSTIN *</label>
@@ -239,7 +258,7 @@ const HelpandSupport = () => {
                                 )}
                             </div>
 
-                            {/* Issue Categorization */}
+                            { }
                             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                                 <div>
                                     <label className="block text-xs font-semibold text-slate-700">Issue Category *</label>
@@ -273,7 +292,7 @@ const HelpandSupport = () => {
                                 </div>
                             </div>
 
-                            {/* Subject & Description */}
+                            { }
                             <div className="space-y-4">
                                 <div>
                                     <label className="block text-xs font-semibold text-slate-700">Subject / Brief Summary *</label>
@@ -315,7 +334,7 @@ const HelpandSupport = () => {
                                 </div>
                             </div>
 
-                            {/* Submit Button with Light Border */}
+                            { }
                             <div className="pt-2">
                                 <button
                                     type="submit"

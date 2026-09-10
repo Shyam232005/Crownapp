@@ -1,6 +1,8 @@
 import { Geist, Geist_Mono } from "next/font/google"
 import Footer from "@/components/footerforall"
-import SessionWrapper from "@/components/SessionWrapper";
+import SessionWrapper from "@/components/SessionWrapper"
+import { getServerSession } from "next-auth"
+import { authOptions } from "./api/auth/[...nextauth]/route"
 import "./globals.css";
 
 const geistSans = Geist({
@@ -19,6 +21,8 @@ export const metadata = {
 };
 
 export default function RootLayout({ children }) {
+  const {data: session} = getServerSession(authOptions)
+  console.log("Session in RootLayout:", session);
   return (
     <html
       lang="en"

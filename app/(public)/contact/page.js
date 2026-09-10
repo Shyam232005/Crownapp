@@ -1,45 +1,68 @@
 'use client';
-
 import React, { useState } from 'react';
 import Link from 'next/link';
 
 const Contact = () => {
   const [submitted, setSubmitted] = useState(false);
   const [formData, setFormData] = useState({
-    // 1. Personal & Role Details
     fullName: '',
     workEmail: '',
     phone: '',
-    role: 'founder', // 'founder' | 'finance_head' | 'accountant' | 'ca_auditor' | 'plant_head'
+    role: 'founder',
 
-    // 2. Business Profile
     companyName: '',
     gstin: '',
     cityState: '',
-    industrySector: 'manufacturing', // 'manufacturing' | 'textiles' | 'chemicals' | 'trading' | 'services' | 'ca_firm'
+    industrySector: 'manufacturing',
 
-    // 3. Current Operational Stack & Volume
-    currentAccountingSoftware: 'tally_prime', // 'tally_prime' | 'tally_erp9' | 'busy' | 'zoho' | 'sap' | 'excel' | 'other'
-    invoiceIntakeMethod: 'whatsapp_and_paper', // 'whatsapp_and_paper' | 'email_pdf' | 'physical_only' | 'vendor_portal'
-    monthlyInvoiceVolume: '50-200', // 'under_50' | '50-200' | '200-500' | '500_plus'
-    annualTurnover: '5cr_25cr', // 'under_1cr' | '1cr_5cr' | '5cr_25cr' | '25cr_100cr' | 'above_100cr'
+    currentAccountingSoftware: 'tally_prime',
+    invoiceIntakeMethod: 'whatsapp_and_paper',
+    monthlyInvoiceVolume: '50-200',
+    annualTurnover: '5cr_25cr',
 
-    // 4. Specific Pain Points & Intent
-    primaryGoal: 'replace_desktop', // 'replace_desktop' | 'stop_duplicate_payments' | 'itc_gstr2b' | 'msme_43bh' | 'ca_audit_sync'
+    primaryGoal: 'replace_desktop',
     detailedMessage: '',
-  });
+  })
 
   const handleChange = (field, value) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    setSubmitted(true);
-  };
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    const res = await fetch("/api/contactform", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(formData)
+    })
+
+
+    if (res.ok) {
+      return setSubmitted(true)
+    } else {
+      alert("The form submission failed. Please try later!")
+      setFormData({
+        fullName: "",
+        workEmail: "",
+        phone: "",
+        role: "founder",
+        companyName: "",
+        gstin: "",
+        cityState: "",
+        industrySector: "manufacturing",
+        currentAccountingSoftware: "tally_prime",
+        invoiceIntakeMethod: "whatsapp_and_paper",
+        monthlyInvoiceVolume: "50-200",
+        annualTurnover: "5cr_25cr",
+        primaryGoal: "replace_desktop",
+        detailedMessage: "",
+      });
+    }
+  }
+
   return (
     <div className="space-y-8 max-w-5xl mx-auto py-4">
-      {/* Page Header */}
+      { }
       <div>
         <div className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-xs font-semibold text-slate-700">
           <span className="h-2 w-2 rounded-full bg-emerald-600"></span>
@@ -54,7 +77,7 @@ const Contact = () => {
       </div>
 
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
-        {/* Left Column: Office & Direct Advisory Info */}
+        { }
         <div className="space-y-5 lg:col-span-1">
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm space-y-4">
             <h2 className="text-sm font-bold text-slate-900">Direct Contact &amp; Support</h2>
@@ -98,7 +121,7 @@ const Contact = () => {
           </div>
         </div>
 
-        {/* Right Column: Detailed Diagnostic Intake Form */}
+        { }
         <div className="rounded-2xl border border-slate-200 bg-white p-6 sm:p-8 shadow-sm lg:col-span-2">
           {submitted ? (
             <div className="py-8 text-center space-y-4">
@@ -110,7 +133,7 @@ const Contact = () => {
                 Thank you, <strong>{formData.fullName}</strong>. We have logged your organization profile for <strong>{formData.companyName || 'your enterprise'}</strong>. A product specialist will call you with a configured test environment.
               </p>
 
-              {/* Submission Summary Dossier (What the owner receives) */}
+              { }
               <div className="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-4 text-left font-mono text-[11px] text-slate-700 space-y-1.5">
                 <div className="font-sans font-bold text-slate-900 border-b border-slate-200 pb-1.5 text-xs">
                   Logged Profile Intelligence:
@@ -134,7 +157,7 @@ const Contact = () => {
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-6">
-              {/* SECTION 1: USER IDENTITY & ROLE */}
+              { }
               <div>
                 <h3 className="text-xs font-bold uppercase tracking-wider text-emerald-800 border-b border-slate-100 pb-2">
                   1. Contact &amp; Decision-Maker Details
@@ -194,7 +217,7 @@ const Contact = () => {
                 </div>
               </div>
 
-              {/* SECTION 2: BUSINESS & INDUSTRY PROFILE */}
+              { }
               <div>
                 <h3 className="text-xs font-bold uppercase tracking-wider text-emerald-800 border-b border-slate-100 pb-2">
                   2. Organization Profile
@@ -255,7 +278,7 @@ const Contact = () => {
                 </div>
               </div>
 
-              {/* SECTION 3: CURRENT ACCOUNTING STACK & INVOICE VOLUME */}
+              { }
               <div>
                 <h3 className="text-xs font-bold uppercase tracking-wider text-emerald-800 border-b border-slate-100 pb-2">
                   3. Current Operations &amp; Accounting Stack
@@ -326,7 +349,7 @@ const Contact = () => {
                 </div>
               </div>
 
-              {/* SECTION 4: PRIMARY OBJECTIVE & NOTES */}
+              { }
               <div>
                 <h3 className="text-xs font-bold uppercase tracking-wider text-emerald-800 border-b border-slate-100 pb-2">
                   4. Primary Goal &amp; Evaluation Intent
@@ -363,7 +386,7 @@ const Contact = () => {
                 </div>
               </div>
 
-              {/* Submit Button with Light Border */}
+              { }
               <div className="pt-2">
                 <button
                   type="submit"

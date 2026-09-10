@@ -10,7 +10,8 @@ const Dashboard = () => {
     
   return (
     <div>
-      this is our dashboard {session.data?.user?.name}.
+      this is our dashboard {session.data?.user?.name}. <hr />
+      <button onClick={() => signOut({callbackUrl: "/"})}>Logout</button>
     </div>
   )
 }

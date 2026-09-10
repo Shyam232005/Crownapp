@@ -1,14 +1,31 @@
 'use client'
 import { useRouter } from 'next/navigation';
-import { useSession } from 'next-auth/react';
 import React, { useState } from 'react';
 import Link from 'next/link';
 
 const Login = () => {
   const router = useRouter()
-  const { data: session, status } = useSession()
-  if(session){
-    return router.push("dashboard")
+
+  const handlesumbited = async (e) => {
+    e.preventDefault()
+    try {
+      const res = await fetch("/api/loginuser", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ emailOrPhone, password })
+      })
+
+      if (res.ok) {
+        return router.push("dashboard")
+      } else {
+        alert("User is not a member of crown ecosystems")
+      }
+    } catch (error) {
+      alert("User is not a member of crown ecosystems")
+    } finally {
+      setEmailOrPhone('')
+      setPassword('')
+    }
   }
 
   const [authMethod, setAuthMethod] = useState('password'); // 'password' | 'otp'
@@ -118,7 +135,7 @@ const Login = () => {
             <form onSubmit={handleSubmit} className="mt-6 space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-700">
-                  Work Email or Registered Mobile
+                  Registered Mobile or Email
                 </label>
                 <input
                   type="text"
@@ -136,7 +153,7 @@ const Login = () => {
                     Password
                   </label>
                   <Link
-                    href="/contact-us"
+                    href="/forgotcredential"
                     className="text-[11px] font-medium text-emerald-700 hover:underline"
                   >
                     Forgot password?
@@ -176,6 +193,7 @@ const Login = () => {
               <button
                 type="submit"
                 disabled={isLoading}
+                onClick={handlesumbited}
                 className="w-full rounded-xl border border-emerald-600/30 bg-emerald-700 py-2.5 text-xs font-semibold text-white shadow-sm transition hover:border-emerald-600 hover:bg-emerald-800 disabled:opacity-50"
               >
                 {isLoading ? 'Verifying Credentials...' : 'Sign In to Workspace'}
@@ -260,7 +278,7 @@ const Login = () => {
           <div className="mt-6 rounded-xl border border-slate-100 bg-slate-50 p-3 text-left text-[11px] text-slate-600">
             <p className="font-semibold text-slate-800">Quick Demo Access:</p>
             <p className="mt-0.5 font-mono text-[10px] text-slate-500">
-              Founder Email: <span className="text-slate-800 font-bold">shyam@crown.com</span> | Password: <span className="text-slate-800 font-bold">demo123</span>
+              Founder Email: <span className="text-slate-800 font-bold">demo@crown.com</span> | Password: <span className="text-slate-800 font-bold">democrown12345</span>
             </p>
           </div>
 

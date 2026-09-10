@@ -1,9 +1,11 @@
 'use client';
-
+import { useRouter } from 'next/navigation';
 import React, { useState } from 'react';
 import Link from 'next/link';
 
 const CALogin = () => {
+    const router = useRouter()
+
     const [loginMethod, setLoginMethod] = useState('membership'); // 'membership' | 'otp'
     const [showPassword, setShowPassword] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
@@ -38,15 +40,29 @@ const CALogin = () => {
         }, 600);
     };
 
-    const handleLoginSubmit = (e) => {
-        e.preventDefault();
-        setIsLoading(true);
-        setTimeout(() => {
-            setIsLoading(false);
-            // Redirects directly to the dedicated CA Auditor Portal
-            window.location.href = '/ca-auditor-portal';
-        }, 750);
-    };
+    const handleca = async () => {
+        try {
+            const res = await fetch("/api/loginca", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ membershipNo, password })
+            })
+
+            if (res.ok) {
+                return router.push("dashboard")
+            } else {
+                alert("User is not a member of crown ecosystems")
+            }
+        } catch (error) {
+            alert("User is not a member of crown ecosystems")
+        } finally {
+            setMembershipNo('')
+            setFirmRegNo('')
+            setPassword('')
+        }
+    }
+
+
     return (
         <div className="min-h-screen bg-slate-50 text-slate-900 font-sans flex flex-col justify-between p-4 sm:p-6 lg:p-8">
             {/* Top Header */}
@@ -111,7 +127,7 @@ const CALogin = () => {
 
                     {/* METHOD 1: Membership Number + Password */}
                     {loginMethod === 'membership' && (
-                        <form onSubmit={handleLoginSubmit} className="mt-6 space-y-4">
+                        <form onSubmit={handleca} className="mt-6 space-y-4">
                             <div>
                                 <label className="block text-xs font-semibold text-slate-700">
                                     ICAI Membership Number (6 Digits) *

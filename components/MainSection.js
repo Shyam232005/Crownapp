@@ -26,13 +26,13 @@ const SMain = () => {
                     {/* Hero Actions with Light Borders */}
                     <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
                         <Link
-                            href=""
+                            href="freetrial"
                             className="w-full rounded-lg border border-emerald-600/30 bg-emerald-700 px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:border-emerald-600 hover:bg-emerald-800 sm:w-auto"
                         >
                             Gain Free Access for 30 Days
                         </Link>
                         <Link
-                            href=""
+                            href="overview"
                             className="w-full rounded-lg border border-slate-200 bg-white px-6 py-3 text-sm font-medium text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 sm:w-auto hover:shadow-[0_0_20px_theme(colors.emerald.600)]"
                         >
                             Explore Crown Ecosystems
@@ -365,13 +365,13 @@ const SMain = () => {
                     {/* CTA Buttons with Light Borders */}
                     <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
                         <Link
-                            href=""
+                            href="freetrial"
                             className="rounded-lg border border-emerald-600/30 bg-emerald-700 px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:border-emerald-600 hover:bg-emerald-800"
                         >
                             Get Crown &amp; Gain 30 Days Free Access
                         </Link>
                         <Link
-                            href=""
+                            href="contact"
                             className="rounded-lg border border-slate-200 bg-white px-5 py-2.5 text-sm font-medium text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 hover:shadow-[0_0_20px_theme(colors.emerald.600)]"
                         >
                             Call Us For More Information
