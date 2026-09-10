@@ -3,7 +3,6 @@ import CA from "@/app/schema/calogin"
 import bcrypt from "bcryptjs"
 import { connectDB } from "../loginuser/route"
 
-
 export async function POST(req) {
     await connectDB()
     const { membershipNo,password } = await req.json();

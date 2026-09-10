@@ -11,7 +11,6 @@ export async function connectDB() {
     isConnected = true
 }
 
-
 export async function POST(req) {
     await connectDB()
     const { emailOrPhone, password } = await req.json();

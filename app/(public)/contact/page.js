@@ -9,17 +9,14 @@ const Contact = () => {
     workEmail: '',
     phone: '',
     role: 'founder',
-
     companyName: '',
     gstin: '',
     cityState: '',
     industrySector: 'manufacturing',
-
     currentAccountingSoftware: 'tally_prime',
     invoiceIntakeMethod: 'whatsapp_and_paper',
     monthlyInvoiceVolume: '50-200',
     annualTurnover: '5cr_25cr',
-
     primaryGoal: 'replace_desktop',
     detailedMessage: '',
   })
