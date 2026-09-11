@@ -137,7 +137,7 @@ const Purchase = () => {
 
               <div className="mt-8 border-t border-slate-100 pt-4">
                 <Link
-                  href=""
+                  href="payment"
                   className={`block w-full py-2.5 text-center text-xs font-semibold rounded-xl shadow-sm transition border ${plan.popular
                       ? 'border-emerald-600/30 bg-emerald-700 text-white hover:bg-emerald-800'
                       : 'border-slate-200 bg-slate-50 text-slate-800 hover:bg-slate-100'

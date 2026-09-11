@@ -12,41 +12,35 @@ const Login = () => {
       const res = await fetch("/api/loginuser", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ emailOrPhone, password })
+        body: JSON.stringify({ email, password })
       })
-
       if (res.ok) {
         return router.push("dashboard")
-      } else {
-        alert("User is not a member of crown ecosystems")
       }
     } catch (error) {
       alert("User is not a member of crown ecosystems")
     } finally {
-      setEmailOrPhone('')
+      setEmail('')
       setPassword('')
     }
   }
 
-  const [authMethod, setAuthMethod] = useState('password'); // 'password' | 'otp'
+  const [authMethod, setAuthMethod] = useState('password');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
 
-  // Form Fields
-  const [emailOrPhone, setEmailOrPhone] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [rememberMe, setRememberMe] = useState(true);
 
-  // Handle OTP input navigation
   const handleOtpChange = (element, index) => {
     if (isNaN(element.value)) return false;
     const newOtp = [...otp];
     newOtp[index] = element.value;
     setOtp(newOtp);
 
-    // Focus next input
     if (element.nextSibling && element.value !== '') {
       element.nextSibling.focus();
     }
@@ -54,7 +48,7 @@ const Login = () => {
 
   const handleSendOtp = (e) => {
     e.preventDefault();
-    if (!emailOrPhone) return;
+    if (!email) return;
     setIsLoading(true);
     setTimeout(() => {
       setIsLoading(false);
@@ -65,7 +59,6 @@ const Login = () => {
   const handleSubmit = (e) => {
     e.preventDefault();
     setIsLoading(true);
-    // Simulate login verification
     setTimeout(() => {
       setIsLoading(false);
       window.location.href = '/dashboard';
@@ -74,7 +67,7 @@ const Login = () => {
 
   return (
     <div className="min-h-screen bg-slate-50/80 text-slate-900 font-sans flex flex-col justify-between p-4 sm:p-6 lg:p-8">
-      {/* Top Bar / Navigation */}
+      { }
       <div className="mx-auto w-full max-w-6xl flex items-center justify-between">
         <Link
           href="/"
@@ -90,10 +83,10 @@ const Login = () => {
         </Link>
       </div>
 
-      {/* Main Authentication Card */}
+      { }
       <div className="mx-auto w-full max-w-md py-8">
         <div className="rounded-2xl border border-slate-200 bg-white p-6 sm:p-8 shadow-sm">
-          {/* Header */}
+          { }
           <div className="text-center">
             <h1 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">
               Sign in to your account
@@ -103,7 +96,7 @@ const Login = () => {
             </p>
           </div>
 
-          {/* Auth Method Switcher: Password vs Mobile OTP */}
+          { }
           <div className="mt-6 flex rounded-lg border border-slate-200 bg-slate-50 p-1 shadow-sm">
             <button
               type="button"
@@ -130,19 +123,19 @@ const Login = () => {
             </button>
           </div>
 
-          {/* FORM: Password Based */}
+          { }
           {authMethod === 'password' && (
             <form onSubmit={handleSubmit} className="mt-6 space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-700">
-                  Registered Mobile or Email
+                  Registered  Email
                 </label>
                 <input
                   type="text"
                   required
-                  value={emailOrPhone}
-                  onChange={(e) => setEmailOrPhone(e.target.value)}
-                  placeholder="name@company.com or +91 98250 00000"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="name@company.com"
                   className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 placeholder-slate-400 focus:border-emerald-600 focus:outline-none"
                 />
               </div>
@@ -153,7 +146,7 @@ const Login = () => {
                     Password
                   </label>
                   <Link
-                    href="/forgotcredential"
+                    href="/help"
                     className="text-[11px] font-medium text-emerald-700 hover:underline"
                   >
                     Forgot password?
@@ -201,7 +194,7 @@ const Login = () => {
             </form>
           )}
 
-          {/* FORM: OTP Based */}
+          { }
           {authMethod === 'otp' && (
             <form onSubmit={otpSent ? handleSubmit : handleSendOtp} className="mt-6 space-y-4">
               <div>
@@ -216,8 +209,8 @@ const Login = () => {
                     type="tel"
                     required
                     maxLength={10}
-                    value={emailOrPhone}
-                    onChange={(e) => setEmailOrPhone(e.target.value)}
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
                     placeholder="98250 00000"
                     disabled={otpSent}
                     className="w-full rounded-r-lg px-3 py-2 text-xs text-slate-900 placeholder-slate-400 focus:outline-none disabled:bg-slate-50"
@@ -240,7 +233,7 @@ const Login = () => {
                     </button>
                   </div>
 
-                  {/* 6-box OTP input */}
+                  { }
                   <div className="mt-2 flex justify-between gap-1.5">
                     {otp.map((digit, idx) => (
                       <input
@@ -274,19 +267,12 @@ const Login = () => {
             </form>
           )}
 
-          {/* Quick Demo Credentials Reminder (For Sandbox / Dev Testing) */}
-          <div className="mt-6 rounded-xl border border-slate-100 bg-slate-50 p-3 text-left text-[11px] text-slate-600">
-            <p className="font-semibold text-slate-800">Quick Demo Access:</p>
-            <p className="mt-0.5 font-mono text-[10px] text-slate-500">
-              Founder Email: <span className="text-slate-800 font-bold">demo@crown.com</span> | Password: <span className="text-slate-800 font-bold">democrown12345</span>
-            </p>
-          </div>
 
-          {/* New to Crown Ecosystem footer */}
+          { }
           <div className="mt-6 border-t border-slate-100 pt-4 text-center text-xs text-slate-500">
             Don’t have a company workspace yet?{' '}
             <Link
-              href="/purchase-software"
+              href="/purchase"
               className="font-semibold text-emerald-800 hover:underline"
             >
               Get started here
@@ -295,7 +281,7 @@ const Login = () => {
         </div>
       </div>
 
-      {/* Footer Compliance & Security Banner */}
+      { }
       <div className="mx-auto w-full max-w-6xl text-center text-xs text-slate-400 space-y-1">
         <p>Protected by 256-bit SSL encryption • Compliant with MCA Audit Trail &amp; Indian Data Guidelines</p>
         <p>© {new Date().getFullYear()} Crown Ecosystems Private Limited. All rights reserved.</p>

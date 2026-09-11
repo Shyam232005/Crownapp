@@ -13,17 +13,15 @@ export async function connectDB() {
 
 export async function POST(req) {
     await connectDB()
-    const { emailOrPhone, password } = await req.json();
-    const login = await Login.findOne({ emailOrPhone })
+    const { email, password } = await req.json();
+    const login = await Login.findOne({ email })
     console.log(login)
     if (!login) {
         return NextResponse.json({ success: false, message: "User not found" }, { status: 404 });
     }
-
     const isMatch = await bcrypt.compare(password, login.password);
     if (!isMatch) {
         return NextResponse.json({ success: false, message: "Invalid password" }, { status: 401 });
     }
-
     return NextResponse.json({ success: true, message: "Login successful", login }, { status: 200 });
 }

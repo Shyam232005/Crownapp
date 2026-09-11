@@ -4,10 +4,12 @@ import Link from 'next/link'
 
 const CARegister = () => {
   const [registered, setRegistered] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
     caName: '',
     icaiNumber: '',
     firmName: '',
+    password: '',
     city: '',
     email: '',
     phone: '',
@@ -23,10 +25,6 @@ const CARegister = () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData)
       })
-
-      if (res.ok) {
-        return setRegistered(true)
-      }
     } catch (error) {
       alert("The form is not summited due to server isusses, pleases try again later")
     } finally {
@@ -38,7 +36,8 @@ const CARegister = () => {
         email: '',
         phone: '',
         clientCount: '10-25',
-        referredBy:'',
+        referredBy: '',
+        password: '',
       })
     }
   };
@@ -216,6 +215,28 @@ const CARegister = () => {
                 <span className="text-[10px] text-slate-400">
                   Enter the client name, fellow CA, or advisor who recommended Crown.
                 </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-semibold text-slate-700">
+                  Create Your Auditor Portal Password *
+                </label>
+              </div>
+              <div className="relative mt-1">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  required
+                  value={formData.password}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  placeholder="Enter your security password"
+                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 placeholder-slate-400 focus:border-cyan-600 focus:outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-600"
+                >
+                  {showPassword ? 'Hide' : 'Show'}
+                </button>
               </div>
 
               <button

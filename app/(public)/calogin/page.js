@@ -6,19 +6,17 @@ import Link from 'next/link';
 const CALogin = () => {
     const router = useRouter()
 
-    const [loginMethod, setLoginMethod] = useState('membership'); // 'membership' | 'otp'
+    const [loginMethod, setLoginMethod] = useState('membership');
     const [showPassword, setShowPassword] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [otpSent, setOtpSent] = useState(false);
 
-    // Form Fields
     const [membershipNo, setMembershipNo] = useState('');
     const [firmRegNo, setFirmRegNo] = useState('');
     const [password, setPassword] = useState('');
     const [mobileNumber, setMobileNumber] = useState('');
     const [otp, setOtp] = useState(['', '', '', '', '', '']);
 
-    // Handle 6-box OTP input
     const handleOtpChange = (element, index) => {
         if (isNaN(element.value)) return;
         const newOtp = [...otp];
@@ -40,18 +38,17 @@ const CALogin = () => {
         }, 600);
     };
 
-    const handleca = async () => {
+    const handleca = async (e) => {
+        e.preventDefault()
         try {
             const res = await fetch("/api/loginca", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ membershipNo, password })
+                body: JSON.stringify({ membershipNo, firmRegNo, password })
             })
 
             if (res.ok) {
                 return router.push("dashboard")
-            } else {
-                alert("User is not a member of crown ecosystems")
             }
         } catch (error) {
             alert("User is not a member of crown ecosystems")
@@ -65,7 +62,7 @@ const CALogin = () => {
 
     return (
         <div className="min-h-screen bg-slate-50 text-slate-900 font-sans flex flex-col justify-between p-4 sm:p-6 lg:p-8">
-            {/* Top Header */}
+            { }
             <div className="mx-auto w-full max-w-6xl flex items-center justify-between">
                 <Link
                     href="/"
@@ -81,10 +78,10 @@ const CALogin = () => {
                 </Link>
             </div>
 
-            {/* Main CA Portal Login Card */}
+            { }
             <div className="mx-auto w-full max-w-md py-8">
                 <div className="rounded-2xl border border-slate-200 bg-white p-6 sm:p-8 shadow-sm">
-                    {/* Badge & Title */}
+                    { }
                     <div className="text-center">
                         <div className="inline-flex items-center gap-1.5 rounded-full border border-cyan-200 bg-cyan-50 px-2.5 py-0.5 text-xs font-semibold text-cyan-800">
                             <span className="h-2 w-2 rounded-full bg-cyan-600"></span>
@@ -270,14 +267,6 @@ const CALogin = () => {
                             </button>
                         </form>
                     )}
-
-                    {/* Quick Testing Helper */}
-                    <div className="mt-6 rounded-xl border border-slate-100 bg-slate-50 p-3 text-left text-[11px] text-slate-600">
-                        <p className="font-semibold text-slate-800">Testing Credentials:</p>
-                        <p className="mt-0.5 font-mono text-[10px] text-slate-500">
-                            Membership No: <span className="text-slate-800 font-bold">142850</span> | Password: <span className="text-slate-800 font-bold">audit2026</span>
-                        </p>
-                    </div>
 
                     {/* Partner Registration Notice */}
                     <div className="mt-6 border-t border-slate-100 pt-4 text-center text-xs text-slate-500">
