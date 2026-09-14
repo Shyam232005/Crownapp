@@ -70,7 +70,10 @@ const Account = () => {
           <div>
             {/* Logo */}
             <div className="h-16 flex items-center justify-between px-6 border-b border-slate-100">
-              <div className="flex items-center gap-2.5">
+              <div className="flex items-center gap-2.5 cursor-pointer" onClick={() => {
+                router
+                  .push("/")
+              }}>
                 <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-bold text-lg shadow-md shadow-indigo-200">
                   C
                 </div>
@@ -171,7 +174,7 @@ const Account = () => {
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-xs font-semibold text-slate-500 bg-white border border-slate-200 px-3 py-1.5 rounded-lg shadow-sm">
-                  Your Accounts are Automated! 
+                  Your Accounts are Automated!
                 </span>
               </div>
             </div>

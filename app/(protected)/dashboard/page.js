@@ -28,6 +28,7 @@ import {
 import { useRouter,usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 
+
 export default function FinOpsDashboard() {
   const router = useRouter();
   const pathname = usePathname();
@@ -96,7 +97,9 @@ export default function FinOpsDashboard() {
           <div>
             {/* Logo */}
             <div className="h-16 flex items-center justify-between px-6 border-b border-slate-100">
-              <div className="flex items-center gap-2.5">
+              <div className="flex items-center gap-2.5 cursor-pointer" onClick={()=>{router
+                .push("/")
+              }}>
                 <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-bold text-lg shadow-md shadow-indigo-200">
                   C
                 </div>
