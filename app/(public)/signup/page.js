@@ -1,8 +1,10 @@
 'use client';
 import React, { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
 const SingUp = () => {
+    const router = useRouter()
     const [accountType, setAccountType] = useState('business');
     const [showPassword, setShowPassword] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
@@ -49,6 +51,9 @@ const SingUp = () => {
                 headers: {"Content-Type": "application/json"},
                 body: JSON.stringify(formData)
             })
+            if(res.ok){
+                return router.push("login")
+            }
         } catch (error) {
             setErrorMessage('An error occurred while signing up. Please try again.')
         }

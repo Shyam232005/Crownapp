@@ -1,8 +1,10 @@
 "use client"
 import React, { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
 const CARegister = () => {
+  const router = useRouter()
   const [registered, setRegistered] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
@@ -25,6 +27,9 @@ const CARegister = () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData)
       })
+      if(res.ok){
+        return router.push("calogin")
+      }
     } catch (error) {
       alert("The form is not summited due to server isusses, pleases try again later")
     } finally {
