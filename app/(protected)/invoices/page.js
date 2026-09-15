@@ -47,6 +47,19 @@ const Invoices = () => {
     { label: "Inventory & Stock", icon: Server, path: "/inventory" },
     { label: "CRM", icon: TrendingUp, path: "/crm" },
   ];
+  const [formdata, setFormData] = useState({
+    merchant_name: "",
+    merchant_phone: "",
+    merchant_address: "",
+    Bill_No: "",
+    GST_NO: "",
+    Bill_Date: "",
+    Total: "",
+    CGST: "",
+    SGST: "",
+    IGST: "",
+  })
+  const [open, setOpen] = useState(false);
 
   const handlelogout = async (e) => {
     signOut({ callbackUrl: "/" })
@@ -173,6 +186,30 @@ const Invoices = () => {
       setAutomating(false);
     }
   };
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const handleselfadd = async () => {
+    console.log("Form submitted:", formdata);
+    // send formData to backend here
+    const res = await fetch("/api/selfinvoices", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(formdata)
+    })
+    if (!res.ok) {
+      alert("The Invoices is not generated, try again!")
+    }
+    if (res.ok) {
+      setOpen(false)
+    }
+  }
 
   return (
     <div className='min-h-screen bg-[#F8FAFC] text-slate-800 flex flex-col antialiased'>
@@ -301,7 +338,7 @@ const Invoices = () => {
               </div>
               <div className="flex items-center gap-2 ">
                 <span className="text-xs font-semibold text-slate-500 bg-blue-600 border border-slate-200 px-3 py-1.5 rounded-lg shadow-sm hover:scale-120 transition duration-1000">
-                  <button className='cursor-pointer text-white' onClick={handleButtonClick}>Add Inovices</button>
+                  <button className='cursor-pointer text-white' onClick={handleButtonClick}>Add Inovices Image</button>
                   <input
                     type="file"
                     accept="image/*"
@@ -311,10 +348,72 @@ const Invoices = () => {
                   />
                 </span>
                 <span className="text-xs font-semibold text-slate-500 bg-blue-600 border border-slate-200 px-3 py-1.5 rounded-lg shadow-sm hover:scale-120 transition duration-1000">
+                  <button className='cursor-pointer text-white' onClick={() => setOpen(true)}>Add Invoices Self</button>
+                </span>
+                <span className="text-xs font-semibold text-slate-500 bg-blue-600 border border-slate-200 px-3 py-1.5 rounded-lg shadow-sm hover:scale-120 transition duration-1000">
                   <button className='cursor-pointer text-white' onClick={handleaccounts}>Automate Accounts</button>
                 </span>
               </div>
             </div>
+          </div>
+          <div className="formcontainer">
+            {open && (
+              <div className="fixed inset-0 flex items-center justify-center z-50">
+                {/* Background overlay with blur */}
+                <div
+                  className="absolute inset-0 bg-gray-900/50 backdrop-blur-sm"
+                  onClick={() => setOpen(false)}
+                ></div>
+
+                {/* Form container */}
+                <div className="relative z-10 w-full max-w-lg max-h-[90vh] overflow-y-auto transform transition-all duration-300 ease-out scale-100 opacity-100">
+                  <form
+                    onSubmit={handleselfadd}
+                    className="bg-white/90 backdrop-blur-md shadow-2xl rounded-2xl p-8 space-y-6 border border-gray-200"
+                  >
+                    <h2 className="text-2xl font-bold text-indigo-600 text-center">
+                      ✨ Invoices Details
+                    </h2>
+
+                    {Object.keys(formdata).map((field) => (
+                      <div key={field} className="flex flex-col">
+                        <label
+                          htmlFor={field}
+                          className="text-sm font-semibold text-gray-700 capitalize mb-1"
+                        >
+                          {field.replace("_", " ")}
+                        </label>
+                        <input
+                          type="text"
+                          id={field}
+                          name={field}
+                          value={formdata[field]}
+                          onChange={handleChange}
+                          className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm transition bg-gray-50"
+                          placeholder={`Enter ${field.replace("_", " ")}`}
+                        />
+                      </div>
+                    ))}
+
+                    <div className="flex justify-end space-x-4 pt-4">
+                      <button
+                        type="button"
+                        onClick={() => setOpen(false)}
+                        className="px-5 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        className="px-5 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 shadow-md transition"
+                      >
+                        Submit
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
           </div>
           {invoices.length > 0 && (
             <div className="space-y-6 mt-8 pb-10">

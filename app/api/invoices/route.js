@@ -102,7 +102,6 @@ export async function GET() {
     try {
         await connectDB();
         const invoices = await Invoices.find({}).sort({ createdAt: -1 });
-        console.log('invoices are',invoices)
         if (!invoices) {
             return NextResponse.json({ success: false, msg: "The invoices data failed to fetch " }, { status: 400 })
         }

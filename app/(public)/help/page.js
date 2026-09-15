@@ -34,7 +34,6 @@ const HelpandSupport = () => {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(formData)
             })
-
             if(res.ok){
                 return true
             }
