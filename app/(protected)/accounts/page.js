@@ -1,4 +1,5 @@
 "use client"
+import Link from 'next/link';
 import React, { useState, useEffect } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import {
@@ -29,6 +30,8 @@ import {
 import { signOut } from "next-auth/react";
 
 const Account = () => {
+  const [transactions, setTransactions] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("Dashboard");
   const pathname = usePathname();
@@ -42,6 +45,29 @@ const Account = () => {
     { label: "Inventory & Stock", icon: Server, path: "/inventory" },
     { label: "CRM", icon: TrendingUp, path: "/crm" },
   ];
+  const [metrics, setMetrics] = useState({
+    totalPurchases: 0,
+    totalInputTaxes: 0,
+    totalPayables: 0,
+  });
+
+  useEffect(() => {
+    async function loadLedger() {
+      try {
+        const res = await fetch("/api/transactions");
+        const result = await res.json();
+        if (result.success) {
+          setTransactions(result.data);
+        }
+      } catch (e) {
+        console.error("Failed to load transactions", e);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadLedger();
+  }, []);
+
   const handlelogout = async (e) => {
     signOut({ callbackUrl: "/" })
   }
@@ -51,6 +77,41 @@ const Account = () => {
     if (current) setActiveTab(current.label);
   }, [pathname]);
 
+
+  const calculateMetrics = (data) => {
+    let purchases = 0;
+    let inputTaxes = 0;
+    let payables = 0;
+
+    data.forEach(txn => {
+      txn.entries.forEach(entry => {
+        // Debits
+        if (entry.entryType === "DEBIT") {
+          if (entry.accountName === "Purchases") purchases += entry.amount;
+          if (entry.accountName.includes("Added")) inputTaxes += entry.amount;
+        }
+        // Credits
+        if (entry.entryType === "CREDIT" && entry.accountName.includes("Accounts Payable")) {
+          payables += entry.amount;
+        }
+      });
+    });
+
+    setMetrics({ totalPurchases: purchases, totalInputTaxes: inputTaxes, totalPayables: payables });
+  };
+
+  const { totalDebits, totalCredits } = transactions.reduce(
+    (totals, txn) => {
+      txn.entries.forEach((entry) => {
+        if (entry.entryType === "DEBIT") totals.totalDebits += entry.amount;
+        if (entry.entryType === "CREDIT") totals.totalCredits += entry.amount;
+      });
+      return totals;
+    },
+    { totalDebits: 0, totalCredits: 0 }
+  );
+
+  if (loading) return <div className="p-10 text-center text-gray-500">Loading your ledger...</div>;
   return (
     <div className='min-h-screen bg-[#F8FAFC] text-slate-800 flex flex-col antialiased'>
       <div className='flex flex-1 overflow-hidden'>
@@ -122,7 +183,7 @@ const Account = () => {
           </div>
         </aside>
 
-        <main className="flex-1 flex flex-col min-w-0 overflow-y-auto">
+        <main className="flex-1 flex flex-col min-w-0 overflow-y-auto p-6">
           {/* Header */}
           <header className="h-16 bg-white border-b border-slate-200 px-4 sm:px-8 flex items-center justify-between sticky top-0 z-30">
             <div className="flex items-center gap-3 flex-1 max-w-lg">
@@ -179,6 +240,104 @@ const Account = () => {
               </div>
             </div>
           </div>
+          {/* Header Section */}
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 tracking-tight">General Enteries</h1>
+              <p className="text-sm text-gray-500 mt-1">Automated double-entry records from your invoices.</p>
+            </div>
+            <Link
+              href="/invoices"
+              className="px-5 py-2.5 bg-gray-50 text-gray-700 font-semibold rounded-xl border border-gray-200 hover:bg-gray-100 transition shadow-sm"
+            >
+              ← Back to Invoices
+            </Link>
+          </div>
+
+          {loading ? (
+            <div className="flex justify-center items-center py-20">
+              <p className="text-gray-500 font-medium animate-pulse">Loading ledger entries...</p>
+            </div>
+          ) : transactions.length === 0 ? (
+            <div className="bg-white p-12 rounded-2xl border border-dashed border-gray-300 text-center">
+              <h3 className="text-lg font-bold text-gray-800 mb-2">No Entries Yet</h3>
+              <p className="text-gray-500">Go back to Invoices and click "Automate Accounting" to generate entries.</p>
+            </div>
+          ) : (
+            /* The Ledger Table Card */
+            <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+
+                  {/* Table Header */}
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-gray-200 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                      <th className="py-4 px-6 w-1/2">Account Description</th>
+                      <th className="py-4 px-6 text-right w-1/4">Debit (Dr)</th>
+                      <th className="py-4 px-6 text-right w-1/4">Credit (Cr)</th>
+                    </tr>
+                  </thead>
+
+                  {/* Table Body */}
+                  {transactions.map((txn) => (
+                    <tbody key={txn._id} className="border-b border-gray-100 last:border-0">
+                      {/* Transaction Meta Row */}
+                      <tr className="bg-blue-50/40">
+                        <td colSpan="3" className="py-3 px-6 text-xs font-semibold text-blue-800 tracking-wide">
+                          {new Date(txn.transactionDate).toLocaleDateString("en-IN", {
+                            year: 'numeric', month: 'short', day: 'numeric'
+                          })}
+                          <span className="mx-2 text-blue-300">|</span>
+                          {txn.description}
+                        </td>
+                      </tr>
+
+                      {/* Transaction Entries (Debits & Credits) */}
+                      {txn.entries.map((entry, idx) => (
+                        <tr key={idx} className="hover:bg-gray-50 transition-colors group">
+                          <td className="py-3 px-6 text-sm">
+                            <span className={entry.entryType === "CREDIT" ? "ml-10 text-gray-500" : "font-semibold text-gray-900"}>
+                              {entry.accountName}
+                            </span>
+                          </td>
+                          <td className="py-3 px-6 text-right text-sm font-medium text-gray-900 group-hover:text-blue-600">
+                            {entry.entryType === "DEBIT" ? `₹${entry.amount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}` : ""}
+                          </td>
+                          <td className="py-3 px-6 text-right text-sm font-medium text-gray-900 group-hover:text-blue-600">
+                            {entry.entryType === "CREDIT" ? `₹${entry.amount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}` : ""}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  ))}
+
+                  {/* --- NEW: The Balancing Footer --- */}
+                  <tfoot className="bg-slate-800 text-white">
+                    <tr>
+                      <td className="py-4 px-6 font-bold text-right uppercase tracking-wider text-sm text-slate-300">
+                        Grand Total
+                      </td>
+                      <td className="py-4 px-6 text-right font-bold text-emerald-400 text-lg border-x border-slate-700">
+                        ₹{totalDebits.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                      </td>
+                      <td className="py-4 px-6 text-right font-bold text-emerald-400 text-lg">
+                        ₹{totalCredits.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                      </td>
+                    </tr>
+                    {/* Tiny verification badge */}
+                    {totalDebits === totalCredits && (
+                      <tr>
+                        <td colSpan="3" className="bg-emerald-900/50 py-1.5 text-center text-xs font-semibold text-emerald-300 tracking-widest">
+                          ✓ BOOKS ARE BALANCED
+                        </td>
+                      </tr>
+                    )}
+                  </tfoot>
+
+                </table>
+              </div>
+            </div>
+          )}
         </main>
       </div>
     </div>

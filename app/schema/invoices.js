@@ -11,6 +11,8 @@ export const InvoicesSchema = new mongoose.Schema({
     CGST: { type: String },
     SGST: { type: String },
     IGST: { type: String },
+    isPosted: { type: Boolean, default: false },
+    transactionId: { type: mongoose.Schema.Types.ObjectId, ref: "Transaction", default: null, },
 })
 
 export default mongoose.models.Invoices || mongoose.model("Invoices", InvoicesSchema)

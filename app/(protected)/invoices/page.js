@@ -34,6 +34,7 @@ const Invoices = () => {
   const [loading, setLoading] = useState(false);
   const fileInputRef = useRef(null)
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [automating, setAutomating] = useState(false);
   const [activeTab, setActiveTab] = useState("Dashboard");
   const pathname = usePathname();
   const router = useRouter()
@@ -111,7 +112,6 @@ const Invoices = () => {
       try {
         const res = await fetch("/api/invoices");
         const result = await res.json();
-
         if (result.success) {
           setInvoices(result.data);
         }
@@ -140,7 +140,7 @@ const Invoices = () => {
       });
 
       const result = await res.json().catch(() => null);
-
+      console.log("The result is taken", result)
       if (!res.ok || !result?.success) {
         alert(result?.error || "Failed to scan invoice.");
         return;
@@ -155,6 +155,24 @@ const Invoices = () => {
       e.target.value = "";
     }
   }
+
+  const handleaccounts = async () => {
+    setAutomating(true);
+    try {
+      const res = await fetch("/api/transactions", { method: "POST" });
+      const result = await res.json()
+      if (res.ok && result.success) {
+        alert(result.message);
+        router.push("/accounts");
+      } else {
+        alert(result.error || "Automation failed.");
+      }
+    } catch (error) {
+      console.log("Error founded");
+    } finally {
+      setAutomating(false);
+    }
+  };
 
   return (
     <div className='min-h-screen bg-[#F8FAFC] text-slate-800 flex flex-col antialiased'>
@@ -281,9 +299,9 @@ const Invoices = () => {
                 <h1 className="text-2xl font-bold text-slate-900">Invoices & Billing</h1>
                 <p className="text-sm text-slate-500">Live Invoices and billing telemetry across All accounts.</p>
               </div>
-              <div className="flex items-center gap-2 hover:scale-120 transition duration-1000">
-                <span className="text-xs font-semibold text-slate-500 bg-blue-600 border border-slate-200 px-3 py-1.5 rounded-lg shadow-sm ">
-                  <button className='cursor-pointer text-white' onClick={handleButtonClick}>+ Inovices</button>
+              <div className="flex items-center gap-2 ">
+                <span className="text-xs font-semibold text-slate-500 bg-blue-600 border border-slate-200 px-3 py-1.5 rounded-lg shadow-sm hover:scale-120 transition duration-1000">
+                  <button className='cursor-pointer text-white' onClick={handleButtonClick}>Add Inovices</button>
                   <input
                     type="file"
                     accept="image/*"
@@ -291,6 +309,9 @@ const Invoices = () => {
                     onChange={handleFileChange}
                     className="hidden"
                   />
+                </span>
+                <span className="text-xs font-semibold text-slate-500 bg-blue-600 border border-slate-200 px-3 py-1.5 rounded-lg shadow-sm hover:scale-120 transition duration-1000">
+                  <button className='cursor-pointer text-white' onClick={handleaccounts}>Automate Accounts</button>
                 </span>
               </div>
             </div>

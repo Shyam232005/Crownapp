@@ -65,13 +65,13 @@ export async function POST(req) {
                 }
 
                 const merchantData = JSON.parse(cleanJson);
-                console.log("Extracted Data:", merchantData);
 
                 await connectDB()
                 const newdata = await Invoices.create(merchantData)
                 if (!newdata) {
                     return NextResponse({ success: false, msg: "The user data is not stored" }, { status: 400 })
                 }
+                console.log('The data send is ', newdata)
                 return NextResponse.json({ success: true, data: newdata });
 
             } catch (apiError) {
@@ -102,7 +102,7 @@ export async function GET() {
     try {
         await connectDB();
         const invoices = await Invoices.find({}).sort({ createdAt: -1 });
-
+        console.log('invoices are',invoices)
         if (!invoices) {
             return NextResponse.json({ success: false, msg: "The invoices data failed to fetch " }, { status: 400 })
         }
