@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard, Activity, CheckSquare, Landmark, Users,
   ShoppingCart, FileText, PieChart, Settings, LogOut, ShieldAlert
@@ -44,12 +44,12 @@ const bottomConfig = [
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter()
 
   const linkClasses = (isActive) =>
-    `w-full flex items-center px-4 py-2.5 text-sm font-medium rounded-xl transition-all ${
-      isActive
-        ? "bg-indigo-600 text-white shadow-md shadow-indigo-200"
-        : "text-gray-500 hover:text-indigo-600 hover:bg-indigo-50"
+    `w-full flex items-center px-4 py-2.5 text-sm font-medium rounded-xl transition-all ${isActive
+      ? "bg-indigo-600 text-white shadow-md shadow-indigo-200"
+      : "text-gray-500 hover:text-indigo-600 hover:bg-indigo-50"
     }`;
 
   return (

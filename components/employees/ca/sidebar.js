@@ -17,29 +17,29 @@ const navConfig = [
   {
     category: "Audit Tasks",
     items: [
-      { name: "Review Queue", icon: ClipboardCheck, pathname: "/staff/dashboard" },
-      { name: "Query Manager", icon: MessageSquare, pathname: "/staff/query-manager" },
+      { name: "Review Queue", icon: ClipboardCheck, pathname: "/ca-staff/dashboard" },
+      { name: "Query Manager", icon: MessageSquare, pathname: "/ca-staff/query-manager" },
     ],
   },
   {
     category: "Assigned Work",
     items: [
-      { name: "My Clients", icon: Briefcase, pathname: "/staff/clients" },
-      { name: "Voucher Scrutiny", icon: FileSearch, pathname: "/staff/voucher-scrutiny" },
+      { name: "My Clients", icon: Briefcase, pathname: "/ca-staff/clients" },
+      { name: "Voucher Scrutiny", icon: FileSearch, pathname: "/ca-staff/voucher-scrutiny" },
     ],
   },
   {
     category: "Working Papers",
     items: [
-      { name: "Bank Reconciliation", icon: Landmark, pathname: "/staff/bank-reconciliation" },
-      { name: "Draft Tax Sheets", icon: FileSpreadsheet, pathname: "/staff/tax-sheets" },
+      { name: "Bank Reconciliation", icon: Landmark, pathname: "/ca-staff/bank-reconciliation" },
+      { name: "Draft Tax Sheets", icon: FileSpreadsheet, pathname: "/ca-staff/tax-sheets" },
     ],
   },
 ];
 
 const bottomConfig = [
-  { name: "Export Data", icon: Download, pathname: "/staff/export" },
-  { name: "Sign Out", icon: LogOut, pathname: "/logout" },
+  { name: "Export Data", icon: Download, pathname: "/ca-staff/export" },
+  { name: "Sign Out", icon: LogOut, pathname: "/" },
 ];
 
 export default function CAEmployeeSidebar() {

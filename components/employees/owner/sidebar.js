@@ -11,6 +11,8 @@ import {
   WifiOff,
   ShieldAlert,
   Users,
+  Clock, // Added for Attendance
+  CalendarRange // Added for Leaves
 } from "lucide-react";
 
 const navConfig = [
@@ -23,18 +25,25 @@ const navConfig = [
     ],
   },
   {
-    category: "Records",
+    category: "Records & Network",
     items: [
       { name: "My Submissions", icon: List, pathname: "/employee/submissions" },
       { name: "Customer Khata", icon: Users, pathname: "/employee/customer-khata" },
       { name: "Stock Check", icon: CheckCircle, pathname: "/employee/stock-check" },
     ],
   },
+  {
+    category: "My Workspace",
+    items: [
+      { name: "Attendance", icon: Clock, pathname: "/employee/attendance" },
+      { name: "Leave Requests", icon: CalendarRange, pathname: "/employee/leaves" },
+    ],
+  }
 ];
 
 const bottomConfig = [
-  { name: "Offline Queue", icon: WifiOff, badge: "3", pathname: "/employee/offline-queue" },
-  { name: "Sign Out", icon: LogOut, pathname: "/logout" },
+  { name: "Offline Queue", icon: WifiOff, badge: "0", pathname: "/employee/offline-queue" },
+  { name: "Sign Out", icon: LogOut, pathname: "/" },
 ];
 
 export default function EmployeeSidebar() {
@@ -42,19 +51,23 @@ export default function EmployeeSidebar() {
   const router = useRouter();
 
   const linkClasses = (isActive) =>
-    `w-full flex items-center px-4 py-2.5 text-sm font-medium rounded-xl transition-all ${
-      isActive
-        ? "bg-indigo-600 text-white shadow-md shadow-indigo-200"
-        : "text-gray-500 hover:text-indigo-600 hover:bg-indigo-50"
+    `w-full flex items-center justify-between px-4 py-2.5 text-sm font-medium rounded-xl transition-all ${isActive
+      ? "bg-indigo-600 text-white shadow-md shadow-indigo-200"
+      : "text-gray-500 hover:text-indigo-600 hover:bg-indigo-50"
     }`;
+
+  // Secure Sign Out Handler
+  const handleSignOut = (e) => {
+    e.preventDefault();
+    localStorage.removeItem("fineOpsUserId");
+    router.push("/");
+  };
 
   return (
     <aside className="w-64 bg-white h-screen border-r border-gray-100 flex flex-col pt-6 pb-4">
       {/* Logo */}
       <div
-        className="px-8 flex items-center mb-8 cursor-pointer"
-        onClick={() => router.push("/employee/dashboard")}
-      >
+        className="px-8 flex items-center mb-8">
         <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center mr-3">
           <ShieldAlert className="w-5 h-5 text-white" />
         </div>
@@ -79,8 +92,10 @@ export default function EmployeeSidebar() {
                     aria-current={isActive ? "page" : undefined}
                     className={linkClasses(isActive)}
                   >
-                    <Icon className={`w-5 h-5 mr-3 ${isActive ? "text-white" : "text-gray-400"}`} />
-                    {item.name}
+                    <div className="flex items-center">
+                      <Icon className={`w-5 h-5 mr-3 ${isActive ? "text-white" : "text-gray-400"}`} />
+                      {item.name}
+                    </div>
                   </Link>
                 );
               })}
@@ -94,6 +109,24 @@ export default function EmployeeSidebar() {
         {bottomConfig.map((item, idx) => {
           const Icon = item.icon;
           const isActive = pathname === item.pathname;
+
+          // Special handling for Sign Out button
+          if (item.name === "Sign Out") {
+            return (
+              <button
+                key={idx}
+                onClick={handleSignOut}
+                className={`${linkClasses(false)} text-left`}
+              >
+                <div className="flex items-center">
+                  <Icon className="w-5 h-5 mr-3 text-rose-500" />
+                  <span className="text-rose-600 font-semibold">{item.name}</span>
+                </div>
+              </button>
+            );
+          }
+
+          // Normal Links (like Offline Queue)
           return (
             <Link
               key={idx}

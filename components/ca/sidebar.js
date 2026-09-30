@@ -46,7 +46,7 @@ const navConfig = [
 
 const bottomConfig = [
   { name: "Firm Settings", icon: Settings, pathname: "/ca/settings" },
-  { name: "Sign Out", icon: LogOut, pathname: "/logout" },
+  { name: "Sign Out", icon: LogOut, pathname: "/" },
 ];
 
 export default function CASidebar() {
