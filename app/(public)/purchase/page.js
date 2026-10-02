@@ -1,16 +1,11 @@
 'use client';
-
+import { useRouter } from 'next/navigation';
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const fadeUp = {
     hidden: { opacity: 0, y: 40 },
-    visible: { opacity: 1, y: 0, transition: { duration: 0.7, ease: [0.16, 1, 0.3, 1] } }
-};
-
-const fadeDown = {
-    hidden: { opacity: 0, y: -30 },
     visible: { opacity: 1, y: 0, transition: { duration: 0.7, ease: [0.16, 1, 0.3, 1] } }
 };
 
@@ -24,13 +19,14 @@ const staggerContainer = {
 
 export default function PurchaseSoftwarePage() {
     const [billingCycle, setBillingCycle] = useState('annual');
+    const router = useRouter();
 
     const plans = [
         {
             name: 'MSME Starter',
             subtitle: 'For small trading and service units',
             monthlyPrice: 1999,
-            annualPrice: 1499,
+            annualPrice: 1499, // Per month calculation for annual
             features: [
                 'Up to 3 Team Users',
                 'Smart Invoice Ingestion (150 bills/mo)',
@@ -73,11 +69,19 @@ export default function PurchaseSoftwarePage() {
         },
     ];
 
+    // ✨ Updated function to pass dynamic plan details to the payment page ✨
+    const handlePurchaseClick = (plan) => {
+        const isAnnual = billingCycle === 'annual';
+        const finalPrice = isAnnual ? (plan.annualPrice * 12) : plan.monthlyPrice;
+        const cycleName = isAnnual ? 'Annual' : 'Monthly';
+
+        router.push(`/payment?plan=${encodeURIComponent(plan.name)}&cycle=${cycleName}&price=${finalPrice}`);
+    };
+
     return (
         <div className="relative w-full bg-[#FAFAFA] pb-24 pt-12 sm:pt-20 overflow-hidden">
             <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-16">
 
-                {}
                 <motion.div
                     className="text-center max-w-3xl mx-auto space-y-6"
                     variants={staggerContainer}
@@ -95,10 +99,8 @@ export default function PurchaseSoftwarePage() {
                         No hidden server setup costs, no expensive consultant fees. Choose the tier that fits your operational volume.
                     </motion.p>
 
-                    {}
                     <motion.div variants={fadeUp} className="mt-10 flex flex-col items-center justify-center gap-5">
                         <div className="relative flex w-fit items-center rounded-full bg-slate-200/70 p-1 border border-slate-300/60 shadow-inner">
-                            {}
                             <div
                                 className={`absolute top-1 bottom-1 left-1 w-[140px] rounded-full bg-slate-900 shadow-md transition-transform duration-300 ease-out ${billingCycle === 'monthly' ? 'translate-x-full' : 'translate-x-0'
                                     }`}
@@ -121,7 +123,6 @@ export default function PurchaseSoftwarePage() {
                             </button>
                         </div>
 
-                        {}
                         <div className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-bold uppercase tracking-wider text-emerald-700">
                             <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0112 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 01-3.296-1.043 3.745 3.745 0 01-1.043-3.296A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 011.043-3.296 3.746 3.746 0 013.296-1.043A3.746 3.746 0 0112 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043 3.746 3.746 0 011.043 3.296A3.745 3.745 0 0121 12z" />
@@ -131,7 +132,6 @@ export default function PurchaseSoftwarePage() {
                     </motion.div>
                 </motion.div>
 
-                {}
                 <div className="relative mx-auto max-w-7xl">
                     <motion.div
                         className="grid grid-cols-1 gap-8 lg:grid-cols-3 lg:gap-4 items-center"
@@ -153,8 +153,8 @@ export default function PurchaseSoftwarePage() {
                                     key={idx}
                                     variants={fadeUp}
                                     className={`relative flex flex-col justify-between rounded-[2rem] bg-white p-8 transition-all duration-300 ${plan.popular
-                                        ? 'z-10 border-2 border-emerald-500 shadow-2xl lg:scale-105 lg:p-10'
-                                        : 'border border-slate-200 shadow-lg shadow-slate-200/50'
+                                            ? 'z-10 border-2 border-emerald-500 shadow-2xl lg:scale-105 lg:p-10'
+                                            : 'border border-slate-200 shadow-lg shadow-slate-200/50'
                                         }`}
                                 >
                                     {plan.popular && (
@@ -170,7 +170,6 @@ export default function PurchaseSoftwarePage() {
                                         <div className="mt-6 flex items-baseline gap-1.5 border-b border-slate-100 pb-8 transition-all duration-300">
                                             <span className="text-4xl font-extrabold tracking-tight text-slate-900 flex items-center">
                                                 ₹
-                                                {}
                                                 <AnimatePresence mode="wait">
                                                     <motion.span
                                                         key={displayPrice}
@@ -187,7 +186,6 @@ export default function PurchaseSoftwarePage() {
                                             <span className="text-sm font-medium text-slate-500">{periodSuffix}</span>
                                         </div>
                                         <div className="mt-3 text-[11px] font-bold uppercase tracking-wider text-slate-400 min-h-[16px]">
-                                            {}
                                             <AnimatePresence mode="wait">
                                                 <motion.span
                                                     key={subtext}
@@ -202,7 +200,6 @@ export default function PurchaseSoftwarePage() {
                                             </AnimatePresence>
                                         </div>
 
-                                        {}
                                         <ul className="mt-8 space-y-4 text-sm text-slate-700 font-medium">
                                             {plan.features.map((feat, fIdx) => (
                                                 <li key={fIdx} className="flex items-start gap-3">
@@ -216,55 +213,21 @@ export default function PurchaseSoftwarePage() {
                                     </div>
 
                                     <div className="mt-10">
-                                        <Link
-                                            href="payment"
-                                            className={`flex w-full items-center justify-center rounded-xl py-3.5 text-sm font-bold shadow-sm transition-all hover:-translate-y-0.5 ${plan.popular
-                                                ? 'bg-emerald-600 text-white shadow-emerald-500/30 hover:bg-emerald-500 hover:shadow-lg'
-                                                : 'border-2 border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'
+                                        <div
+                                            className={`flex w-full items-center justify-center rounded-xl cursor-pointer py-3.5 text-sm font-bold shadow-sm transition-all hover:-translate-y-0.5 ${plan.popular
+                                                    ? 'bg-emerald-600 text-white shadow-emerald-500/30 hover:bg-emerald-500 hover:shadow-lg'
+                                                    : 'border-2 border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'
                                                 }`}
+                                            onClick={() => handlePurchaseClick(plan)}
                                         >
                                             Get Started with {plan.name.split(' ')[0]}
-                                        </Link>
+                                        </div>
                                     </div>
                                 </motion.div>
                             );
                         })}
                     </motion.div>
                 </div>
-
-                {}
-                <motion.div
-                    variants={staggerContainer}
-                    initial="hidden"
-                    whileInView="visible"
-                    viewport={{ once: true, margin: "-50px" }}
-                    className="mx-auto max-w-4xl mt-12 rounded-3xl border border-slate-200 bg-white p-8 shadow-sm"
-                >
-                    <div className="grid grid-cols-1 gap-6 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-slate-100">
-                        {}
-                        <motion.div variants={fadeUp} className="flex flex-col items-center text-center px-4">
-                            <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-slate-50 text-slate-600">
-                                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" /></svg>
-                            </div>
-                            <h4 className="text-sm font-bold text-slate-900">Bank-Level Security</h4>
-                            <p className="mt-1 text-xs text-slate-500">256-bit SSL encryption across all operations.</p>
-                        </motion.div>
-                        <motion.div variants={fadeUp} className="flex flex-col items-center text-center px-4 pt-6 sm:pt-0">
-                            <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-slate-50 text-slate-600">
-                                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z" /></svg>
-                            </div>
-                            <h4 className="text-sm font-bold text-slate-900">Automated Daily Backups</h4>
-                            <p className="mt-1 text-xs text-slate-500">Redundant cloud infrastructure with zero data loss risk.</p>
-                        </motion.div>
-                        <motion.div variants={fadeUp} className="flex flex-col items-center text-center px-4 pt-6 sm:pt-0">
-                            <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-slate-50 text-slate-600">
-                                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m3.75 9v6m3-3H9m1.5-12H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg>
-                            </div>
-                            <h4 className="text-sm font-bold text-slate-900">100% MCA Compliant</h4>
-                            <p className="mt-1 text-xs text-slate-500">Immutable edit logs and audit trails included on all tiers.</p>
-                        </motion.div>
-                    </div>
-                </motion.div>
 
             </div>
         </div>

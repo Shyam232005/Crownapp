@@ -1,4 +1,5 @@
 "use client";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -12,6 +13,9 @@ import {
   Settings,
   LogOut,
   ShieldAlert,
+  Copy,
+  Check,
+  Users
 } from "lucide-react";
 
 const navConfig = [
@@ -51,6 +55,39 @@ const bottomConfig = [
 
 export default function CASidebar() {
   const pathname = usePathname();
+  
+  // ✨ NEW STATES FOR INVITE CODE
+  const [inviteCode, setInviteCode] = useState("Loading...");
+  const [copied, setCopied] = useState(false);
+
+  // ✨ FETCH CA PROFILE FOR INVITE CODE
+  useEffect(() => {
+    const fetchCaProfile = async () => {
+      try {
+        const res = await fetch("/api/ca/profile");
+        if (res.ok) {
+          const data = await res.json();
+          setInviteCode(data.inviteCode);
+        } else {
+          setInviteCode("Error");
+        }
+      } catch (error) {
+        setInviteCode("Error");
+      }
+    };
+    fetchCaProfile();
+  }, []);
+
+  // ✨ MAGIC LINK COPY FUNCTION
+  const handleCopy = () => {
+    if (inviteCode && inviteCode !== "Loading..." && inviteCode !== "Error") {
+      const inviteLink = `${window.location.origin}/signup?invite=${inviteCode}`;
+      navigator.clipboard.writeText(inviteLink);
+      
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
 
   const linkClasses = (isActive) =>
     `w-full flex items-center px-4 py-2.5 text-sm font-medium rounded-xl transition-all ${
@@ -96,6 +133,34 @@ export default function CASidebar() {
           </div>
         ))}
       </nav>
+
+      {/* ✨ CA STAFF INVITE LINK BLOCK */}
+      <div className="px-4 mb-4">
+        <div className="bg-emerald-50/50 border border-emerald-100 p-4 rounded-2xl">
+          <h3 className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+            <Users className="w-3.5 h-3.5" /> Staff Invite Link
+          </h3>
+          <div className="bg-white border border-emerald-100 rounded-xl flex items-center justify-between p-1 pl-3 shadow-sm">
+            <span className="text-xs font-bold text-emerald-900 tracking-wide">
+              {inviteCode}
+            </span>
+            <button
+              onClick={handleCopy}
+              className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${
+                copied 
+                  ? "bg-emerald-500 text-white" 
+                  : "bg-emerald-50 hover:bg-emerald-600 hover:text-white text-emerald-600"
+              }`}
+              title="Copy Magic Invite Link"
+            >
+              {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+            </button>
+          </div>
+          <p className="text-[9px] text-emerald-500/80 font-medium mt-2 leading-relaxed">
+            Share this link to onboard your audit staff.
+          </p>
+        </div>
+      </div>
 
       {/* Bottom Items */}
       <div className="px-4 pt-4 border-t border-gray-100 space-y-1 mt-auto">

@@ -1,9 +1,11 @@
 "use client";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard, Activity, CheckSquare, Landmark, Users,
-  ShoppingCart, FileText, PieChart, Settings, LogOut, ShieldAlert
+  ShoppingCart, FileText, PieChart, Settings, LogOut, ShieldAlert,
+  Copy, Check, Sparkles
 } from "lucide-react";
 
 const navConfig = [
@@ -44,7 +46,41 @@ const bottomConfig = [
 
 export default function Sidebar() {
   const pathname = usePathname();
-  const router = useRouter()
+  const router = useRouter();
+
+  // State for Invite Code and Copy button
+  const [inviteCode, setInviteCode] = useState("Loading...");
+  const [copied, setCopied] = useState(false);
+
+  // Fetch Invite Code from Backend
+  useEffect(() => {
+    const fetchInviteCode = async () => {
+      try {
+        // Yeh API hum agle step me banayenge jo current user ka data layegi
+        const res = await fetch("/api/owner/profile");
+        if (res.ok) {
+          const data = await res.json();
+          setInviteCode(data.inviteCode);
+        } else {
+          setInviteCode("Error Fetching");
+        }
+      } catch (error) {
+        console.error("Failed to fetch invite code", error);
+        setInviteCode("Network Error");
+      }
+    };
+
+    fetchInviteCode();
+  }, []);
+
+  // Copy to Clipboard logic
+  const handleCopy = () => {
+    if (inviteCode && inviteCode !== "Loading..." && inviteCode !== "Error Fetching") {
+      navigator.clipboard.writeText(inviteCode);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000); // 2 second baad checkmark wapas copy ban jayega
+    }
+  };
 
   const linkClasses = (isActive) =>
     `w-full flex items-center px-4 py-2.5 text-sm font-medium rounded-xl transition-all ${isActive
@@ -54,6 +90,7 @@ export default function Sidebar() {
 
   return (
     <aside className="w-64 bg-white h-screen border-r border-gray-100 flex flex-col pt-6 pb-4">
+
       {/* Logo Area */}
       <div className="px-8 flex items-center mb-8">
         <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center mr-3">
@@ -90,8 +127,40 @@ export default function Sidebar() {
         ))}
       </nav>
 
+      {/* ✨ NEW: Bright Glowing Invite Code Card ✨ */}
+      <div className="px-4 mt-2">
+        <div className="relative group p-4 rounded-xl bg-gradient-to-br from-indigo-50 to-purple-50 border border-indigo-100/50 overflow-hidden transition-all duration-300 hover:shadow-lg hover:shadow-indigo-200/40 hover:-translate-y-0.5">
+          {/* Subtle background glow effect on hover */}
+          <div className="absolute inset-0 bg-gradient-to-r from-indigo-400/0 via-indigo-400/10 to-purple-400/0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 translate-x-[-100%] group-hover:translate-x-[100%]"></div>
+
+          <div className="relative z-10 flex flex-col">
+            <span className="flex items-center text-xs font-bold text-indigo-800 uppercase tracking-wider mb-2">
+              <Sparkles className="w-3.5 h-3.5 mr-1.5 text-indigo-500" />
+              Staff Invite Code
+            </span>
+
+            <div className="flex items-center justify-between bg-white px-3 py-2 rounded-lg border border-indigo-100 shadow-sm">
+              <code className="text-sm font-black tracking-widest text-slate-800 select-all">
+                {inviteCode}
+              </code>
+              <button
+                onClick={handleCopy}
+                disabled={inviteCode === "Loading..."}
+                className="p-1.5 rounded-md text-indigo-600 hover:bg-indigo-50 transition-colors"
+                title="Copy Code"
+              >
+                {copied ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
+              </button>
+            </div>
+            <p className="text-[10px] font-medium text-indigo-600/70 mt-2 text-center">
+              Share this to onboard your team
+            </p>
+          </div>
+        </div>
+      </div>
+
       {/* Bottom Items */}
-      <div className="px-4 pt-4 border-t border-gray-100 space-y-1 mt-auto">
+      <div className="px-4 pt-4 border-t border-gray-100 space-y-1 mt-4">
         {bottomConfig.map((item, idx) => {
           const Icon = item.icon;
           const isActive = pathname === item.pathname;

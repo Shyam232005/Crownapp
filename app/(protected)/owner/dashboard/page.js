@@ -50,7 +50,7 @@ export default function OwnerDashboardUI() {
                     <h2 className="text-4xl font-black flex items-center mb-4 relative z-10">
                         <IndianRupee className="w-8 h-8 mr-1 opacity-80" /> {stats.cashBalance.toLocaleString("en-IN")}
                     </h2>
-                    <Link href="/owner/cash-banking" className="inline-flex relative z-10 items-center gap-2 bg-white/20 hover:bg-white/30 px-4 py-2 rounded-xl text-sm font-bold backdrop-blur-sm transition-colors">
+                    <Link href="/owner/banking" className="inline-flex relative z-10 items-center gap-2 bg-white/20 hover:bg-white/30 px-4 py-2 rounded-xl text-sm font-bold backdrop-blur-sm transition-colors">
                         View Ledger <ArrowRight className="w-4 h-4" />
                     </Link>
                 </motion.div>
@@ -120,7 +120,7 @@ export default function OwnerDashboardUI() {
                             <CheckCircle2 className="w-5 h-5 text-emerald-400" />
                             <p className="text-xs font-bold text-slate-300">August Data Exported</p>
                         </div>
-                        <Link href="/owner/ca-access" className="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl text-sm font-bold transition-colors shadow-sm">
+                        <Link href="/owner/ca-hub" className="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl text-sm font-bold transition-colors shadow-sm">
                             Manage CA Access
                         </Link>
                     </div>
