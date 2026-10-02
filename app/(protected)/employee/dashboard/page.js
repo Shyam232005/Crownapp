@@ -1,22 +1,39 @@
 "use client";
+import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { 
   PlusSquare, Clock, Receipt, Users, 
-  ArrowRight, ClipboardCheck, PackageOpen, CalendarDays
+  ArrowRight, ClipboardCheck, PackageOpen, CalendarDays,
+  Loader2
 } from "lucide-react";
 
 export default function EmployeeDashboardUI() {
-  // Dummy status for UI
-  const attendanceStatus = "Punched In"; 
+  // ✨ FIX: State setup for API integration (Zero-State)
+  const [isLoading, setIsLoading] = useState(true);
+  const [attendanceStatus, setAttendanceStatus] = useState("Fetching status..."); 
 
+  // ✨ Mock API Call
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+        // Later: const res = await fetch('/api/employee/dashboard');
+        setTimeout(() => {
+            // True zero-state for a new day or new employee
+            setAttendanceStatus("Not Punched In"); 
+            setIsLoading(false);
+        }, 800);
+    };
+    fetchDashboardData();
+  }, []);
+
+  // ✨ FIX: Tailwind explicit classes mapping to avoid missing styles in production
   const quickActions = [
-    { name: "Quick Entry", href: "/employee", icon: PlusSquare, color: "indigo", desc: "Fast general logging" },
-    { name: "Log Expense", href: "/employee/expenses", icon: Receipt, color: "rose", desc: "Upload bills & petty cash" },
-    { name: "Stock Inward", href: "/employee/stock-inward", icon: PackageOpen, color: "amber", desc: "Add new inventory" },
-    { name: "Customer Khata", href: "/employee/khata", icon: Users, color: "emerald", desc: "Sales & Payments" },
-    { name: "Stock Check", href: "/employee/stock-check", icon: ClipboardCheck, color: "blue", desc: "View current godown stock" },
-    { name: "Leave Request", href: "/employee/leaves", icon: CalendarDays, color: "purple", desc: "Apply for time-off" }
+    { name: "Quick Entry", href: "/employee", icon: PlusSquare, bgClass: "bg-indigo-50", textClass: "text-indigo-600", desc: "Fast general logging" },
+    { name: "Log Expense", href: "/employee/expenses", icon: Receipt, bgClass: "bg-rose-50", textClass: "text-rose-600", desc: "Upload bills & petty cash" },
+    { name: "Stock Inward", href: "/employee/stock-inward", icon: PackageOpen, bgClass: "bg-amber-50", textClass: "text-amber-600", desc: "Add new inventory" },
+    { name: "Customer Khata", href: "/employee/khata", icon: Users, bgClass: "bg-emerald-50", textClass: "text-emerald-600", desc: "Sales & Payments" },
+    { name: "Stock Check", href: "/employee/stock-check", icon: ClipboardCheck, bgClass: "bg-blue-50", textClass: "text-blue-600", desc: "View current godown stock" },
+    { name: "Leave Request", href: "/employee/leaves", icon: CalendarDays, bgClass: "bg-purple-50", textClass: "text-purple-600", desc: "Apply for time-off" }
   ];
 
   return (
@@ -33,17 +50,30 @@ export default function EmployeeDashboardUI() {
       {/* Attendance Alert Card */}
       <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} className="bg-gradient-to-r from-indigo-50 to-blue-50 border border-indigo-100 rounded-3xl p-6 sm:p-8 mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-6 shadow-sm">
         <div className="flex items-center gap-4">
-          <div className="w-14 h-14 bg-indigo-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-200">
+          <div className="w-14 h-14 bg-indigo-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-200 shrink-0">
             <Clock className="w-6 h-6 text-white" />
           </div>
           <div>
             <p className="text-sm font-black text-slate-900 mb-1">Today's Shift Status</p>
             <div className="flex items-center gap-2">
-              <span className="relative flex h-3 w-3">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
-              </span>
-              <p className="text-xs font-bold text-emerald-600 uppercase tracking-wider">{attendanceStatus}</p>
+              {isLoading ? (
+                <Loader2 className="w-4 h-4 animate-spin text-indigo-600" />
+              ) : attendanceStatus === "Punched In" ? (
+                <span className="relative flex h-3 w-3">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                </span>
+              ) : (
+                <span className="relative flex h-3 w-3">
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-slate-400"></span>
+                </span>
+              )}
+              <p className={`text-xs font-bold uppercase tracking-wider ${
+                  isLoading ? 'text-slate-500' : 
+                  attendanceStatus === "Punched In" ? 'text-emerald-600' : 'text-slate-500'
+              }`}>
+                {attendanceStatus}
+              </p>
             </div>
           </div>
         </div>
@@ -62,8 +92,8 @@ export default function EmployeeDashboardUI() {
             key={item.name} 
           >
             <Link href={item.href} className="block bg-white p-5 sm:p-6 rounded-3xl border border-slate-100 shadow-sm hover:shadow-md transition-all h-full group">
-              <div className={`w-12 h-12 bg-${item.color}-50 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}>
-                <item.icon className={`w-6 h-6 text-${item.color}-600`} />
+              <div className={`w-12 h-12 ${item.bgClass} rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}>
+                <item.icon className={`w-6 h-6 ${item.textClass}`} />
               </div>
               <h4 className="text-sm font-black text-slate-900 mb-1">{item.name}</h4>
               <p className="text-[10px] sm:text-xs font-semibold text-slate-500">{item.desc}</p>

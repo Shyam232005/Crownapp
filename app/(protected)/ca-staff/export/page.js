@@ -1,8 +1,51 @@
 "use client";
-import { motion } from "framer-motion";
-import { DownloadCloud, Filter, CheckCircle2, FileText, FileSpreadsheet, Code } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { useForm } from "react-hook-form";
+import { 
+  DownloadCloud, Filter, CheckCircle2, FileText, 
+  FileSpreadsheet, Code, Loader2, Inbox 
+} from "lucide-react";
 
 export default function ExportDataUI() {
+  // ✨ FIX: State setup for API integration (Zero-State by default)
+  const [isLoading, setIsLoading] = useState(true);
+  const [assignedClients, setAssignedClients] = useState([]);
+  const [isExporting, setIsExporting] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
+
+  const { register, handleSubmit } = useForm({
+    defaultValues: {
+      clientId: "",
+      period: "September 2026",
+      format: "xml"
+    }
+  });
+
+  // ✨ Mock API Call: Fetch clients assigned to this CA Staff
+  useEffect(() => {
+    const fetchClients = async () => {
+      // Later: const res = await fetch('/api/ca-staff/clients');
+      setTimeout(() => {
+        // True zero-state for a new staff member
+        setAssignedClients([]); 
+        setIsLoading(false);
+      }, 800);
+    };
+    fetchClients();
+  }, []);
+
+  const onSubmit = async (data) => {
+    setIsExporting(true);
+    // Later: const res = await fetch('/api/ca-staff/export', { method: 'POST', body: JSON.stringify(data) });
+    // Simulate backend processing and file generation
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+    
+    setIsExporting(false);
+    setShowSuccess(true);
+    setTimeout(() => setShowSuccess(false), 3000);
+  };
+
   return (
     <div className="p-4 sm:p-8 max-w-4xl mx-auto w-full pb-24">
       <div className="mb-8">
@@ -12,68 +55,108 @@ export default function ExportDataUI() {
         <p className="text-xs sm:text-sm font-medium text-slate-500 mt-1">Download clean, scrutinized client data for offline processing.</p>
       </div>
 
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden min-h-[400px] flex flex-col">
         <div className="px-6 py-5 border-b border-slate-100 bg-slate-50 flex items-center gap-2">
           <Filter className="w-5 h-5 text-indigo-500" />
           <h2 className="text-sm font-black text-slate-800">Export Filters</h2>
         </div>
 
-        <form className="p-6 space-y-6" onSubmit={(e) => e.preventDefault()}>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Select Client</label>
-              <select className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-600 transition-all">
-                <option>FineOps Technologies</option>
-                <option>Sharma Traders</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Data Period</label>
-              <select className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-600 transition-all">
-                <option>September 2026</option>
-                <option>August 2026</option>
-                <option>Q2 (Jul - Sep 2026)</option>
-              </select>
-            </div>
+        {isLoading ? (
+          <div className="flex-1 flex flex-col items-center justify-center py-20 text-slate-400">
+            <Loader2 className="w-8 h-8 animate-spin mb-3 text-indigo-600" />
+            <p className="text-sm font-bold">Loading your client list...</p>
           </div>
+        ) : assignedClients.length > 0 ? (
+          <form className="p-6 space-y-6 flex-1 flex flex-col" onSubmit={handleSubmit(onSubmit)}>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Select Client</label>
+                <select 
+                  {...register("clientId", { required: true })}
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-600 transition-all"
+                >
+                  {assignedClients.map(client => (
+                    <option key={client.id} value={client.id}>{client.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Data Period</label>
+                <select 
+                  {...register("period", { required: true })}
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-600 transition-all"
+                >
+                  <option value="September 2026">September 2026</option>
+                  <option value="August 2026">August 2026</option>
+                  <option value="Q2 2026">Q2 (Jul - Sep 2026)</option>
+                </select>
+              </div>
+            </div>
 
-          <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Export Format</label>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <label className="cursor-pointer">
-                <input type="radio" name="format" className="peer sr-only" defaultChecked />
-                <div className="flex flex-col items-center gap-2 p-4 rounded-2xl border-2 border-slate-100 peer-checked:border-indigo-600 peer-checked:bg-indigo-50 transition-all hover:bg-slate-50">
-                  <Code className="w-6 h-6 text-slate-600 peer-checked:text-indigo-600" />
-                  <span className="text-sm font-bold text-slate-700">Tally XML</span>
-                </div>
-              </label>
-              <label className="cursor-pointer">
-                <input type="radio" name="format" className="peer sr-only" />
-                <div className="flex flex-col items-center gap-2 p-4 rounded-2xl border-2 border-slate-100 peer-checked:border-emerald-600 peer-checked:bg-emerald-50 transition-all hover:bg-slate-50">
-                  <FileSpreadsheet className="w-6 h-6 text-slate-600 peer-checked:text-emerald-600" />
-                  <span className="text-sm font-bold text-slate-700">Excel (XLSX)</span>
-                </div>
-              </label>
-              <label className="cursor-pointer">
-                <input type="radio" name="format" className="peer sr-only" />
-                <div className="flex flex-col items-center gap-2 p-4 rounded-2xl border-2 border-slate-100 peer-checked:border-amber-600 peer-checked:bg-amber-50 transition-all hover:bg-slate-50">
-                  <FileText className="w-6 h-6 text-slate-600 peer-checked:text-amber-600" />
-                  <span className="text-sm font-bold text-slate-700">CSV Standard</span>
-                </div>
-              </label>
+            <div className="flex-1">
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Export Format</label>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <label className="cursor-pointer">
+                  <input type="radio" value="xml" {...register("format")} className="peer sr-only" defaultChecked />
+                  <div className="flex flex-col items-center gap-2 p-4 rounded-2xl border-2 border-slate-100 peer-checked:border-indigo-600 peer-checked:bg-indigo-50 transition-all hover:bg-slate-50">
+                    <Code className="w-6 h-6 text-slate-600 peer-checked:text-indigo-600" />
+                    <span className="text-sm font-bold text-slate-700">Tally XML</span>
+                  </div>
+                </label>
+                <label className="cursor-pointer">
+                  <input type="radio" value="xlsx" {...register("format")} className="peer sr-only" />
+                  <div className="flex flex-col items-center gap-2 p-4 rounded-2xl border-2 border-slate-100 peer-checked:border-emerald-600 peer-checked:bg-emerald-50 transition-all hover:bg-slate-50">
+                    <FileSpreadsheet className="w-6 h-6 text-slate-600 peer-checked:text-emerald-600" />
+                    <span className="text-sm font-bold text-slate-700">Excel (XLSX)</span>
+                  </div>
+                </label>
+                <label className="cursor-pointer">
+                  <input type="radio" value="csv" {...register("format")} className="peer sr-only" />
+                  <div className="flex flex-col items-center gap-2 p-4 rounded-2xl border-2 border-slate-100 peer-checked:border-amber-600 peer-checked:bg-amber-50 transition-all hover:bg-slate-50">
+                    <FileText className="w-6 h-6 text-slate-600 peer-checked:text-amber-600" />
+                    <span className="text-sm font-bold text-slate-700">CSV Standard</span>
+                  </div>
+                </label>
+              </div>
             </div>
-          </div>
 
-          <div className="pt-6 border-t border-slate-100 flex justify-end">
-            <motion.button 
-              whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-              type="submit" 
-              className="w-full sm:w-auto px-8 py-3.5 bg-indigo-600 text-white text-sm font-black rounded-xl hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition-colors flex justify-center items-center gap-2"
-            >
-              <DownloadCloud className="w-5 h-5" /> Generate & Download
-            </motion.button>
+            <div className="pt-6 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 mt-auto">
+              <AnimatePresence>
+                {showSuccess && (
+                  <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="flex items-center gap-2 text-emerald-600 font-bold text-sm">
+                    <CheckCircle2 className="w-5 h-5" /> Export Generated Successfully!
+                  </motion.div>
+                )}
+              </AnimatePresence>
+              
+              <motion.button 
+                whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+                type="submit" 
+                disabled={isExporting}
+                className={`w-full sm:w-auto px-8 py-3.5 text-white text-sm font-black rounded-xl shadow-lg transition-colors flex justify-center items-center gap-2 ml-auto ${
+                  isExporting ? 'bg-indigo-400' : 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-200'
+                }`}
+              >
+                {isExporting ? (
+                  <><Loader2 className="w-5 h-5 animate-spin" /> Generating...</>
+                ) : (
+                  <><DownloadCloud className="w-5 h-5" /> Generate & Download</>
+                )}
+              </motion.button>
+            </div>
+          </form>
+        ) : (
+          // ✨ FIX: Zero-State UI for empty clients
+          <div className="flex-1 flex flex-col items-center justify-center py-20 text-center px-4">
+            <div className="w-16 h-16 bg-slate-50 border border-slate-100 rounded-full flex items-center justify-center mb-4">
+              <Inbox className="w-8 h-8 text-slate-400" />
+            </div>
+            <h4 className="text-base font-black text-slate-800 mb-1">No Clients Assigned</h4>
+            <p className="text-sm font-medium text-slate-500 max-w-sm">
+              You haven't been assigned any clients yet. You need at least one active client to generate data exports.
+            </p>
           </div>
-        </form>
+        )}
       </motion.div>
     </div>
   );
