@@ -8,21 +8,49 @@ import {
 
 export default function StockCheckUI() {
   const [searchQuery, setSearchQuery] = useState("");
-  
-  // ✨ FIX: State setup for API integration (Zero-State by default)
   const [isLoading, setIsLoading] = useState(true);
   const [stockItems, setStockItems] = useState([]);
 
-  // ✨ Mock API Call
   useEffect(() => {
     const fetchStock = async () => {
-      // Later: const res = await fetch('/api/employee/inventory');
-      setTimeout(() => {
-        // True zero-state for a fresh godown/inventory
-        setStockItems([]); 
+      try {
+        // Fetch ALL inventory entries
+        const res = await fetch("/api/inventory?all=true");
+        if (res.ok) {
+          const json = await res.json();
+          const rawData = json.data || [];
+
+          // Aggregate the entries to calculate current godown totals
+          const inventoryMap = {};
+          
+          rawData.forEach((item) => {
+            if (inventoryMap[item.itemName]) {
+              inventoryMap[item.itemName].qty += item.quantity;
+            } else {
+              inventoryMap[item.itemName] = {
+                id: item.itemName, 
+                name: item.itemName,
+                qty: item.quantity,
+                unit: item.unit
+              };
+            }
+          });
+
+          // Convert the map back to an array and determine stock status
+          const aggregatedStock = Object.values(inventoryMap).map(item => ({
+            ...item,
+            status: item.qty > 10 ? 'In Stock' : (item.qty > 0 ? 'Low Stock' : 'Out of Stock')
+          }));
+
+          setStockItems(aggregatedStock);
+        }
+      } catch (error) {
+        console.error("Failed to fetch stock data:", error);
+      } finally {
         setIsLoading(false);
-      }, 800);
+      }
     };
+
     fetchStock();
   }, []);
 
@@ -105,7 +133,6 @@ export default function StockCheckUI() {
                   ))}
                 </AnimatePresence>
               ) : (
-                // ✨ FIX: Zero-State UI for empty inventory or no search results
                 <tr>
                   <td colSpan="4" className="p-16 text-center">
                     <div className="flex flex-col items-center justify-center h-full">

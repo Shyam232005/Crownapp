@@ -14,7 +14,6 @@ export default function SettingsUI() {
   const [isSaving, setIsSaving] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   
-  // Yeh backend se fetch hoga
   const [inviteCode, setInviteCode] = useState(""); 
 
   const { register, handleSubmit, reset } = useForm({
@@ -29,23 +28,32 @@ export default function SettingsUI() {
     }
   });
 
-  // ✨ Mock API Call: Fetch current settings
   useEffect(() => {
     const fetchSettings = async () => {
-      // Later: const res = await fetch('/api/owner/settings');
-      setTimeout(() => {
-        setInviteCode("FO8472");
-        reset({
-          businessName: "FineOps Technologies",
-          gstin: "24AAACC1206D1Z0",
-          address: "104, Digital Valley, Surat, Gujarat",
-          fullName: "Shyam Sangani", // Auto-filled with context context
-          phone: "+91 9876543210",
-          upiId: "fineops@ybl",
-          bankAccount: "1234567890"
-        });
+      try {
+        const res = await fetch('/api/owner/settings');
+        if (res.ok) {
+          const json = await res.json();
+          const owner = json.data;
+          
+          setInviteCode(owner.inviteCode || "PENDING");
+          
+          // Map DB schema names back to form fields
+          reset({
+            businessName: owner.companyName || "",
+            gstin: owner.gstin || "",
+            address: owner.location || "",
+            fullName: owner.name || "",
+            phone: owner.phoneNumber || "",
+            upiId: owner.upiId || "",
+            bankAccount: owner.bankAccount || ""
+          });
+        }
+      } catch (error) {
+        console.error("Failed to load settings:", error);
+      } finally {
         setIsLoading(false);
-      }, 800);
+      }
     };
     fetchSettings();
   }, [reset]);
@@ -58,12 +66,24 @@ export default function SettingsUI() {
 
   const onSubmit = async (data) => {
     setIsSaving(true);
-    // Later: await fetch('/api/owner/settings', { method: 'PUT', body: JSON.stringify(data) });
-    await new Promise((resolve) => setTimeout(resolve, 1500)); // Simulate save
-    
-    setIsSaving(false);
-    setShowSuccess(true);
-    setTimeout(() => setShowSuccess(false), 3000);
+    try {
+      const res = await fetch('/api/owner/settings', { 
+        method: 'PATCH', 
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data) 
+      });
+      
+      if (res.ok) {
+        setShowSuccess(true);
+        setTimeout(() => setShowSuccess(false), 3000);
+      } else {
+        alert("Failed to save settings.");
+      }
+    } catch (error) {
+      alert("Network error while saving settings.");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   if (isLoading) {
@@ -86,7 +106,6 @@ export default function SettingsUI() {
         </p>
       </div>
 
-      {/* Workspace Invite Code Section */}
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-indigo-50 border border-indigo-100 rounded-3xl p-6 sm:p-8 mb-8 flex flex-col sm:flex-row items-center justify-between gap-6">
         <div>
           <h2 className="text-lg font-black text-indigo-900 mb-1">Workspace Invite Code</h2>
@@ -98,6 +117,7 @@ export default function SettingsUI() {
           </div>
           <span className="text-2xl font-black text-slate-800 tracking-widest">{inviteCode}</span>
           <button 
+            type="button"
             onClick={handleCopy} 
             className="ml-4 p-2 bg-slate-50 hover:bg-slate-100 rounded-lg text-indigo-600 transition-colors"
           >
@@ -107,7 +127,6 @@ export default function SettingsUI() {
       </motion.div>
 
       <form className="space-y-6" onSubmit={handleSubmit(onSubmit)}>
-        {/* Business Profile */}
         <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
           <div className="px-6 py-5 border-b border-slate-100 bg-slate-50">
             <h2 className="text-sm font-black text-slate-800">Business Profile</h2>
@@ -147,7 +166,6 @@ export default function SettingsUI() {
           </div>
         </div>
 
-        {/* Personal Details */}
         <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
           <div className="px-6 py-5 border-b border-slate-100 bg-slate-50">
             <h2 className="text-sm font-black text-slate-800">Owner Details</h2>
@@ -178,7 +196,6 @@ export default function SettingsUI() {
           </div>
         </div>
 
-        {/* Bank & Payment Info */}
         <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
           <div className="px-6 py-5 border-b border-slate-100 bg-slate-50">
             <h2 className="text-sm font-black text-slate-800">Receiving Info (Default)</h2>
@@ -207,7 +224,6 @@ export default function SettingsUI() {
           </div>
         </div>
 
-        {/* Action Button */}
         <div className="flex flex-col sm:flex-row items-center justify-between pt-2 gap-4">
           <AnimatePresence>
             {showSuccess && (

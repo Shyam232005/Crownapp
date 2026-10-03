@@ -8,25 +8,26 @@ import {
 
 export default function MyClientsUI() {
   const [search, setSearch] = useState("");
-  
-  // ✨ FIX: State setup for API integration (Zero-State by default)
   const [isLoading, setIsLoading] = useState(true);
   const [assignedClients, setAssignedClients] = useState([]);
 
-  // ✨ Mock API Call
   useEffect(() => {
     const fetchAssignedClients = async () => {
-      // Later: const res = await fetch('/api/ca-staff/clients');
-      setTimeout(() => {
-        // True zero-state for a new staff member
-        setAssignedClients([]); 
+      try {
+        const res = await fetch('/api/ca-staff/clients');
+        if (res.ok) {
+          const json = await res.json();
+          setAssignedClients(json.data || []);
+        }
+      } catch (error) {
+        console.error("Failed to fetch assigned clients:", error);
+      } finally {
         setIsLoading(false);
-      }, 800);
+      }
     };
     fetchAssignedClients();
   }, []);
 
-  // Search filter logic
   const filteredClients = assignedClients.filter(client => 
     client.name.toLowerCase().includes(search.toLowerCase()) || 
     client.gstin.toLowerCase().includes(search.toLowerCase())
@@ -97,7 +98,6 @@ export default function MyClientsUI() {
             </motion.div>
           ))
         ) : (
-          // ✨ FIX: Zero-State UI for empty cards grid
           <div className="col-span-full bg-white rounded-3xl border border-slate-200 shadow-sm flex flex-col items-center justify-center py-20 text-center px-4">
             <div className="w-16 h-16 bg-slate-50 border border-slate-100 rounded-full flex items-center justify-center mb-4">
               <Inbox className="w-8 h-8 text-slate-400" />

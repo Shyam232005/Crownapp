@@ -15,7 +15,7 @@ const OwnerSchema = new mongoose.Schema({
   Category: { type: String, required: true },
   inviteCode: { type: String, unique: true, index: true },
 
-  // ✨ PRODUCTION-LEVEL: Subscription & Validation Tracking
+  // PRODUCTION-LEVEL: Subscription & Validation Tracking
   subscription: {
     planName: { 
       type: String, 
@@ -28,31 +28,30 @@ const OwnerSchema = new mongoose.Schema({
       default: "trial" 
     },
     status: { 
-      // active = running, trialing = in trial, past_due = payment failed but grace period, expired = totally dead, canceled = user stopped it
       type: String, 
       enum: ["active", "trialing", "past_due", "expired", "canceled"], 
       default: "trialing" 
     },
     startDate: { type: Date, default: Date.now },
     endDate: { type: Date }, 
-    
-    // Missing Pieces added for future Gateway Integration (Razorpay/Stripe)
     paymentCustomerId: { type: String, default: null }, 
     paymentSubscriptionId: { type: String, default: null },
-    
-    // Prevents "Free Trial" abuse (ek hi number se baar baar trial na le paye)
     hasUsedTrial: { type: Boolean, default: false } 
   },
 
-  // Account State (Agar kisi owner ko ban karna ho ya soft-delete karna ho)
+  // Account State
   isActive: { type: Boolean, default: true },
 
-  // Relationships
+  // Relationships & Vault State (Updated for Vercel Serverless & 1-to-1 Mapping)
   employees: [{ type: mongoose.Schema.Types.ObjectId, ref: "Employee" }],
-  linkedCAs: [{ type: mongoose.Schema.Types.ObjectId, ref: "CA" }]
+  linkedCaFirm: { type: mongoose.Schema.Types.ObjectId, ref: "CA" },
+  vaultStatus: { 
+    type: String, 
+    enum: ["Locked", "Requested", "Unlocked"], 
+    default: "Locked" 
+  }
 }, { timestamps: true });
 
-// Function argument se 'next' hataya aur andar se 'next()' hataya
 OwnerSchema.pre("save", function () {
   if (this.isNew && !this.inviteCode) {
     const rawString = `${this.companyName}-${this.phoneNumber}-${Date.now()}`;

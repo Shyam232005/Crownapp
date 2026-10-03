@@ -13,12 +13,14 @@ export default function CashAndBanking() {
     useEffect(() => {
         const fetchFinances = async () => {
             try {
-                const res = await fetch("/api/submissions");
+                // Optimized: Ask the database for only Approved entries to save bandwidth
+                const res = await fetch("/api/submissions?status=Approved");
                 if (res.ok) {
                     const json = await res.json();
-                    // Sirf Approved financial entries uthao
+                    
+                    // Filter out any entries that don't affect cash flow directly
                     const financialData = (json.data || []).filter(
-                        item => item.status === "Approved" && item.amount > 0 && item.paymentMode
+                        item => item.amount > 0 && item.paymentMode
                     );
                     setTransactions(financialData);
                 }
@@ -32,7 +34,7 @@ export default function CashAndBanking() {
         fetchFinances();
     }, []);
 
-    // 🔴 Galla (Cash) & Bank Logic
+    // Galla (Cash) & Bank Logic
     let cashBalance = 0;
     let bankBalance = 0;
 

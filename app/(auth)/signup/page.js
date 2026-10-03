@@ -233,6 +233,7 @@ function SignupFormContent() {
                                                 <Input isDark={false} icon={MapPin} placeholder="City / Location" registration={bizRegister("location", { required: true })} />
                                                 <Input isDark={false} icon={CreditCard} as="select" registration={bizRegister("Category", { required: true })}>
                                                     <option value="">Business Type</option>
+                                                    <option value="SMEs">SMEs</option>
                                                     <option value="MSMEs">MSMEs</option>
                                                     <option value="Large">Large Enterprise</option>
                                                 </Input>

@@ -8,23 +8,44 @@ import {
 
 export default function VoucherScrutinyUI() {
   const [activeTab, setActiveTab] = useState("Pending");
-  
-  // ✨ FIX: State setup for API integration (Zero-State by default)
   const [isLoading, setIsLoading] = useState(true);
   const [vouchers, setVouchers] = useState([]);
 
-  // ✨ Mock API Call
   useEffect(() => {
-    const fetchVouchers = async () => {
-      // Later: const res = await fetch('/api/ca-staff/vouchers');
-      setTimeout(() => {
-        // True zero-state for a new staff member
-        setVouchers([]); 
-        setIsLoading(false);
-      }, 800);
-    };
     fetchVouchers();
   }, []);
+
+  const fetchVouchers = async () => {
+    try {
+      const res = await fetch('/api/ca-staff/vouchers');
+      if (res.ok) {
+        const json = await res.json();
+        setVouchers(json.data || []);
+      }
+    } catch (error) {
+      console.error("Failed to fetch vouchers:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const updateVoucherStatus = async (id, newStatus) => {
+    try {
+      const res = await fetch('/api/ca-staff/vouchers', {
+        method: 'PATCH',
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, status: newStatus })
+      });
+
+      if (res.ok) {
+        setVouchers(vouchers.map(v => v.id === id ? { ...v, status: newStatus } : v));
+      } else {
+        alert("Failed to update status.");
+      }
+    } catch (error) {
+      alert("Network error.");
+    }
+  };
 
   const filteredVouchers = vouchers.filter(v => activeTab === "All" || v.status === activeTab);
 
@@ -33,12 +54,12 @@ export default function VoucherScrutinyUI() {
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-4 mb-8">
         <div>
           <motion.h1 initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-            <Search className="w-6 h-6 text-indigo-600" /> Voucher Scrutiny
+            <Search className="w-6 h-6 text-indigo-600" /> Voucher Scrutiny[cite: 20]
           </motion.h1>
-          <p className="text-xs sm:text-sm font-medium text-slate-500 mt-1">Verify client entries before finalizing them for Tally export.</p>
+          <p className="text-xs sm:text-sm font-medium text-slate-500 mt-1">Verify client entries before finalizing them for Tally export.[cite: 20]</p>
         </div>
         <button className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-50 shadow-sm transition-all">
-          <Filter className="w-4 h-4" /> Filter Client
+          <Filter className="w-4 h-4" /> Filter Client[cite: 20]
         </button>
       </div>
 
@@ -62,10 +83,10 @@ export default function VoucherScrutinyUI() {
           <table className="w-full text-left border-collapse min-w-[800px]">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-100">
-                <th className="p-5 text-xs font-bold text-slate-400 uppercase">Voucher Details</th>
-                <th className="p-5 text-xs font-bold text-slate-400 uppercase">Client</th>
-                <th className="p-5 text-xs font-bold text-slate-400 uppercase">Amount</th>
-                <th className="p-5 text-xs font-bold text-slate-400 uppercase text-center">Actions</th>
+                <th className="p-5 text-xs font-bold text-slate-400 uppercase">Voucher Details[cite: 20]</th>
+                <th className="p-5 text-xs font-bold text-slate-400 uppercase">Client[cite: 20]</th>
+                <th className="p-5 text-xs font-bold text-slate-400 uppercase">Amount[cite: 20]</th>
+                <th className="p-5 text-xs font-bold text-slate-400 uppercase text-center">Actions[cite: 20]</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
@@ -74,7 +95,7 @@ export default function VoucherScrutinyUI() {
                   <td colSpan="4" className="p-16 text-center">
                     <div className="flex flex-col items-center justify-center text-slate-400">
                       <Loader2 className="w-8 h-8 animate-spin mb-3 text-indigo-600" />
-                      <p className="text-sm font-bold">Loading scrutiny queue...</p>
+                      <p className="text-sm font-bold">Loading scrutiny queue...[cite: 20]</p>
                     </div>
                   </td>
                 </tr>
@@ -105,11 +126,17 @@ export default function VoucherScrutinyUI() {
                       <td className="p-5">
                         {voucher.status === "Pending" ? (
                           <div className="flex items-center justify-center gap-2">
-                            <button className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white rounded-lg text-xs font-bold transition-colors">
-                              <CheckCircle2 className="w-4 h-4" /> Verify
+                            <button 
+                              onClick={() => updateVoucherStatus(voucher.id, "Verified")}
+                              className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white rounded-lg text-xs font-bold transition-colors"
+                            >
+                              <CheckCircle2 className="w-4 h-4" /> Verify[cite: 20]
                             </button>
-                            <button className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 text-amber-600 hover:bg-amber-500 hover:text-white rounded-lg text-xs font-bold transition-colors">
-                              <MessageSquare className="w-4 h-4" /> Query
+                            <button 
+                              onClick={() => updateVoucherStatus(voucher.id, "Query Raised")}
+                              className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 text-amber-600 hover:bg-amber-500 hover:text-white rounded-lg text-xs font-bold transition-colors"
+                            >
+                              <MessageSquare className="w-4 h-4" /> Query[cite: 20]
                             </button>
                           </div>
                         ) : (
@@ -127,19 +154,18 @@ export default function VoucherScrutinyUI() {
                   ))}
                 </AnimatePresence>
               ) : (
-                // ✨ FIX: Zero-State UI for empty table matching the selected tab
                 <tr>
                   <td colSpan="4" className="p-16 text-center">
                     <div className="flex flex-col items-center justify-center">
                       <div className="w-16 h-16 bg-slate-50 border border-slate-100 rounded-full flex items-center justify-center mb-4">
                         <Inbox className="w-8 h-8 text-slate-400" />
                       </div>
-                      <h4 className="text-base font-black text-slate-800 mb-1">Queue is Clear</h4>
+                      <h4 className="text-base font-black text-slate-800 mb-1">Queue is Clear[cite: 20]</h4>
                       <p className="text-sm font-medium text-slate-500 max-w-sm">
-                        {activeTab === "Pending" ? "No pending vouchers waiting for your scrutiny." :
-                         activeTab === "Query Raised" ? "You haven't raised any queries on client vouchers." :
-                         activeTab === "Verified" ? "No vouchers have been verified yet." :
-                         "No vouchers found for your assigned clients."}
+                        {activeTab === "Pending" ? "No pending vouchers waiting for your scrutiny.[cite: 20]" :
+                         activeTab === "Query Raised" ? "You haven't raised any queries on client vouchers.[cite: 20]" :
+                         activeTab === "Verified" ? "No vouchers have been verified yet.[cite: 20]" :
+                         "No vouchers found for your assigned clients.[cite: 20]"}
                       </p>
                     </div>
                   </td>

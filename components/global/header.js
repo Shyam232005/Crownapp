@@ -1,8 +1,10 @@
 "use client";
 import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Crown, User as UserIcon, Loader2, Clock } from "lucide-react";
 
 export default function GlobalHeader() {
+  const router = useRouter();
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [greeting, setGreeting] = useState("Hello");
@@ -18,19 +20,25 @@ export default function GlobalHeader() {
     const fetchHeaderData = async () => {
       try {
         const res = await fetch("/api/user/header-profile");
-        if (res.ok) {
-          const data = await res.json();
-          setUserData(data);
+        
+        // ✨ SECURITY ENFORCEMENT: Redirect if not authenticated
+        if (!res.ok) {
+          router.push("/login");
+          return;
         }
+
+        const data = await res.json();
+        setUserData(data);
       } catch (error) {
         console.error("Failed to fetch header data", error);
+        router.push("/login"); // Catch network errors and redirect
       } finally {
         setLoading(false);
       }
     };
 
     fetchHeaderData();
-  }, []);
+  }, [router]);
 
   return (
     <header className="h-20 bg-white border-b border-gray-100 flex items-center justify-between px-8 sticky top-0 z-20">

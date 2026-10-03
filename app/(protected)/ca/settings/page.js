@@ -25,35 +25,53 @@ export default function FirmSettingsUI() {
     }
   });
 
-  // ✨ Mock API Call: Fetch firm settings
   useEffect(() => {
     const fetchSettings = async () => {
-      // Later: const res = await fetch('/api/ca/settings');
-      setTimeout(() => {
-        // True zero-state load - could be empty for a new account
-        reset({
-          firmName: "FineOps & Associates",
-          frn: "123456W",
-          gstin: "24AAACC1234F1Z9",
-          principalCa: "CA Ramesh Patel",
-          address: "405, Digital Valley, Surat, Gujarat 395006",
-          supportPhone: "+91 9876543210",
-          exportFormat: "Tally XML"
-        });
+      try {
+        const res = await fetch('/api/ca/settings');
+        if (res.ok) {
+          const json = await res.json();
+          const ca = json.data;
+          
+          reset({
+            firmName: ca.firmName || "FineOps & Associates",
+            frn: ca.frn || "",
+            gstin: ca.gstin || "",
+            principalCa: ca.principalCa || "",
+            address: ca.address || "",
+            supportPhone: ca.supportPhone || "",
+            exportFormat: ca.exportFormat || "Tally XML"
+          });
+        }
+      } catch (error) {
+        console.error("Failed to load firm settings:", error);
+      } finally {
         setIsLoading(false);
-      }, 800);
+      }
     };
     fetchSettings();
   }, [reset]);
 
   const onSubmit = async (data) => {
     setIsSaving(true);
-    // Later: await fetch('/api/ca/settings', { method: 'PUT', body: JSON.stringify(data) });
-    await new Promise((resolve) => setTimeout(resolve, 1500)); // Simulate save
-    
-    setIsSaving(false);
-    setShowSuccess(true);
-    setTimeout(() => setShowSuccess(false), 3000);
+    try {
+      const res = await fetch('/api/ca/settings', { 
+        method: 'PATCH', 
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data) 
+      });
+      
+      if (res.ok) {
+        setShowSuccess(true);
+        setTimeout(() => setShowSuccess(false), 3000);
+      } else {
+        alert("Failed to save settings.");
+      }
+    } catch (error) {
+      alert("Network error while saving settings.");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   if (isLoading) {
@@ -72,7 +90,7 @@ export default function FirmSettingsUI() {
           <Settings className="w-6 h-6 text-indigo-600" /> Firm Settings
         </motion.h1>
         <p className="text-xs sm:text-sm font-medium text-slate-500 mt-1">
-          Manage your CA firm's profile, registration details, and workspace preferences.
+          Manage your CA firm's profile, registration details, and workspace preferences[cite: 20].
         </p>
       </div>
 

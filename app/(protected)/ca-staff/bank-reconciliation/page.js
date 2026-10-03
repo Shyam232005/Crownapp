@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   Landmark, Check, X, FileSpreadsheet, 
@@ -7,22 +7,63 @@ import {
 } from "lucide-react";
 
 export default function BankRecoUI() {
-  // ✨ FIX: State setup for API integration (Zero-State by default)
   const [isLoading, setIsLoading] = useState(true);
+  const [isUploading, setIsUploading] = useState(false);
   const [recoData, setRecoData] = useState([]);
+  const fileInputRef = useRef(null);
 
-  // ✨ Mock API Call
   useEffect(() => {
-    const fetchRecoData = async () => {
-      // Later: const res = await fetch('/api/ca-staff/bank-reco');
-      setTimeout(() => {
-        // True zero-state for an empty reconciliation queue
-        setRecoData([]); 
-        setIsLoading(false);
-      }, 800);
-    };
     fetchRecoData();
   }, []);
+
+  const fetchRecoData = async () => {
+    try {
+      const res = await fetch('/api/ca/bank-reco');
+      if (res.ok) {
+        const json = await res.json();
+        setRecoData(json.data || []);
+      }
+    } catch (error) {
+      console.error("Failed to fetch bank reconciliation:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleStatementUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    try {
+      // Simulate statement parsing and creating a mock unmatched transaction
+      const payload = {
+        clientId: "owner-temp-123",
+        desc: file.name.includes("hdfc") ? "HDFC Bank Statement Entry" : "Bank Transfer - Vendor",
+        date: new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }),
+        bankAmt: 15400,
+        match: false,
+        bookAmt: null
+      };
+
+      const res = await fetch('/api/ca/bank-reco', {
+        method: 'POST',
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+
+      if (res.ok) {
+        fetchRecoData();
+      } else {
+        alert("Failed to process statement.");
+      }
+    } catch (error) {
+      alert("Error uploading statement.");
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
 
   return (
     <div className="p-4 sm:p-8 max-w-7xl mx-auto w-full pb-24">
@@ -33,8 +74,21 @@ export default function BankRecoUI() {
           </motion.h1>
           <p className="text-xs sm:text-sm font-medium text-slate-500 mt-1">Match bank statement transactions with software ledger entries.</p>
         </div>
-        <button className="bg-indigo-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-md hover:bg-indigo-700 flex items-center gap-2 transition-colors">
-          <FileSpreadsheet className="w-4 h-4" /> Upload Statement
+
+        <input 
+          type="file" 
+          accept=".csv,.pdf" 
+          className="hidden" 
+          ref={fileInputRef} 
+          onChange={handleStatementUpload} 
+        />
+        <button 
+          onClick={() => fileInputRef.current.click()}
+          disabled={isUploading}
+          className="bg-indigo-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-md hover:bg-indigo-700 flex items-center gap-2 transition-colors disabled:opacity-50"
+        >
+          {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileSpreadsheet className="w-4 h-4" />}
+          {isUploading ? "Processing..." : "Upload Statement"}
         </button>
       </div>
 
@@ -55,14 +109,14 @@ export default function BankRecoUI() {
           ) : recoData.length > 0 ? (
             <AnimatePresence>
               {recoData.map((row) => (
-                <motion.div layout initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} key={row.id} className="grid grid-cols-12 p-4 items-center hover:bg-slate-50 transition-colors">
+                <motion.div layout initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} key={row._id} className="grid grid-cols-12 p-4 items-center hover:bg-slate-50 transition-colors">
                   {/* Bank Side */}
                   <div className="col-span-4">
                     <p className="text-sm font-black text-slate-900">{row.desc}</p>
                     <div className="flex items-center gap-2 mt-1">
                       <span className="text-[10px] font-bold text-slate-400">{row.date}</span>
                       <span className={`text-xs font-black ${row.bankAmt > 0 ? 'text-emerald-600' : 'text-slate-900'}`}>
-                        ₹{Math.abs(row.bankAmt).toLocaleString()}
+                        ₹{Math.abs(row.bankAmt).toLocaleString("en-IN")}
                       </span>
                     </div>
                   </div>
@@ -79,7 +133,7 @@ export default function BankRecoUI() {
                       <div>
                         <p className="text-sm font-black text-slate-900">{row.desc} (Auto-Matched)</p>
                         <span className={`text-xs font-black mt-1 ${row.bookAmt > 0 ? 'text-emerald-600' : 'text-slate-900'}`}>
-                          ₹{Math.abs(row.bookAmt).toLocaleString()}
+                          ₹{Math.abs(row.bookAmt).toLocaleString("en-IN")}
                         </span>
                       </div>
                     ) : (
@@ -101,7 +155,6 @@ export default function BankRecoUI() {
               ))}
             </AnimatePresence>
           ) : (
-            // ✨ FIX: Zero-State UI for empty reconciliation table
             <div className="flex-1 flex flex-col items-center justify-center py-20 text-center px-4">
               <div className="w-16 h-16 bg-slate-50 border border-slate-100 rounded-full flex items-center justify-center mb-4">
                 <Inbox className="w-8 h-8 text-slate-400" />

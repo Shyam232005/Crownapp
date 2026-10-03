@@ -32,30 +32,65 @@ export default function LogExpenseUI() {
     }
   });
 
-  // Mock API Call: Fetch today's expenses (Zero-State default)
+  // Fetch recent expenses submitted by this employee
   useEffect(() => {
-    const fetchRecentExpenses = async () => {
-      // Later: const res = await fetch('/api/employee/expenses/today');
-      setTimeout(() => {
-        setRecentExpenses([]); // True zero-state: 0 expenses logged today
-        setIsLoadingHistory(false);
-      }, 800);
-    };
     fetchRecentExpenses();
   }, []);
 
-  // Mock API Call: Submit Form Data
-  const onSubmit = async (data) => {
-    // Later: await fetch('/api/employee/expenses', { method: 'POST', body: JSON.stringify(data) });
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    
-    setShowSuccess(true);
-    setScanSuccess(false);
-    setTimeout(() => setShowSuccess(false), 3000);
-    reset(); 
+  const fetchRecentExpenses = async () => {
+    try {
+      const employeeId = typeof window !== "undefined" ? (localStorage.getItem("fineOpsUserId") || "emp-temp-123") : "emp-temp-123";
+      const res = await fetch('/api/submissions');
+      if (res.ok) {
+        const json = await res.json();
+        // Filter submissions belonging to this employee and matching expense types
+        const expenses = (json.data || []).filter(
+          item => item.employeeId === employeeId && 
+          (item.type === "General Expense" || item.type === "Vendor Payment")
+        );
+        setRecentExpenses(expenses);
+      }
+    } catch (error) {
+      console.error("Failed to fetch expense history:", error);
+    } finally {
+      setIsLoadingHistory(false);
+    }
   };
 
-  // MOCK: Offline AI Processing Handler
+  const onSubmit = async (data) => {
+    try {
+      const employeeId = typeof window !== "undefined" ? (localStorage.getItem("fineOpsUserId") || "emp-temp-123") : "emp-temp-123";
+      
+      const payload = {
+        type: "General Expense",
+        amount: Number(data.amount),
+        partyName: data.paidTo,
+        paymentMode: "Cash/Petty",
+        description: `[${data.category}] ${data.details}`,
+        employeeId: employeeId,
+        status: "Pending"
+      };
+
+      const res = await fetch('/api/submissions', { 
+        method: 'POST', 
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload) 
+      });
+
+      if (!res.ok) throw new Error("Failed to submit expense");
+
+      const json = await res.json();
+      setRecentExpenses([json.data, ...recentExpenses]);
+      setShowSuccess(true);
+      setScanSuccess(false);
+      setTimeout(() => setShowSuccess(false), 3000);
+      reset(); 
+    } catch (error) {
+      alert("Failed to submit expense. Please try again.");
+    }
+  };
+
+  // Offline AI Processing Handler (Simulated OCR auto-fill)
   const handleFileUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -63,17 +98,14 @@ export default function LogExpenseUI() {
     setIsScanning(true);
     setScanSuccess(false);
 
-    // Simulate local OCR & LLM extraction
     setTimeout(() => {
       setIsScanning(false);
       setScanSuccess(true);
       
-      // Auto-fill the form
       setValue("category", "Travel & Fuel");
       setValue("amount", "1250");
       setValue("paidTo", "Indian Oil Station");
       setValue("details", "Fuel for delivery van (Auto-extracted)");
-      
     }, 2500);
   };
 
@@ -205,11 +237,11 @@ export default function LogExpenseUI() {
         </form>
       </motion.div>
 
-      {/* Recent Expenses Log (Zero State UI) */}
+      {/* Recent Expenses Log */}
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden flex flex-col min-h-[250px]">
         <div className="px-6 py-5 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
           <h3 className="text-sm font-black text-slate-800 flex items-center gap-2">
-            <History className="w-4 h-4 text-slate-500" /> Recent Expenses Today
+            <History className="w-4 h-4 text-slate-500" /> Recent Expenses Logged
           </h3>
         </div>
         
@@ -220,8 +252,31 @@ export default function LogExpenseUI() {
               <p className="text-sm font-bold">Loading entries...</p>
             </div>
           ) : recentExpenses.length > 0 ? (
-            <div className="divide-y divide-slate-100">
-              {/* Map over recentExpenses array here later */}
+            <div className="divide-y divide-slate-100 w-full">
+              {recentExpenses.map((expense) => (
+                <div key={expense._id} className="p-4 sm:p-5 flex items-center justify-between hover:bg-slate-50 transition-colors">
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 bg-rose-50 rounded-xl flex items-center justify-center shrink-0">
+                      <Receipt className="w-5 h-5 text-rose-600" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-black text-slate-900">{expense.partyName}</h4>
+                      <p className="text-xs font-medium text-slate-500">{expense.description}</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-black text-slate-900 flex items-center justify-end">
+                      ₹{expense.amount.toLocaleString("en-IN")}
+                    </p>
+                    <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-md ${
+                      expense.status === 'Approved' ? 'bg-emerald-100 text-emerald-700' :
+                      expense.status === 'Rejected' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'
+                    }`}>
+                      {expense.status}
+                    </span>
+                  </div>
+                </div>
+              ))}
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center py-10 text-center px-4">
@@ -230,7 +285,7 @@ export default function LogExpenseUI() {
               </div>
               <h4 className="text-sm font-black text-slate-800 mb-1">No Expenses Logged</h4>
               <p className="text-xs font-medium text-slate-500 max-w-sm">
-                Any expenses you submit for approval today will appear here.
+                Any expenses you submit for approval will appear here with their live review status.
               </p>
             </div>
           )}

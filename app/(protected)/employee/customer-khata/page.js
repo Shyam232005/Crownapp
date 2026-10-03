@@ -1,7 +1,6 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
-import { io } from "socket.io-client";
 import Tesseract from "tesseract.js";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
@@ -9,15 +8,12 @@ import {
   ReceiptText, X, Sparkles
 } from "lucide-react";
 
-let socket;
-
 export default function EmployeeKhata() {
   const [khataEntries, setKhataEntries] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   
-  // Local AI Scan States
   const [isScanning, setIsScanning] = useState(false);
   const fileInputRef = useRef(null);
 
@@ -28,8 +24,6 @@ export default function EmployeeKhata() {
   const selectedType = watch("type");
 
   useEffect(() => {
-    socket = io();
-
     const fetchKhata = async () => {
       try {
         const res = await fetch("/api/submissions");
@@ -62,15 +56,8 @@ export default function EmployeeKhata() {
     };
 
     fetchKhata();
-
-    socket.on("submission-updated", (data) => {
-      setKhataEntries(prev => prev.map(item => item._id === data.id ? { ...item, status: data.status } : item));
-    });
-
-    return () => { if (socket) socket.disconnect(); };
   }, []);
 
-  // 🔴 SMART LOCAL OCR ENGINE FOR SALES/KHATA
   const handleAiScan = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -78,16 +65,13 @@ export default function EmployeeKhata() {
     setIsScanning(true);
 
     try {
-      const result = await Tesseract.recognize(file, "eng", {
-        logger: (m) => console.log("Scanning Progress:", Math.round(m.progress * 100) + "%"),
-      });
+      const result = await Tesseract.recognize(file, "eng");
 
       const rawText = result.data.text;
       const lines = rawText.split('\n').map(line => line.trim()).filter(line => line.length > 0);
       
       let extAmount = "", extParty = "";
 
-      // Khata bills mein customer ka naam usually top pe hota hai
       if (lines.length > 0) extParty = lines[0].replace(/[^a-zA-Z\s\&\-]/g, "").trim();
 
       const amountMatches = rawText.match(/\b\d+(\.\d{1,2})?\b/g);
@@ -96,7 +80,6 @@ export default function EmployeeKhata() {
           if (numbers.length > 0) extAmount = Math.max(...numbers).toString();
       }
 
-      // Auto-fill React Hook Form
       setValue("type", "Sales Invoice"); 
       if (extParty) setValue("partyName", extParty);
       if (extAmount) setValue("amount", extAmount);
@@ -114,7 +97,7 @@ export default function EmployeeKhata() {
   const onSubmit = async (data) => {
     try {
       const payload = {
-        employeeId: localStorage.getItem("fineOpsUserId") || "emp-temp-123",
+        employeeId: typeof window !== "undefined" ? (localStorage.getItem("fineOpsUserId") || "emp-temp-123") : "emp-temp-123",
         ...data,
         amount: data.amount ? parseFloat(data.amount) : 0,
         status: "Pending" 
@@ -129,8 +112,8 @@ export default function EmployeeKhata() {
       if (!res.ok) throw new Error("Failed to save");
 
       const savedEntry = (await res.json()).data;
-      socket.emit("new-submission", savedEntry);
       
+      // Instantly append to the local state without requiring a full reload or sockets
       setKhataEntries([savedEntry, ...khataEntries]);
       reset(); 
       setIsModalOpen(false);
@@ -200,7 +183,6 @@ export default function EmployeeKhata() {
         </div>
       )}
 
-      {/* Entry Modal */}
       <AnimatePresence>
         {isModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
@@ -215,7 +197,6 @@ export default function EmployeeKhata() {
               
               <form onSubmit={handleSubmit(onSubmit)} className="p-6 overflow-y-auto scrollbar-hide flex-1">
                 
-                {/* AI Scan Auto-Fill Area */}
                 <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }} className="mb-6 bg-gradient-to-br from-indigo-50 to-blue-50 border border-indigo-100/50 rounded-2xl p-1 relative cursor-pointer group shadow-sm" onClick={() => !isScanning && fileInputRef.current?.click()}>
                   <input type="file" accept="image/*,application/pdf" ref={fileInputRef} onChange={handleAiScan} className="hidden" />
                   <div className="border border-dashed border-indigo-200/60 rounded-xl p-4 text-center bg-white/50 group-hover:bg-white/80 transition-all">

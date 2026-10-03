@@ -21,36 +21,45 @@ export default function LeaveRequestsUI() {
     }
   });
 
-  // ✨ Mock API Call: Fetch Leave History
   useEffect(() => {
-    const fetchLeaves = async () => {
-      // Later: const res = await fetch('/api/employee/leaves');
-      setTimeout(() => {
-        // True zero-state for a new employee
-        setLeaves([]);
-        setIsLoading(false);
-      }, 800);
-    };
     fetchLeaves();
   }, []);
 
+  const fetchLeaves = async () => {
+    try {
+      const employeeId = typeof window !== "undefined" ? (localStorage.getItem("fineOpsUserId") || "emp-temp-123") : "emp-temp-123";
+      const res = await fetch(`/api/employee/leaves?employeeId=${employeeId}`);
+      if (res.ok) {
+        const json = await res.json();
+        setLeaves(json.data || []);
+      }
+    } catch (error) {
+      console.error("Failed to fetch leaves:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const onSubmit = async (data) => {
-    // Later: await fetch('/api/employee/leaves', { method: 'POST', body: JSON.stringify(data) });
-    await new Promise((resolve) => setTimeout(resolve, 1500)); // Simulate API delay
-    
-    // Optimistic UI update
-    const newLeave = {
-      id: Math.random(),
-      type: data.leaveType,
-      dates: `${data.fromDate} to ${data.toDate}`,
-      status: "Pending",
-      reason: data.reason
-    };
-    
-    setLeaves([newLeave, ...leaves]);
-    setShowSuccess(true);
-    setTimeout(() => setShowSuccess(false), 3000);
-    reset();
+    try {
+      const employeeId = typeof window !== "undefined" ? (localStorage.getItem("fineOpsUserId") || "emp-temp-123") : "emp-temp-123";
+      
+      const res = await fetch("/api/employee/leaves", { 
+        method: 'POST', 
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...data, employeeId }) 
+      });
+
+      if (!res.ok) throw new Error("Failed to submit leave");
+
+      const json = await res.json();
+      setLeaves([json.data, ...leaves]);
+      setShowSuccess(true);
+      setTimeout(() => setShowSuccess(false), 3000);
+      reset();
+    } catch (error) {
+      alert("Failed to submit leave request. Please try again.");
+    }
   };
 
   return (
@@ -148,7 +157,7 @@ export default function LeaveRequestsUI() {
               <>
                 <AnimatePresence>
                   {leaves.map((leave) => (
-                    <motion.div layout initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} key={leave.id} className="p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between hover:bg-slate-50 transition-colors gap-4">
+                    <motion.div layout initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} key={leave._id} className="p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between hover:bg-slate-50 transition-colors gap-4">
                       <div className="flex items-start gap-4">
                         <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${leave.status === 'Approved' ? 'bg-emerald-50' : leave.status === 'Pending' ? 'bg-amber-50' : 'bg-rose-50'}`}>
                           {leave.status === 'Approved' ? <CheckCircle2 className="w-6 h-6 text-emerald-500" /> : 
@@ -157,7 +166,7 @@ export default function LeaveRequestsUI() {
                         </div>
                         <div>
                           <div className="flex items-center gap-2 mb-1">
-                            <h4 className="text-sm sm:text-base font-black text-slate-900">{leave.type}</h4>
+                            <h4 className="text-sm sm:text-base font-black text-slate-900">{leave.leaveType}</h4>
                             <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md ${
                               leave.status === 'Approved' ? 'bg-emerald-100 text-emerald-700' : 
                               leave.status === 'Pending' ? 'bg-amber-100 text-amber-700' : 'bg-rose-100 text-rose-700'
@@ -165,7 +174,7 @@ export default function LeaveRequestsUI() {
                               {leave.status}
                             </span>
                           </div>
-                          <p className="text-xs font-bold text-slate-500 mb-1">{leave.dates}</p>
+                          <p className="text-xs font-bold text-slate-500 mb-1">{leave.fromDate} to {leave.toDate}</p>
                           <p className="text-xs font-medium text-slate-400">{leave.reason}</p>
                         </div>
                       </div>
@@ -180,7 +189,6 @@ export default function LeaveRequestsUI() {
                 </div>
               </>
             ) : (
-              // ✨ FIX: Zero-State UI for empty leave history
               <div className="flex-1 flex flex-col items-center justify-center py-20 text-center px-4">
                 <div className="w-16 h-16 bg-slate-50 border border-slate-100 rounded-full flex items-center justify-center mb-4">
                   <Inbox className="w-8 h-8 text-slate-400" />

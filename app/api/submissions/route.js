@@ -2,77 +2,52 @@ import { NextResponse } from "next/server";
 import connectDB from "@/lib/mongodb";
 import Submission from "@/models/Submission";
 
-export async function POST(req) {
-    try {
-        await connectDB();
-        const body = await req.json();
+export async function GET(request) {
+  try {
+    await connectDB();
+    const { searchParams } = new URL(request.url);
+    const status = searchParams.get("status");
 
-        // Basic validation
-        if (!body.type || !body.description || !body.employeeId) {
-            return NextResponse.json(
-                { success: false, error: "Missing required fields" },
-                { status: 400 }
-            );
-        }
+    // Build query based on status if provided (e.g., ?status=Pending)
+    const query = status ? { status } : {};
 
-        // Database mein entry create karo
-        const newSubmission = await Submission.create({
-            employeeId: body.employeeId,
-            type: body.type,
-            partyName: body.partyName || "",
-            amount: body.amount || 0,
-            paymentMode: body.paymentMode || "",
+    // Fetch submissions, newest first
+    const submissions = await Submission.find(query).sort({ createdAt: -1 });
 
-            // Nayi fields
-            billNumber: body.billNumber || "",
-            billDate: body.billDate || "",
-            gstin: body.gstin || "",
-
-            description: body.description,
-            status: "Pending"
-        });
-
-        console.log("New Submission Saved:", newSubmission._id);
-
-        return NextResponse.json({ success: true, data: newSubmission }, { status: 201 });
-
-    } catch (error) {
-        console.error("Submission DB Error:", error);
-        return NextResponse.json(
-            { success: false, error: "Failed to save submission." },
-            { status: 500 }
-        );
-    }
+    return NextResponse.json({ success: true, data: submissions }, { status: 200 });
+  } catch (error) {
+    console.error("GET Submissions Error:", error);
+    return NextResponse.json(
+      { success: false, error: "Failed to fetch submissions" },
+      { status: 500 }
+    );
+  }
 }
 
-// GET route (Owner aur Employee ko list dikhane ke liye)
-export async function GET(req) {
-    try {
-        await connectDB();
+export async function POST(request) {
+  try {
+    await connectDB();
+    const body = await request.json();
 
-        // Latest submissions pehle dikhane ke liye sort by createdAt descending (-1)
-        const submissions = await Submission.find({}).sort({ createdAt: -1 });
+    const newSubmission = await Submission.create({
+      type: body.type,
+      amount: Number(body.amount),
+      partyName: body.partyName,
+      paymentMode: body.paymentMode,
+      billNumber: body.billNumber,
+      billDate: body.billDate,
+      gstin: body.gstin,
+      description: body.description,
+      employeeId: body.employeeId,
+      status: "Pending"
+    });
 
-        return NextResponse.json({ success: true, data: submissions }, { status: 200 });
-    } catch (error) {
-        return NextResponse.json({ success: false, error: "Failed to fetch data." }, { status: 500 });
-    }
-}
-
-// File: app/api/submissions/route.js
-export async function PATCH(req) {
-    try {
-        await connectDB();
-        const { id, status } = await req.json();
-
-        if (!id || !status) {
-            return NextResponse.json({ success: false, error: "Missing data" }, { status: 400 });
-        }
-
-        const updated = await Submission.findByIdAndUpdate(id, { status }, { new: true });
-
-        return NextResponse.json({ success: true, data: updated }, { status: 200 });
-    } catch (error) {
-        return NextResponse.json({ success: false, error: "Update failed" }, { status: 500 });
-    }
+    return NextResponse.json({ success: true, data: newSubmission }, { status: 201 });
+  } catch (error) {
+    console.error("POST Submission Error:", error);
+    return NextResponse.json(
+      { success: false, error: "Failed to create submission" },
+      { status: 500 }
+    );
+  }
 }

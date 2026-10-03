@@ -4,19 +4,22 @@ import { motion } from "framer-motion";
 import { CalendarDays, AlertCircle, Loader2, CalendarCheck } from "lucide-react";
 
 export default function FilingCalendarUI() {
-  // ✨ FIX: Set up state for future API integration (Zero-State by default)
   const [isLoading, setIsLoading] = useState(true);
   const [deadlines, setDeadlines] = useState([]);
 
-  // ✨ Mock API Call to simulate fetching compliance deadlines
   useEffect(() => {
     const fetchDeadlines = async () => {
-      // Later: const res = await fetch('/api/ca/filing-calendar');
-      setTimeout(() => {
-        // True zero-state for a new CA firm with no linked clients
-        setDeadlines([]);
+      try {
+        const res = await fetch('/api/ca/filing-calendar');
+        if (res.ok) {
+          const json = await res.json();
+          setDeadlines(json.data || []);
+        }
+      } catch (error) {
+        console.error("Failed to fetch compliance deadlines:", error);
+      } finally {
         setIsLoading(false);
-      }, 800);
+      }
     };
     fetchDeadlines();
   }, []);
@@ -76,7 +79,6 @@ export default function FilingCalendarUI() {
               ))}
             </div>
           ) : (
-            // ✨ FIX: Zero-State UI for empty calendar
             <div className="flex-1 flex flex-col items-center justify-center py-16 text-center px-4">
               <div className="w-16 h-16 bg-indigo-50 border border-indigo-100 rounded-full flex items-center justify-center mb-4">
                 <CalendarCheck className="w-8 h-8 text-indigo-500" />

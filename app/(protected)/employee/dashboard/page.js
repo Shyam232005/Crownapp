@@ -9,24 +9,39 @@ import {
 } from "lucide-react";
 
 export default function EmployeeDashboardUI() {
-  // ✨ FIX: State setup for API integration (Zero-State)
   const [isLoading, setIsLoading] = useState(true);
   const [attendanceStatus, setAttendanceStatus] = useState("Fetching status..."); 
 
-  // ✨ Mock API Call
   useEffect(() => {
     const fetchDashboardData = async () => {
-        // Later: const res = await fetch('/api/employee/dashboard');
-        setTimeout(() => {
-            // True zero-state for a new day or new employee
-            setAttendanceStatus("Not Punched In"); 
-            setIsLoading(false);
-        }, 800);
+      try {
+        const employeeId = typeof window !== "undefined" ? (localStorage.getItem("fineOpsUserId") || "emp-temp-123") : "emp-temp-123";
+        const res = await fetch(`/api/attendance?employeeId=${employeeId}`);
+        
+        if (res.ok) {
+          const data = await res.json();
+          // Map backend status to user-friendly UI text
+          if (data.status === "punched-in") {
+            setAttendanceStatus("Punched In");
+          } else if (data.status === "completed") {
+            setAttendanceStatus("Shift Completed");
+          } else {
+            setAttendanceStatus("Not Punched In");
+          }
+        } else {
+          setAttendanceStatus("Not Punched In");
+        }
+      } catch (error) {
+        console.error("Failed to fetch dashboard attendance:", error);
+        setAttendanceStatus("Not Punched In");
+      } finally {
+        setIsLoading(false);
+      }
     };
+
     fetchDashboardData();
   }, []);
 
-  // ✨ FIX: Tailwind explicit classes mapping to avoid missing styles in production
   const quickActions = [
     { name: "Quick Entry", href: "/employee", icon: PlusSquare, bgClass: "bg-indigo-50", textClass: "text-indigo-600", desc: "Fast general logging" },
     { name: "Log Expense", href: "/employee/expenses", icon: Receipt, bgClass: "bg-rose-50", textClass: "text-rose-600", desc: "Upload bills & petty cash" },

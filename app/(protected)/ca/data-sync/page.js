@@ -1,16 +1,12 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import { io } from "socket.io-client";
 import { motion } from "framer-motion";
 import { 
     DownloadCloud, Lock, Unlock, Loader2, Database, 
     FileText, CheckCircle2, Inbox 
 } from "lucide-react";
 
-let socket;
-
 export default function TallySyncPage() {
-    // ✨ FIX: Client state setup for Zero-State handling
     const [isLoadingClients, setIsLoadingClients] = useState(true);
     const [assignedClients, setAssignedClients] = useState([]);
 
@@ -19,56 +15,77 @@ export default function TallySyncPage() {
     const [isUnlocked, setIsUnlocked] = useState(false);
     const [isDownloading, setIsDownloading] = useState(false);
 
-    // Real-world scenario mein yeh dynamic hoga (e.g., dropdown se select karna)
     const targetMonth = "September 2026";
 
     useEffect(() => {
-        // ✨ Mock API Call: Fetch assigned clients
+        // 1. Fetch assigned clients from API
         const fetchClients = async () => {
-            // Later: const res = await fetch('/api/ca/clients');
-            setTimeout(() => {
-                setAssignedClients([]); // True zero-state: 0 clients assigned
+            try {
+                const res = await fetch('/api/ca/clients');
+                if (res.ok) {
+                    const json = await res.json();
+                    setAssignedClients(json.data || []);
+                }
+            } catch (error) {
+                console.error("Failed to fetch clients", error);
+            } finally {
                 setIsLoadingClients(false);
-            }, 800);
+            }
         };
         fetchClients();
 
-        // Check if previously unlocked (Local persistence)
+        // Check local storage for cached access
         const accessStatus = localStorage.getItem(`ca_access_${targetMonth}`);
         if (accessStatus === "granted") {
             setIsUnlocked(true);
         }
 
-        socket = io();
-
-        // Listen for Owner's Approval
-        socket.on("ca-data-unlocked", (data) => {
-            if (data.month === targetMonth) {
-                setIsRequesting(false);
-                setIsUnlocked(true);
-                localStorage.setItem(`ca_access_${targetMonth}`, "granted");
+        // 2. Serverless Polling for Vault Status (Replacing WebSockets)
+        const checkVaultStatus = async () => {
+            try {
+                const res = await fetch("/api/vault-status");
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.status === "Unlocked") {
+                        setIsUnlocked(true);
+                        setIsRequesting(false);
+                        localStorage.setItem(`ca_access_${targetMonth}`, "granted");
+                    }
+                }
+            } catch (error) {
+                console.error("Vault poll error", error);
             }
-        });
+        };
 
-        return () => { if (socket) socket.disconnect(); };
-    }, []);
+        const interval = setInterval(checkVaultStatus, 3000);
+        return () => clearInterval(interval);
+    }, [targetMonth]);
 
-    const requestAccess = () => {
+    const requestAccess = async () => {
         setIsRequesting(true);
-        if (socket) {
-            socket.emit("ca-request-data", { month: targetMonth, caName: "Firm Admin" });
+        try {
+            const res = await fetch("/api/vault-status", {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ status: "Requested", month: targetMonth })
+            });
+
+            if (!res.ok) {
+                alert("Failed to send access request.");
+                setIsRequesting(false);
+            }
+        } catch (error) {
+            console.error("Request access error:", error);
+            setIsRequesting(false);
         }
     };
 
-    // 🔴 REAL DATABASE FETCH & EXPORT LOGIC
     const downloadTallyData = async () => {
         setIsDownloading(true);
         try {
-            // 1. Fetch REAL data from MongoDB
             const res = await fetch("/api/submissions");
             const json = await res.json();
 
-            // 2. Filter only "Approved" entries (CA ko pending/rejected nahi dikhna chahiye)
             const approvedData = (json.data || []).filter(item => item.status === "Approved");
 
             if (approvedData.length === 0) {
@@ -77,19 +94,16 @@ export default function TallySyncPage() {
                 return;
             }
 
-            // 3. Format into Tally-ready CSV
             const headers = ["Date", "Party Name", "GSTIN", "Bill No", "Operation Type", "Payment Mode", "Total Amount", "Description"];
 
             const csvRows = [
-                headers.join(","), // Header row
+                headers.join(","),
                 ...approvedData.map(item => {
                     const date = item.billDate || new Date(item.createdAt).toLocaleDateString('en-IN');
-                    // Quotes "" wrap karna zaroori hai taaki description ka comma CSV na tode
                     return `"${date}","${item.partyName || ''}","${item.gstin || ''}","${item.billNumber || ''}","${item.type}","${item.paymentMode || ''}","${item.amount}","${item.description || ''}"`;
                 })
             ].join("\n");
 
-            // 4. Trigger Auto-Download in Browser
             const blob = new Blob([csvRows], { type: "text/csv;charset=utf-8;" });
             const url = URL.createObjectURL(blob);
             const link = document.createElement("a");
@@ -122,7 +136,6 @@ export default function TallySyncPage() {
                     <p className="text-sm font-bold">Loading sync modules...</p>
                 </div>
             ) : assignedClients.length > 0 ? (
-                // MAP THROUGH CLIENTS (Using the first one as a demo implementation)
                 <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-white border border-slate-200 rounded-3xl p-8 max-w-2xl shadow-sm">
                     <div className="flex items-center justify-between mb-6 border-b border-slate-100 pb-6">
                         <div className="flex items-center gap-4">
@@ -130,7 +143,7 @@ export default function TallySyncPage() {
                                 <Database className="w-6 h-6 text-indigo-600" />
                             </div>
                             <div>
-                                <h2 className="text-lg font-bold text-slate-900">FineOps Technologies</h2>
+                                <h2 className="text-lg font-bold text-slate-900">{assignedClients[0].name}</h2>
                                 <p className="text-sm font-medium text-slate-500">Accounting Period: <span className="font-bold text-slate-700">{targetMonth}</span></p>
                             </div>
                         </div>
@@ -153,7 +166,7 @@ export default function TallySyncPage() {
                                 <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto mb-4" />
                                 <h3 className="text-base font-black text-slate-800 mb-2">Data is unlocked and ready for sync</h3>
                                 <p className="text-sm font-medium text-slate-500 mb-6 max-w-sm mx-auto">
-                                    Only entries explicitly approved by the business owner will be exported. Pending items are excluded.
+                                    Only entries explicitly approved by the business owner will be exported. Pending items are excluded[cite: 20].
                                 </p>
 
                                 <div className="flex justify-center gap-4">
@@ -193,14 +206,13 @@ export default function TallySyncPage() {
                     </div>
                 </motion.div>
             ) : (
-                // ✨ FIX: Zero-State UI for empty client list
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="w-full max-w-2xl bg-white rounded-3xl border border-slate-200 shadow-sm p-16 flex flex-col items-center justify-center text-center">
                     <div className="w-20 h-20 bg-slate-50 border border-slate-100 rounded-full flex items-center justify-center mb-6">
                         <Inbox className="w-10 h-10 text-slate-400" />
                     </div>
                     <h3 className="text-xl font-black text-slate-800 mb-2">No Clients Linked</h3>
                     <p className="text-sm font-medium text-slate-500 max-w-md">
-                        You need active, linked clients to export accounting data. Once a business joins your firm using your invite code, their sync modules will appear here.
+                        You need active, linked clients to export accounting data[cite: 20]. Once a business joins your firm using your invite code, their sync modules will appear here.
                     </p>
                 </motion.div>
             )}

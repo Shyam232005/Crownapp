@@ -1,10 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { io } from "socket.io-client";
 import { Clock, CheckCircle2, LogIn, LogOut, Loader2, Calendar } from "lucide-react";
-
-let socket;
 
 export default function EmployeeAttendance() {
     const [status, setStatus] = useState("loading"); // "loading" | "punched-out" | "punched-in" | "completed"
@@ -12,52 +9,51 @@ export default function EmployeeAttendance() {
     const [currentTime, setCurrentTime] = useState(new Date());
 
     useEffect(() => {
-        socket = io();
-
-        // Live clock update
         const timer = setInterval(() => setCurrentTime(new Date()), 1000);
 
-        // Fetch today's attendance status (Mocking logic based on submissions)
         const checkStatus = async () => {
             try {
-                // Later: const res = await fetch("/api/submissions");
-                setTimeout(() => {
-                   // Mock API response logic - true zero state defaults to punched-out
-                   setStatus("punched-out"); 
-                }, 800);
+                const employeeId = typeof window !== "undefined" ? (localStorage.getItem("fineOpsUserId") || "emp-temp-123") : "emp-temp-123";
+                const res = await fetch(`/api/attendance?employeeId=${employeeId}`);
+                
+                if (res.ok) {
+                    const data = await res.json();
+                    setStatus(data.status); 
+                } else {
+                    setStatus("punched-out");
+                }
             } catch (error) {
-                console.error(error);
+                console.error("Failed to fetch attendance:", error);
                 setStatus("punched-out");
             }
         };
 
         checkStatus();
 
-        return () => {
-            clearInterval(timer);
-            if (socket) socket.disconnect();
-        };
+        return () => clearInterval(timer);
     }, []);
 
     const handlePunch = async (actionType) => {
         setIsSubmitting(true);
         try {
-            // ✨ FIX: Safe localStorage access for Next.js SSR
             const employeeId = typeof window !== "undefined" ? (localStorage.getItem("fineOpsUserId") || "emp-temp-123") : "emp-temp-123";
 
             const payload = {
                 employeeId,
-                type: "Attendance",
-                description: `Employee ${actionType} at ${new Date().toLocaleTimeString('en-IN')}`,
-                status: "Approved", // Attendance auto-approves for record keeping
+                actionType // "Punch In" or "Punch Out"
             };
 
-            // Later: const res = await fetch("/api/submissions", { method: "POST", body: JSON.stringify(payload) });
-            await new Promise(resolve => setTimeout(resolve, 800)); // Simulate API delay
+            const res = await fetch("/api/attendance", { 
+                method: "POST", 
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload) 
+            });
 
-            // if (socket) socket.emit("new-submission", payload);
-            setStatus(actionType === "Punch In" ? "punched-in" : "completed");
-            
+            if (res.ok) {
+                setStatus(actionType === "Punch In" ? "punched-in" : "completed");
+            } else {
+                throw new Error("API failed");
+            }
         } catch (error) {
             alert("Failed to log attendance. Please try again.");
         } finally {
@@ -67,7 +63,6 @@ export default function EmployeeAttendance() {
 
     return (
         <div className="p-4 sm:p-8 max-w-4xl mx-auto w-full flex flex-col items-center justify-center min-h-[80vh]">
-
             <div className="text-center mb-8">
                 <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="w-16 h-16 bg-indigo-100 rounded-3xl flex items-center justify-center mx-auto mb-4">
                     <Clock className="w-8 h-8 text-indigo-600" />

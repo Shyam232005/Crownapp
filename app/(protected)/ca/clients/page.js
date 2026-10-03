@@ -1,126 +1,154 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import Link from "next/link";
 import { 
-  Users, Search, Building2, ChevronRight, 
-  AlertCircle, CheckCircle2, Loader2, Inbox 
+  LayoutDashboard, Users, AlertCircle, FileCheck, 
+  ArrowRight, DownloadCloud, Clock, Building2,
+  Loader2, Inbox
 } from "lucide-react";
 
-export default function ClientDirectoryUI() {
-  const [search, setSearch] = useState("");
-  // ✨ FIX: State setup for API integration (Zero-State)
+export default function CADashboardUI() {
   const [isLoading, setIsLoading] = useState(true);
-  const [clients, setClients] = useState([]);
+  const [stats, setStats] = useState({
+    activeClients: 0,
+    pendingAudits: 0,
+    readyForSync: 0
+  });
+  const [clientAlerts, setClientAlerts] = useState([]);
 
-  // ✨ Mock API Call
   useEffect(() => {
-    const fetchClients = async () => {
-      // Later: const res = await fetch('/api/ca/clients');
-      setTimeout(() => {
-        // True zero-state for a new CA firm
-        setClients([]); 
+    const fetchDashboardData = async () => {
+      try {
+        const res = await fetch('/api/ca/dashboard');
+        if (res.ok) {
+          const json = await res.json();
+          setStats(json.data.stats);
+          setClientAlerts(json.data.clientAlerts || []);
+        }
+      } catch (error) {
+        console.error("Failed to fetch CA dashboard data:", error);
+      } finally {
         setIsLoading(false);
-      }, 800);
+      }
     };
-    fetchClients();
+    fetchDashboardData();
   }, []);
-
-  // Filter logic for future data
-  const filteredClients = clients.filter(client => 
-    client.name.toLowerCase().includes(search.toLowerCase()) || 
-    client.gstin.toLowerCase().includes(search.toLowerCase())
-  );
 
   return (
     <div className="p-4 sm:p-8 max-w-7xl mx-auto w-full pb-24">
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-4 mb-8">
+      {/* Header */}
+      <div className="mb-8 flex flex-col sm:flex-row sm:justify-between sm:items-end gap-4">
         <div>
           <motion.h1 initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-            <Users className="w-6 h-6 text-indigo-600" /> Client Directory
+            <LayoutDashboard className="w-6 h-6 text-slate-900" /> Firm Dashboard
           </motion.h1>
-          <p className="text-xs sm:text-sm font-medium text-slate-500 mt-1">Manage all your connected businesses and their access.</p>
+          <motion.p initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.1 }} className="text-xs sm:text-sm font-medium text-slate-500 mt-1">
+            Overview of your client portfolio and pending compliance tasks.
+          </motion.p>
         </div>
-        <div className="relative w-full sm:w-72">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-          <input 
-            type="text" 
-            placeholder="Search clients or GSTIN..." 
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-indigo-600 shadow-sm transition-all" 
-          />
-        </div>
+        <button className="bg-slate-900 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-md shadow-slate-200 hover:bg-slate-800 transition-colors flex items-center gap-2">
+          <DownloadCloud className="w-4 h-4" /> Bulk ERP Sync
+        </button>
       </div>
 
-      <div className="bg-white border border-slate-200 rounded-3xl shadow-sm overflow-hidden overflow-x-auto">
-        <table className="w-full text-left border-collapse min-w-[700px]">
-          <thead>
-            <tr className="bg-slate-50 border-b border-slate-100">
-              <th className="p-5 text-xs font-bold text-slate-400 uppercase">Business Name</th>
-              <th className="p-5 text-xs font-bold text-slate-400 uppercase">GSTIN</th>
-              <th className="p-5 text-xs font-bold text-slate-400 uppercase">Assigned Staff</th>
-              <th className="p-5 text-xs font-bold text-slate-400 uppercase">Access Status</th>
-              <th className="p-5 text-xs font-bold text-slate-400 uppercase text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-50">
-            {isLoading ? (
-              <tr>
-                <td colSpan="5" className="p-16 text-center text-slate-400">
-                  <div className="flex flex-col items-center justify-center">
-                    <Loader2 className="w-8 h-8 animate-spin mb-3 text-indigo-600" />
-                    <p className="text-sm font-bold">Loading client directory...</p>
+      {/* Main Metric Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 mb-8">
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm hover:shadow-md transition-shadow">
+          <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center mb-4 border border-indigo-100">
+            <Users className="w-6 h-6 text-indigo-600" />
+          </div>
+          <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Total Active Clients</p>
+          <h2 className="text-3xl font-black text-slate-900 mb-4 flex items-center">
+            {isLoading ? <Loader2 className="w-7 h-7 animate-spin text-slate-400" /> : stats.activeClients} 
+            {!isLoading && <span className="text-sm font-bold text-slate-500 ml-2">businesses</span>}
+          </h2>
+          <Link href="/ca/clients" className="text-indigo-600 text-sm font-bold hover:text-indigo-700 flex items-center gap-1 w-max">
+            View Directory <ArrowRight className="w-4 h-4" />
+          </Link>
+        </motion.div>
+
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm hover:shadow-md transition-shadow">
+          <div className="w-12 h-12 bg-amber-50 rounded-2xl flex items-center justify-center mb-4 border border-amber-100">
+            <AlertCircle className="w-6 h-6 text-amber-500" />
+          </div>
+          <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Pending Scrutiny / Audits</p>
+          <h2 className="text-3xl font-black text-slate-900 mb-4 flex items-center">
+            {isLoading ? <Loader2 className="w-7 h-7 animate-spin text-slate-400" /> : stats.pendingAudits} 
+            {!isLoading && <span className="text-sm font-bold text-slate-500 ml-2">tasks</span>}
+          </h2>
+          <Link href="/ca/staff" className="text-amber-600 text-sm font-bold hover:text-amber-700 flex items-center gap-1 w-max">
+            Check Staff Queue <ArrowRight className="w-4 h-4" />
+          </Link>
+        </motion.div>
+
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="bg-gradient-to-br from-emerald-500 to-emerald-700 text-white rounded-3xl p-6 shadow-lg shadow-emerald-200">
+          <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center mb-4 backdrop-blur-sm">
+            <FileCheck className="w-6 h-6 text-white" />
+          </div>
+          <p className="text-emerald-100 text-xs font-bold uppercase tracking-wider mb-1">Data Ready for Tally</p>
+          <h2 className="text-3xl font-black mb-4 flex items-center">
+            {isLoading ? <Loader2 className="w-7 h-7 animate-spin text-emerald-100" /> : stats.readyForSync} 
+            {!isLoading && <span className="text-sm font-bold text-emerald-200 ml-2">clients</span>}
+          </h2>
+          <Link href="/ca/tally-sync" className="text-white text-sm font-bold hover:text-emerald-100 flex items-center gap-1 w-max bg-white/10 px-3 py-1.5 rounded-lg">
+            Start Export <ArrowRight className="w-4 h-4" />
+          </Link>
+        </motion.div>
+      </div>
+
+      {/* Client Alerts List */}
+      <div className="bg-white border border-slate-100 rounded-3xl shadow-sm overflow-hidden flex flex-col min-h-[300px]">
+        <div className="px-6 py-5 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
+          <h3 className="text-sm font-black text-slate-800 flex items-center gap-2">
+            <Clock className="w-5 h-5 text-slate-400" /> Recent Client Alerts
+          </h3>
+        </div>
+        
+        <div className="divide-y divide-slate-100 flex-1 flex flex-col">
+          {isLoading ? (
+            <div className="flex-1 flex flex-col items-center justify-center py-16 text-slate-400">
+              <Loader2 className="w-8 h-8 animate-spin mb-3 text-indigo-600" />
+              <p className="text-sm font-bold">Scanning client data...</p>
+            </div>
+          ) : clientAlerts.length > 0 ? (
+            clientAlerts.map((alert) => (
+              <div key={alert.id} className="p-5 flex flex-col sm:flex-row sm:items-center justify-between hover:bg-slate-50 transition-colors gap-4">
+                <div className="flex items-center gap-4">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                    alert.status === 'Data Unlocked' ? 'bg-emerald-50 text-emerald-500' : 'bg-amber-50 text-amber-500'
+                  }`}>
+                    <Building2 className="w-5 h-5" />
                   </div>
-                </td>
-              </tr>
-            ) : filteredClients.length > 0 ? (
-              filteredClients.map((client) => (
-                <tr key={client.id} className="hover:bg-slate-50/50 transition-colors group">
-                  <td className="p-5">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center shrink-0 group-hover:bg-indigo-100 transition-colors">
-                        <Building2 className="w-5 h-5 text-indigo-600" />
-                      </div>
-                      <p className="font-black text-slate-900 text-sm">{client.name}</p>
-                    </div>
-                  </td>
-                  <td className="p-5 text-sm font-bold text-slate-600 uppercase">{client.gstin}</td>
-                  <td className="p-5 text-sm font-semibold text-slate-500">{client.staff}</td>
-                  <td className="p-5">
-                    <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider ${
-                      client.status === 'Data Unlocked' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' :
-                      client.status === 'Locked' ? 'bg-amber-50 text-amber-600 border border-amber-100' :
-                      'bg-rose-50 text-rose-600 border border-rose-100'
-                    }`}>
-                      {client.status === 'Data Unlocked' ? <CheckCircle2 className="w-3 h-3" /> : <AlertCircle className="w-3 h-3" />}
-                      {client.status}
-                    </span>
-                  </td>
-                  <td className="p-5 text-right">
-                    <button className="w-8 h-8 inline-flex items-center justify-center rounded-lg bg-slate-50 text-slate-400 hover:bg-indigo-600 hover:text-white transition-colors">
-                      <ChevronRight className="w-4 h-4" />
-                    </button>
-                  </td>
-                </tr>
-              ))
-            ) : (
-              // ✨ FIX: Zero-State UI for empty table
-              <tr>
-                <td colSpan="5" className="p-16 text-center">
-                  <div className="flex flex-col items-center justify-center">
-                    <div className="w-16 h-16 bg-slate-50 border border-slate-100 rounded-full flex items-center justify-center mb-4">
-                      <Inbox className="w-8 h-8 text-slate-400" />
-                    </div>
-                    <h4 className="text-base font-black text-slate-800 mb-1">No Clients Found</h4>
-                    <p className="text-sm font-medium text-slate-500 max-w-sm">
-                      {search ? "No clients match your search criteria." : "You haven't linked any businesses to your firm yet. Share your invite code to get started."}
-                    </p>
+                  <div>
+                    <h4 className="text-sm font-black text-slate-900">{alert.client}</h4>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase mt-0.5">{alert.time}</p>
                   </div>
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+                </div>
+                <div className="flex items-center gap-4 border-t sm:border-0 border-slate-100 pt-3 sm:pt-0">
+                  <span className="text-xs font-bold text-slate-600 bg-slate-100 px-3 py-1 rounded-lg">
+                    {alert.type}
+                  </span>
+                  <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-md ${
+                    alert.status === 'Data Unlocked' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                  }`}>
+                    {alert.status}
+                  </span>
+                </div>
+              </div>
+            ))
+          ) : (
+             <div className="flex-1 flex flex-col items-center justify-center py-16 text-center px-4">
+                <div className="w-16 h-16 bg-slate-50 border border-slate-100 rounded-full flex items-center justify-center mb-4">
+                    <Inbox className="w-8 h-8 text-slate-400" />
+                </div>
+                <h4 className="text-base font-black text-slate-800 mb-1">Your Portfolio is Empty</h4>
+                <p className="text-sm font-medium text-slate-500 max-w-sm">
+                    You don't have any linked clients yet. Share your Firm Invite Link with business owners to start managing their audits.
+                </p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -2,6 +2,8 @@
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useForm } from "react-hook-form";
+import Tesseract from "tesseract.js";
+import * as pdfjsLib from "pdfjs-dist";
 import { 
   PackageOpen, Plus, Save, Box, Building2, 
   FileText, CheckCircle2, Loader2, History, Inbox,
@@ -13,7 +15,6 @@ export default function StockInwardUI() {
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
   const [recentEntries, setRecentEntries] = useState([]);
   
-  // ✨ NEW: AI Scanner States
   const [isScanning, setIsScanning] = useState(false);
   const [scanSuccess, setScanSuccess] = useState(false);
   const fileInputRef = useRef(null);
@@ -22,7 +23,7 @@ export default function StockInwardUI() {
     register,
     handleSubmit,
     reset,
-    setValue, // Used to auto-fill form from AI
+    setValue,
     formState: { isSubmitting }
   } = useForm({
     defaultValues: {
@@ -35,46 +36,93 @@ export default function StockInwardUI() {
     }
   });
 
+  // Setup PDF.js for offline parsing
   useEffect(() => {
-    const fetchRecentEntries = async () => {
-      setTimeout(() => {
-        setRecentEntries([]); 
-        setIsLoadingHistory(false);
-      }, 800);
-    };
+    pdfjsLib.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
     fetchRecentEntries();
   }, []);
 
-  const onSubmit = async (data) => {
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    setShowSuccess(true);
-    setScanSuccess(false); // Reset scan badge on submit
-    setTimeout(() => setShowSuccess(false), 3000);
-    reset(); 
+  const fetchRecentEntries = async () => {
+    try {
+      const res = await fetch("/api/inventory");
+      if (res.ok) {
+        const json = await res.json();
+        setRecentEntries(json.data || []);
+      }
+    } catch (error) {
+      console.error("Failed to fetch inventory history", error);
+    } finally {
+      setIsLoadingHistory(false);
+    }
   };
 
-  // ✨ MOCK: Offline AI Processing Handler
-  const handleFileUpload = (e) => {
+  const onSubmit = async (data) => {
+    try {
+      const employeeId = typeof window !== "undefined" ? localStorage.getItem("fineOpsUserId") || "emp-temp-123" : "emp-temp-123";
+      
+      const res = await fetch("/api/inventory", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...data, employeeId })
+      });
+
+      if (!res.ok) throw new Error("Failed to save entry");
+
+      setShowSuccess(true);
+      setScanSuccess(false);
+      reset(); 
+      fetchRecentEntries(); // Refresh the list instantly
+      setTimeout(() => setShowSuccess(false), 3000);
+    } catch (error) {
+      alert("Failed to save inventory entry.");
+    }
+  };
+
+  // 🔴 UNIVERSAL OFFLINE AI SCANNER
+  const handleFileUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
     setIsScanning(true);
     setScanSuccess(false);
+    let imageToScan = file;
 
-    // Simulate sending file to Next.js Backend -> Tesseract (OCR) -> Local Ollama LLM
-    setTimeout(() => {
-      setIsScanning(false);
-      setScanSuccess(true);
-      
-      // AI extracts data and auto-fills the form!
-      setValue("supplierName", "Ramesh Hardware & Tools");
-      setValue("challanNumber", "CH-2026/892");
-      setValue("itemName", "Copper Wire 2mm Roll");
-      setValue("quantity", "15");
-      setValue("unit", "Kilograms (Kg)");
+    try {
+      if (file.type === "application/pdf") {
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        const page = await pdf.getPage(1);
+        const viewport = page.getViewport({ scale: 2.0 }); 
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+        canvas.height = viewport.height;
+        canvas.width = viewport.width;
+        await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+        imageToScan = canvas.toDataURL("image/png");
+      }
+
+      const result = await Tesseract.recognize(imageToScan, 'eng');
+      const text = result.data.text;
+
+      // Extract basic details via Regex
+      const challanMatch = text.match(/(?:Challan|Bill|Inv)[\s\w]*No[\.\s:]*([A-Za-z0-9\-_/]+)/i);
+      if (challanMatch) setValue("challanNumber", challanMatch[1]);
+
+      const quantityMatch = text.match(/(?:Qty|Quantity)[\s:]*([\d]+)/i);
+      if (quantityMatch) setValue("quantity", quantityMatch[1]);
+
+      // Simple heuristic for Supplier Name (first line/caps)
+      const lines = text.split('\n').filter(l => l.trim().length > 3);
+      if (lines.length > 0) setValue("supplierName", lines[0].trim());
+
       setValue("remarks", "Auto-extracted by Offline AI. Please verify.");
-      
-    }, 2500); // 2.5 sec local processing time
+      setScanSuccess(true);
+    } catch (error) {
+      console.error("AI Scan failed:", error);
+      alert("Failed to scan document. Please enter details manually.");
+    } finally {
+      setIsScanning(false);
+    }
   };
 
   return (
@@ -88,10 +136,8 @@ export default function StockInwardUI() {
         </p>
       </div>
 
-      {/* ✨ NEW: OFFLINE AI SCANNER BLOCK */}
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-6 bg-gradient-to-r from-indigo-600 to-blue-700 rounded-3xl p-1 shadow-lg shadow-indigo-200">
         <div className="bg-white rounded-[22px] p-6 sm:p-8 flex flex-col items-center text-center relative overflow-hidden">
-            {/* Background pattern */}
             <Scan className="w-40 h-40 absolute -right-10 -top-10 text-indigo-50 opacity-50 pointer-events-none" />
             
             <div className="w-16 h-16 bg-indigo-50 rounded-full flex items-center justify-center mb-4 relative z-10">
@@ -141,7 +187,6 @@ export default function StockInwardUI() {
         </div>
       </motion.div>
 
-      {/* Entry Form */}
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden mb-8">
         <div className="px-6 py-5 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
           <h2 className="text-sm font-black text-slate-800 flex items-center gap-2">
@@ -243,8 +288,8 @@ export default function StockInwardUI() {
             <motion.button 
               whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
               type="submit" 
-              disabled={isSubmitting}
-              className={`ml-auto px-8 py-3.5 rounded-xl text-sm font-black text-white shadow-lg flex justify-center items-center gap-2 transition-colors ${isSubmitting ? 'bg-indigo-400' : 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-200'}`}
+              disabled={isSubmitting || isScanning}
+              className={`ml-auto px-8 py-3.5 rounded-xl text-sm font-black text-white shadow-lg flex justify-center items-center gap-2 transition-colors ${(isSubmitting || isScanning) ? 'bg-indigo-400' : 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-200'}`}
             >
               {isSubmitting ? <><Loader2 className="w-5 h-5 animate-spin" /> Saving...</> : <><Save className="w-5 h-5" /> Save Entry</>}
             </motion.button>
@@ -252,7 +297,6 @@ export default function StockInwardUI() {
         </form>
       </motion.div>
 
-      {/* Recent Entries Log (Zero State UI) */}
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden flex flex-col min-h-[250px]">
         <div className="px-6 py-5 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
           <h3 className="text-sm font-black text-slate-800 flex items-center gap-2">
@@ -268,7 +312,23 @@ export default function StockInwardUI() {
             </div>
           ) : recentEntries.length > 0 ? (
             <div className="divide-y divide-slate-100">
-              {/* Map over recentEntries array here later */}
+              {recentEntries.map((entry) => (
+                <div key={entry._id} className="p-4 sm:p-6 flex items-center justify-between hover:bg-slate-50 transition-colors">
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 bg-indigo-50 rounded-lg flex items-center justify-center shrink-0">
+                      <Box className="w-5 h-5 text-indigo-600" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-black text-slate-900">{entry.itemName}</h4>
+                      <p className="text-xs font-medium text-slate-500">{entry.supplierName}</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-black text-slate-900">{entry.quantity} {entry.unit.split(' ')[0]}</p>
+                    {entry.challanNumber && <p className="text-[10px] font-bold text-slate-400 uppercase">Challan: {entry.challanNumber}</p>}
+                  </div>
+                </div>
+              ))}
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center py-10 text-center px-4">

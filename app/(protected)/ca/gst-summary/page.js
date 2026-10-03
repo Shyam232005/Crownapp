@@ -4,22 +4,47 @@ import { motion, AnimatePresence } from "framer-motion";
 import { FileText, Download, CheckCircle2, Clock, Loader2, Inbox } from "lucide-react";
 
 export default function GSTSummaryUI() {
-  // ✨ FIX: State setup for API integration (Zero-State by default)
   const [isLoading, setIsLoading] = useState(true);
   const [clientsGST, setClientsGST] = useState([]);
 
-  // ✨ Mock API Call
   useEffect(() => {
     const fetchGSTData = async () => {
-      // Later: const res = await fetch('/api/ca/gst-summary');
-      setTimeout(() => {
-        // True zero-state for a new CA firm or new month
-        setClientsGST([]);
+      try {
+        const res = await fetch('/api/ca/gst-summary');
+        if (res.ok) {
+          const json = await res.json();
+          setClientsGST(json.data || []);
+        }
+      } catch (error) {
+        console.error("Failed to fetch GST data:", error);
+      } finally {
         setIsLoading(false);
-      }, 800);
+      }
     };
     fetchGSTData();
   }, []);
+
+  const handleDownloadMaster = () => {
+    if (clientsGST.length === 0) {
+      alert("No GST data available to download.");
+      return;
+    }
+
+    const headers = ["Client Name", "Est. Turnover", "GSTR-1 Status", "GSTR-3B Status"];
+    const csvRows = [
+      headers.join(","),
+      ...clientsGST.map(c => `"${c.name}","${c.turnover}","${c.gstr1}","${c.gstr3b}"`)
+    ].join("\n");
+
+    const blob = new Blob([csvRows], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", "FineOps_GST_Master_Summary_Sept_2026.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   return (
     <div className="p-4 sm:p-8 max-w-7xl mx-auto w-full pb-24">
@@ -30,7 +55,10 @@ export default function GSTSummaryUI() {
           </motion.h1>
           <p className="text-xs sm:text-sm font-medium text-slate-500 mt-1">Track return filing status for all active clients.</p>
         </div>
-        <button className="bg-indigo-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-md flex items-center gap-2 hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+        <button 
+          onClick={handleDownloadMaster}
+          className="bg-indigo-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-md flex items-center gap-2 hover:bg-indigo-700 transition-colors"
+        >
           <Download className="w-4 h-4" /> Download Master Report
         </button>
       </div>
@@ -80,7 +108,6 @@ export default function GSTSummaryUI() {
                   ))}
                 </AnimatePresence>
               ) : (
-                // ✨ FIX: Zero-State UI for empty GST table
                 <tr>
                   <td colSpan="4" className="p-16 text-center">
                     <div className="flex flex-col items-center justify-center h-full">

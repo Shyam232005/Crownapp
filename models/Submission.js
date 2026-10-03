@@ -1,35 +1,24 @@
 import mongoose from "mongoose";
 
-const SubmissionSchema = new mongoose.Schema({
-  employeeId: { type: String, required: true },
-  type: {
-    type: String,
+const submissionSchema = new mongoose.Schema({
+  type: { 
+    type: String, 
     required: true,
-    enum: ["Vendor Payment", "Customer Received", "General Expense", "Task/Report"]
+    enum: ["General Expense", "Vendor Payment", "Customer Received", "Sales Invoice"]
   },
-  partyName: { type: String },
-  amount: { type: Number, default: 0 },
-  paymentMode: { type: String },
-
-  // NAYE COMPLIANCE FIELDS 🔥
+  amount: { type: Number, required: true },
+  partyName: { type: String, default: "Internal" },
+  paymentMode: { type: String, default: "Cash" },
   billNumber: { type: String },
   billDate: { type: String },
   gstin: { type: String },
-
-  description: { type: String, required: true },
-  status: {
-    type: String,
-    enum: ["Pending", "Approved", "Rejected"],
-    default: "Pending"
-  },
-
-  SalesInvoice: {
-    type: {
-      type: String,
-      required: true,
-      enum: ["Vendor Payment", "Customer Received", "General Expense", "Task/Report", "Sales Invoice"] // Yahan "Sales Invoice" add kiya
-    },
-  },
+  description: { type: String },
+  employeeId: { type: String, required: true },
+  status: { 
+    type: String, 
+    enum: ["Pending", "Approved", "Rejected"], 
+    default: "Pending" 
+  }
 }, { timestamps: true });
 
-export default mongoose.models.Submission || mongoose.model("Submission", SubmissionSchema);
+export default mongoose.models.Submission || mongoose.model("Submission", submissionSchema);

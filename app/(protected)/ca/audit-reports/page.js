@@ -1,36 +1,83 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   ShieldAlert, Search, FileText, CheckCircle2, 
-  AlertTriangle, Clock, ChevronRight, Building2,
+  AlertTriangle, Clock, Upload,
   Loader2, Inbox
 } from "lucide-react";
 
 export default function AuditReportsUI() {
   const [search, setSearch] = useState("");
-  
-  // ✨ FIX: State setup for API integration (Zero-State by default)
   const [isLoading, setIsLoading] = useState(true);
+  const [isUploading, setIsUploading] = useState(false);
   const [audits, setAudits] = useState([]);
+  const fileInputRef = useRef(null);
 
-  // ✨ Mock API Call
   useEffect(() => {
-    const fetchAudits = async () => {
-      // Later: const res = await fetch('/api/ca/audits');
-      setTimeout(() => {
-        // True zero-state for a new CA firm
-        setAudits([]); 
-        setIsLoading(false);
-      }, 800);
-    };
     fetchAudits();
   }, []);
 
+  const fetchAudits = async () => {
+    setIsLoading(true);
+    try {
+      const res = await fetch("/api/ca/audits");
+      if (res.ok) {
+        const json = await res.json();
+        setAudits(json.data || []);
+      }
+    } catch (error) {
+      console.error("Failed to fetch audits", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleReportUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setIsUploading(true);
+
+    try {
+      // Convert file to Base64 for serverless storage
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = async () => {
+        const base64Data = reader.result;
+        
+        const payload = {
+          clientId: "owner-temp-123", // In production, select from a client dropdown
+          clientName: "FineOps Technologies",
+          period: new Date().toLocaleString('default', { month: 'long', year: 'numeric' }),
+          reportType: file.type.includes("pdf") ? "Audit Report" : "Financial Chart",
+          fileData: base64Data,
+          status: "Clean (Verified)",
+          issuesCount: 0
+        };
+
+        const res = await fetch("/api/ca/audits", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+
+        if (res.ok) {
+          fetchAudits(); // Refresh list to show new upload
+        } else {
+          alert("Failed to upload report.");
+        }
+        setIsUploading(false);
+      };
+    } catch (error) {
+      console.error("Upload error:", error);
+      setIsUploading(false);
+    }
+  };
+
   const filteredAudits = audits.filter(audit => 
-    audit.client.toLowerCase().includes(search.toLowerCase()) || 
-    audit.period.toLowerCase().includes(search.toLowerCase()) ||
-    audit.staff.toLowerCase().includes(search.toLowerCase())
+    audit.clientName?.toLowerCase().includes(search.toLowerCase()) || 
+    audit.period?.toLowerCase().includes(search.toLowerCase())
   );
 
   return (
@@ -41,18 +88,37 @@ export default function AuditReportsUI() {
             <ShieldAlert className="w-6 h-6 text-indigo-600" /> Audit & Scrutiny Reports
           </motion.h1>
           <p className="text-xs sm:text-sm font-medium text-slate-500 mt-1">
-            Review voucher scrutinies, identify discrepancies, and finalize client audits.
+            Review voucher scrutinies, finalize client audits, and upload financial charts.
           </p>
         </div>
-        <div className="relative w-full sm:w-72">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+        
+        <div className="flex items-center gap-3">
+          <div className="relative w-full sm:w-64">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <input 
+              type="text" 
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search reports..." 
+              className="w-full pl-9 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-indigo-600 shadow-sm transition-all" 
+            />
+          </div>
+          
           <input 
-            type="text" 
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by client or period..." 
-            className="w-full pl-9 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-indigo-600 shadow-sm transition-all" 
+            type="file" 
+            accept="image/*,.pdf" 
+            className="hidden" 
+            ref={fileInputRef} 
+            onChange={handleReportUpload} 
           />
+          <button 
+            onClick={() => fileInputRef.current.click()}
+            disabled={isUploading}
+            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-md transition-colors disabled:opacity-50 shrink-0"
+          >
+            {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+            {isUploading ? "Uploading..." : "Upload Final Report"}
+          </button>
         </div>
       </div>
 
@@ -70,14 +136,13 @@ export default function AuditReportsUI() {
           ) : filteredAudits.length > 0 ? (
             <div className="divide-y divide-slate-100">
               <AnimatePresence>
-                {filteredAudits.map((audit, idx) => (
+                {filteredAudits.map((audit) => (
                   <motion.div 
                     layout
                     initial={{ opacity: 0, y: 10 }} 
                     animate={{ opacity: 1, y: 0 }} 
                     exit={{ opacity: 0 }}
-                    transition={{ delay: idx * 0.1 }} 
-                    key={audit.id} 
+                    key={audit._id} 
                     className="p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between hover:bg-slate-50 transition-colors gap-4"
                   >
                     <div className="flex items-start sm:items-center gap-4">
@@ -91,13 +156,13 @@ export default function AuditReportsUI() {
                       </div>
                       
                       <div>
-                        <h4 className="text-base font-black text-slate-900">{audit.client}</h4>
+                        <h4 className="text-base font-black text-slate-900">{audit.clientName}</h4>
                         <div className="flex items-center gap-2 mt-1">
                           <span className="text-[10px] font-bold bg-slate-100 text-slate-500 px-2 py-0.5 rounded">
                             {audit.period}
                           </span>
                           <span className="text-xs font-medium text-slate-400">
-                            Assigned to {audit.staff}
+                            {audit.reportType}
                           </span>
                         </div>
                       </div>
@@ -110,13 +175,20 @@ export default function AuditReportsUI() {
                           audit.status === 'Clean (Verified)' ? 'bg-emerald-100 text-emerald-700' : 
                           audit.status === 'Issues Found' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'
                         }`}>
-                          {audit.status} 
-                          {audit.issues > 0 && ` (${audit.issues})`}
+                          {audit.status}
                         </span>
                       </div>
                       
-                      <button className="flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white rounded-xl text-xs font-bold transition-colors">
-                        <FileText className="w-4 h-4" /> View Report
+                      <button 
+                        onClick={() => {
+                          const link = document.createElement("a");
+                          link.href = audit.fileData;
+                          link.download = `${audit.clientName}_${audit.period}_Report`;
+                          link.click();
+                        }}
+                        className="flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white rounded-xl text-xs font-bold transition-colors"
+                      >
+                        <FileText className="w-4 h-4" /> Download
                       </button>
                     </div>
                   </motion.div>
@@ -124,7 +196,6 @@ export default function AuditReportsUI() {
               </AnimatePresence>
             </div>
           ) : (
-            // ✨ FIX: Zero-State UI for empty audits list
             <div className="flex-1 flex flex-col items-center justify-center py-20 text-center px-4">
               <div className="w-16 h-16 bg-slate-50 border border-slate-100 rounded-full flex items-center justify-center mb-4">
                 <Inbox className="w-8 h-8 text-slate-400" />
