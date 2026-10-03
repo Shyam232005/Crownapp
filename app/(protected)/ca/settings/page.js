@@ -1,11 +1,70 @@
 "use client";
-import { motion } from "framer-motion";
+import React, { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { useForm } from "react-hook-form";
 import { 
   Settings, Building2, User, Phone, 
-  Save, ShieldCheck, FileText, MapPin 
+  Save, ShieldCheck, FileText, MapPin,
+  CheckCircle2, Loader2 
 } from "lucide-react";
 
 export default function FirmSettingsUI() {
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
+
+  const { register, handleSubmit, reset } = useForm({
+    defaultValues: {
+      firmName: "",
+      frn: "",
+      gstin: "",
+      principalCa: "",
+      address: "",
+      supportPhone: "",
+      exportFormat: "Tally XML"
+    }
+  });
+
+  // ✨ Mock API Call: Fetch firm settings
+  useEffect(() => {
+    const fetchSettings = async () => {
+      // Later: const res = await fetch('/api/ca/settings');
+      setTimeout(() => {
+        // True zero-state load - could be empty for a new account
+        reset({
+          firmName: "FineOps & Associates",
+          frn: "123456W",
+          gstin: "24AAACC1234F1Z9",
+          principalCa: "CA Ramesh Patel",
+          address: "405, Digital Valley, Surat, Gujarat 395006",
+          supportPhone: "+91 9876543210",
+          exportFormat: "Tally XML"
+        });
+        setIsLoading(false);
+      }, 800);
+    };
+    fetchSettings();
+  }, [reset]);
+
+  const onSubmit = async (data) => {
+    setIsSaving(true);
+    // Later: await fetch('/api/ca/settings', { method: 'PUT', body: JSON.stringify(data) });
+    await new Promise((resolve) => setTimeout(resolve, 1500)); // Simulate save
+    
+    setIsSaving(false);
+    setShowSuccess(true);
+    setTimeout(() => setShowSuccess(false), 3000);
+  };
+
+  if (isLoading) {
+    return (
+      <div className="p-8 max-w-4xl mx-auto w-full h-[60vh] flex flex-col items-center justify-center text-slate-400">
+        <Loader2 className="w-8 h-8 animate-spin mb-3 text-indigo-600" />
+        <p className="text-sm font-bold">Loading firm profile...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="p-4 sm:p-8 max-w-4xl mx-auto w-full pb-24">
       <div className="mb-8">
@@ -17,7 +76,7 @@ export default function FirmSettingsUI() {
         </p>
       </div>
 
-      <form className="space-y-6">
+      <form className="space-y-6" onSubmit={handleSubmit(onSubmit)}>
         {/* Firm Profile Section */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
           <div className="px-6 py-5 border-b border-slate-100 bg-slate-50 flex items-center gap-2">
@@ -31,14 +90,22 @@ export default function FirmSettingsUI() {
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Firm Name</label>
                 <div className="relative">
                   <Building2 className="w-5 h-5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                  <input type="text" defaultValue="FineOps & Associates" className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-600 transition-all" />
+                  <input 
+                    type="text" 
+                    {...register("firmName", { required: true })}
+                    className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-600 transition-all" 
+                  />
                 </div>
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Firm Registration No. (FRN)</label>
                 <div className="relative">
                   <ShieldCheck className="w-5 h-5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                  <input type="text" defaultValue="123456W" className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-600 transition-all uppercase" />
+                  <input 
+                    type="text" 
+                    {...register("frn")}
+                    className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-600 transition-all uppercase" 
+                  />
                 </div>
               </div>
             </div>
@@ -48,14 +115,22 @@ export default function FirmSettingsUI() {
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Firm GSTIN</label>
                 <div className="relative">
                   <FileText className="w-5 h-5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                  <input type="text" defaultValue="24AAACC1234F1Z9" className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-600 transition-all uppercase" />
+                  <input 
+                    type="text" 
+                    {...register("gstin")}
+                    className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-600 transition-all uppercase" 
+                  />
                 </div>
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Principal CA Name</label>
                 <div className="relative">
                   <User className="w-5 h-5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                  <input type="text" defaultValue="CA Ramesh Patel" className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-600 transition-all" />
+                  <input 
+                    type="text" 
+                    {...register("principalCa", { required: true })}
+                    className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-600 transition-all" 
+                  />
                 </div>
               </div>
             </div>
@@ -64,7 +139,11 @@ export default function FirmSettingsUI() {
               <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Office Address</label>
               <div className="relative">
                 <MapPin className="w-5 h-5 text-slate-400 absolute left-3 top-4" />
-                <textarea rows="2" defaultValue="405, Digital Valley, Surat, Gujarat 395006" className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-600 transition-all resize-none"></textarea>
+                <textarea 
+                  rows="2" 
+                  {...register("address")}
+                  className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-600 transition-all resize-none"
+                ></textarea>
               </div>
             </div>
           </div>
@@ -81,28 +160,45 @@ export default function FirmSettingsUI() {
               <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Support Phone Number</label>
               <div className="relative">
                 <Phone className="w-5 h-5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                <input type="tel" defaultValue="+91 9876543210" className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-600 transition-all" />
+                <input 
+                  type="tel" 
+                  {...register("supportPhone")}
+                  className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-600 transition-all" 
+                />
               </div>
             </div>
             <div>
               <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Default Export Format</label>
-              <select className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-600 transition-all">
-                <option>Tally XML</option>
-                <option>Excel (CSV)</option>
-                <option>Zoho Books Format</option>
+              <select 
+                {...register("exportFormat")}
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-600 transition-all"
+              >
+                <option value="Tally XML">Tally XML</option>
+                <option value="Excel (CSV)">Excel (CSV)</option>
+                <option value="Zoho Books Format">Zoho Books Format</option>
               </select>
             </div>
           </div>
         </motion.div>
 
         {/* Action Button */}
-        <div className="flex justify-end pt-2">
+        <div className="flex flex-col sm:flex-row items-center justify-between pt-2 gap-4">
+          <AnimatePresence>
+            {showSuccess && (
+              <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="flex items-center gap-2 text-emerald-600 font-bold text-sm">
+                <CheckCircle2 className="w-5 h-5" /> Settings Saved!
+              </motion.div>
+            )}
+          </AnimatePresence>
           <motion.button 
             whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-            type="button" 
-            className="bg-slate-900 w-full md:w-auto text-white px-8 py-3.5 rounded-xl text-sm font-black shadow-lg shadow-slate-200 hover:bg-slate-800 transition-colors flex justify-center items-center gap-2"
+            type="submit" 
+            disabled={isSaving}
+            className={`w-full sm:w-auto text-white px-8 py-3.5 rounded-xl text-sm font-black shadow-lg transition-colors flex justify-center items-center gap-2 ml-auto ${
+              isSaving ? 'bg-slate-700' : 'bg-slate-900 hover:bg-slate-800 shadow-slate-200'
+            }`}
           >
-            <Save className="w-5 h-5" /> Save Firm Profile
+            {isSaving ? <><Loader2 className="w-5 h-5 animate-spin" /> Saving...</> : <><Save className="w-5 h-5" /> Save Firm Profile</>}
           </motion.button>
         </div>
       </form>

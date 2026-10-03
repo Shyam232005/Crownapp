@@ -1,25 +1,34 @@
 "use client";
-import { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   WifiOff, Wifi, RefreshCw, AlertCircle, 
-  FileText, Clock, Receipt, CheckCircle2 
+  FileText, Clock, Receipt, CheckCircle2, Loader2 
 } from "lucide-react";
 
 export default function OfflineQueueUI() {
   const [isOnline, setIsOnline] = useState(false); // Toggle for UI testing
   const [isSyncing, setIsSyncing] = useState(false);
   
-  // Dummy Offline Data
-  const [offlineItems, setOfflineItems] = useState([
-    { id: 1, type: "Expense", desc: "Petrol Bill", amount: 500, time: "10:15 AM", icon: Receipt },
-    { id: 2, type: "Attendance", desc: "Punch In", amount: 0, time: "09:00 AM", icon: Clock },
-    { id: 3, type: "Khata", desc: "Sharma Traders - Payment", amount: 2500, time: "11:30 AM", icon: FileText }
-  ]);
+  // ✨ FIX: State setup for true zero-state loading
+  const [isLoading, setIsLoading] = useState(true);
+  const [offlineItems, setOfflineItems] = useState([]);
+
+  // ✨ Mock Initialization (Fetching from LocalStorage/IndexedDB in production)
+  useEffect(() => {
+    const loadOfflineQueue = async () => {
+      setTimeout(() => {
+        // True zero-state: Queue is empty on fresh load
+        setOfflineItems([]);
+        setIsLoading(false);
+      }, 800);
+    };
+    loadOfflineQueue();
+  }, []);
 
   const handleSync = () => {
     setIsSyncing(true);
-    // Simulate API sync delay
+    // Simulate API sync delay pushing local items to backend
     setTimeout(() => {
       setOfflineItems([]);
       setIsSyncing(false);
@@ -51,13 +60,13 @@ export default function OfflineQueueUI() {
         </button>
       </div>
 
-      <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden min-h-[300px] flex flex-col">
         {/* Top Status Bar */}
         <div className="px-6 py-5 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <AlertCircle className="w-5 h-5 text-amber-500" />
             <h2 className="text-sm font-black text-slate-800">
-              {offlineItems.length > 0 ? `${offlineItems.length} items pending sync` : "All items synced"}
+              {isLoading ? "Checking queue..." : offlineItems.length > 0 ? `${offlineItems.length} items pending sync` : "All items synced"}
             </h2>
           </div>
           
@@ -78,10 +87,15 @@ export default function OfflineQueueUI() {
         </div>
 
         {/* Queue List */}
-        <div className="p-2 sm:p-4">
-          {offlineItems.length === 0 ? (
+        <div className="flex-1 p-2 sm:p-4 flex flex-col justify-center">
+          {isLoading ? (
+            <div className="flex flex-col items-center justify-center py-10 text-slate-400">
+              <Loader2 className="w-8 h-8 animate-spin mb-3 text-indigo-600" />
+              <p className="text-sm font-bold">Reading local storage...</p>
+            </div>
+          ) : offlineItems.length === 0 ? (
             <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="flex flex-col items-center justify-center text-center p-8 sm:p-12">
-              <div className="w-16 h-16 bg-emerald-50 rounded-2xl flex items-center justify-center mb-4">
+              <div className="w-16 h-16 bg-emerald-50 border border-emerald-100 rounded-full flex items-center justify-center mb-4">
                 <CheckCircle2 className="w-8 h-8 text-emerald-500" />
               </div>
               <h3 className="text-lg font-black text-slate-800 mb-2">Everything is Up to Date</h3>

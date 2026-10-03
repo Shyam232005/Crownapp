@@ -1,20 +1,32 @@
 "use client";
-import { useState } from "react";
-import { motion } from "framer-motion";
-import { ClipboardCheck, Search, AlertCircle, Box } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { 
+  ClipboardCheck, Search, AlertCircle, Box, 
+  Loader2, Inbox 
+} from "lucide-react";
 
 export default function StockCheckUI() {
   const [searchQuery, setSearchQuery] = useState("");
+  
+  // ✨ FIX: State setup for API integration (Zero-State by default)
+  const [isLoading, setIsLoading] = useState(true);
+  const [stockItems, setStockItems] = useState([]);
 
-  // Dummy inventory data
-  const inventory = [
-    { id: 1, name: "Copper Wire 2mm", qty: 450, unit: "Meters", status: "In Stock" },
-    { id: 2, name: "LED Bulbs 15W", qty: 12, unit: "Pcs", status: "Low Stock" },
-    { id: 3, name: "Switchboard Panels", qty: 85, unit: "Boxes", status: "In Stock" },
-    { id: 4, name: "Insulation Tape", qty: 4, unit: "Rolls", status: "Critical" },
-  ];
+  // ✨ Mock API Call
+  useEffect(() => {
+    const fetchStock = async () => {
+      // Later: const res = await fetch('/api/employee/inventory');
+      setTimeout(() => {
+        // True zero-state for a fresh godown/inventory
+        setStockItems([]); 
+        setIsLoading(false);
+      }, 800);
+    };
+    fetchStock();
+  }, []);
 
-  const filteredStock = inventory.filter(item => 
+  const filteredStock = stockItems.filter(item => 
     item.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -42,9 +54,9 @@ export default function StockCheckUI() {
         </div>
       </div>
 
-      <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse min-w-[600px]">
+      <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden flex flex-col min-h-[400px]">
+        <div className="overflow-x-auto flex-1 flex flex-col">
+          <table className="w-full text-left border-collapse min-w-[600px] flex-1">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-100">
                 <th className="p-4 sm:p-5 text-xs font-bold text-slate-400 uppercase tracking-wider">Item Name / SKU</th>
@@ -53,33 +65,65 @@ export default function StockCheckUI() {
                 <th className="p-4 sm:p-5 text-xs font-bold text-slate-400 uppercase tracking-wider text-right">Status</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-50">
-              {filteredStock.map((item) => (
-                <tr key={item.id} className="hover:bg-slate-50/50 transition-colors">
-                  <td className="p-4 sm:p-5">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center shrink-0">
-                        <Box className="w-4 h-4 text-slate-500" />
-                      </div>
-                      <p className="font-black text-slate-900 text-sm">{item.name}</p>
+            <tbody className="divide-y divide-slate-50 h-full">
+              {isLoading ? (
+                <tr>
+                  <td colSpan="4" className="p-16 text-center">
+                    <div className="flex flex-col items-center justify-center text-slate-400 h-full">
+                      <Loader2 className="w-8 h-8 animate-spin mb-3 text-indigo-600" />
+                      <p className="text-sm font-bold">Loading inventory data...</p>
                     </div>
                   </td>
-                  <td className="p-4 sm:p-5 text-right">
-                    <span className="text-base font-black text-slate-900">{item.qty}</span>
-                  </td>
-                  <td className="p-4 sm:p-5 text-sm font-bold text-slate-500">{item.unit}</td>
-                  <td className="p-4 sm:p-5 text-right">
-                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider ${
-                      item.status === 'In Stock' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' :
-                      item.status === 'Low Stock' ? 'bg-amber-50 text-amber-600 border border-amber-100' :
-                      'bg-rose-50 text-rose-600 border border-rose-100'
-                    }`}>
-                      {item.status !== 'In Stock' && <AlertCircle className="w-3 h-3" />}
-                      {item.status}
-                    </span>
+                </tr>
+              ) : filteredStock.length > 0 ? (
+                <AnimatePresence>
+                  {filteredStock.map((item) => (
+                    <motion.tr layout initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} key={item.id} className="hover:bg-slate-50/50 transition-colors">
+                      <td className="p-4 sm:p-5">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center shrink-0">
+                            <Box className="w-4 h-4 text-slate-500" />
+                          </div>
+                          <p className="font-black text-slate-900 text-sm">{item.name}</p>
+                        </div>
+                      </td>
+                      <td className="p-4 sm:p-5 text-right">
+                        <span className="text-base font-black text-slate-900">{item.qty}</span>
+                      </td>
+                      <td className="p-4 sm:p-5 text-sm font-bold text-slate-500">{item.unit}</td>
+                      <td className="p-4 sm:p-5 text-right">
+                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider ${
+                          item.status === 'In Stock' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' :
+                          item.status === 'Low Stock' ? 'bg-amber-50 text-amber-600 border border-amber-100' :
+                          'bg-rose-50 text-rose-600 border border-rose-100'
+                        }`}>
+                          {item.status !== 'In Stock' && <AlertCircle className="w-3 h-3" />}
+                          {item.status}
+                        </span>
+                      </td>
+                    </motion.tr>
+                  ))}
+                </AnimatePresence>
+              ) : (
+                // ✨ FIX: Zero-State UI for empty inventory or no search results
+                <tr>
+                  <td colSpan="4" className="p-16 text-center">
+                    <div className="flex flex-col items-center justify-center h-full">
+                      <div className="w-16 h-16 bg-slate-50 border border-slate-100 rounded-full flex items-center justify-center mb-4">
+                        <Inbox className="w-8 h-8 text-slate-400" />
+                      </div>
+                      <h4 className="text-base font-black text-slate-800 mb-1">
+                        {searchQuery ? "No Items Found" : "Inventory is Empty"}
+                      </h4>
+                      <p className="text-sm font-medium text-slate-500 max-w-sm">
+                        {searchQuery 
+                          ? `No stock items match your search for "${searchQuery}".` 
+                          : "No stock has been added to the inventory yet. Inward stock entries will appear here."}
+                      </p>
+                    </div>
                   </td>
                 </tr>
-              ))}
+              )}
             </tbody>
           </table>
         </div>

@@ -1,22 +1,79 @@
 "use client";
-import { useState } from "react";
-import { motion } from "framer-motion";
+import React, { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { useForm } from "react-hook-form";
 import { 
   Settings, Building, User, Phone, 
-  KeyRound, Save, CreditCard, Copy, CheckCircle2 
+  KeyRound, Save, CreditCard, Copy, 
+  CheckCircle2, Loader2 
 } from "lucide-react";
 
 export default function SettingsUI() {
   const [isCopied, setIsCopied] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
   
-  // Yeh dummy code hai, backend se aayega
-  const inviteCode = "FO8472"; 
+  // Yeh backend se fetch hoga
+  const [inviteCode, setInviteCode] = useState(""); 
+
+  const { register, handleSubmit, reset } = useForm({
+    defaultValues: {
+      businessName: "",
+      gstin: "",
+      address: "",
+      fullName: "",
+      phone: "",
+      upiId: "",
+      bankAccount: ""
+    }
+  });
+
+  // ✨ Mock API Call: Fetch current settings
+  useEffect(() => {
+    const fetchSettings = async () => {
+      // Later: const res = await fetch('/api/owner/settings');
+      setTimeout(() => {
+        setInviteCode("FO8472");
+        reset({
+          businessName: "FineOps Technologies",
+          gstin: "24AAACC1206D1Z0",
+          address: "104, Digital Valley, Surat, Gujarat",
+          fullName: "Shyam Sangani", // Auto-filled with context context
+          phone: "+91 9876543210",
+          upiId: "fineops@ybl",
+          bankAccount: "1234567890"
+        });
+        setIsLoading(false);
+      }, 800);
+    };
+    fetchSettings();
+  }, [reset]);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(inviteCode);
     setIsCopied(true);
     setTimeout(() => setIsCopied(false), 2000);
   };
+
+  const onSubmit = async (data) => {
+    setIsSaving(true);
+    // Later: await fetch('/api/owner/settings', { method: 'PUT', body: JSON.stringify(data) });
+    await new Promise((resolve) => setTimeout(resolve, 1500)); // Simulate save
+    
+    setIsSaving(false);
+    setShowSuccess(true);
+    setTimeout(() => setShowSuccess(false), 3000);
+  };
+
+  if (isLoading) {
+    return (
+      <div className="p-8 max-w-4xl mx-auto w-full h-[60vh] flex flex-col items-center justify-center text-slate-400">
+        <Loader2 className="w-8 h-8 animate-spin mb-3 text-indigo-600" />
+        <p className="text-sm font-bold">Loading your preferences...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 sm:p-8 max-w-4xl mx-auto w-full pb-24">
@@ -49,7 +106,7 @@ export default function SettingsUI() {
         </div>
       </motion.div>
 
-      <form className="space-y-6">
+      <form className="space-y-6" onSubmit={handleSubmit(onSubmit)}>
         {/* Business Profile */}
         <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
           <div className="px-6 py-5 border-b border-slate-100 bg-slate-50">
@@ -61,17 +118,31 @@ export default function SettingsUI() {
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Business Name</label>
                 <div className="relative">
                   <Building className="w-5 h-5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                  <input type="text" defaultValue="FineOps Technologies" className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-600 transition-all" />
+                  <input 
+                    type="text" 
+                    {...register("businessName", { required: true })}
+                    className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-600 transition-all" 
+                  />
                 </div>
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">GSTIN</label>
-                <input type="text" placeholder="e.g. 22AAAAA0000A1Z5" defaultValue="24AAACC1206D1Z0" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-600 transition-all uppercase" />
+                <input 
+                  type="text" 
+                  placeholder="e.g. 22AAAAA0000A1Z5" 
+                  {...register("gstin")}
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-600 transition-all uppercase" 
+                />
               </div>
             </div>
             <div>
               <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Registered Address</label>
-              <textarea rows="2" placeholder="Complete business address..." defaultValue="104, Digital Valley, Surat, Gujarat" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-600 transition-all resize-none"></textarea>
+              <textarea 
+                rows="2" 
+                placeholder="Complete business address..." 
+                {...register("address")}
+                className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-600 transition-all resize-none"
+              ></textarea>
             </div>
           </div>
         </div>
@@ -86,14 +157,22 @@ export default function SettingsUI() {
               <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Full Name</label>
               <div className="relative">
                 <User className="w-5 h-5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                <input type="text" defaultValue="Shyam Sangani" className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-600 transition-all" />
+                <input 
+                  type="text" 
+                  {...register("fullName", { required: true })}
+                  className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-600 transition-all" 
+                />
               </div>
             </div>
             <div>
               <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Phone Number</label>
               <div className="relative">
                 <Phone className="w-5 h-5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                <input type="tel" defaultValue="+91 9876543210" className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-600 transition-all" />
+                <input 
+                  type="tel" 
+                  {...register("phone", { required: true })}
+                  className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-600 transition-all" 
+                />
               </div>
             </div>
           </div>
@@ -109,24 +188,43 @@ export default function SettingsUI() {
               <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Default UPI ID</label>
               <div className="relative">
                 <CreditCard className="w-5 h-5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                <input type="text" defaultValue="fineops@ybl" className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-600 transition-all" />
+                <input 
+                  type="text" 
+                  {...register("upiId")}
+                  className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-600 transition-all" 
+                />
               </div>
             </div>
             <div>
               <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Bank Account Number</label>
-              <input type="password" placeholder="e.g. 1234567890" defaultValue="1234567890" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-600 transition-all" />
+              <input 
+                type="password" 
+                placeholder="e.g. 1234567890" 
+                {...register("bankAccount")}
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-600 transition-all" 
+              />
             </div>
           </div>
         </div>
 
         {/* Action Button */}
-        <div className="flex justify-end pt-2">
+        <div className="flex flex-col sm:flex-row items-center justify-between pt-2 gap-4">
+          <AnimatePresence>
+            {showSuccess && (
+              <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="flex items-center gap-2 text-emerald-600 font-bold text-sm">
+                <CheckCircle2 className="w-5 h-5" /> Settings Saved!
+              </motion.div>
+            )}
+          </AnimatePresence>
           <motion.button 
             whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-            type="button" 
-            className="bg-indigo-600 w-full md:w-auto text-white px-8 py-3.5 rounded-xl text-sm font-black shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-colors flex justify-center items-center gap-2"
+            type="submit" 
+            disabled={isSaving}
+            className={`w-full sm:w-auto text-white px-8 py-3.5 rounded-xl text-sm font-black shadow-lg transition-colors flex justify-center items-center gap-2 ml-auto ${
+              isSaving ? 'bg-indigo-400' : 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-200'
+            }`}
           >
-            <Save className="w-5 h-5" /> Save Changes
+            {isSaving ? <><Loader2 className="w-5 h-5 animate-spin" /> Saving...</> : <><Save className="w-5 h-5" /> Save Changes</>}
           </motion.button>
         </div>
       </form>

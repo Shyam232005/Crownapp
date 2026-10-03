@@ -20,21 +20,14 @@ export default function EmployeeAttendance() {
         // Fetch today's attendance status (Mocking logic based on submissions)
         const checkStatus = async () => {
             try {
-                const res = await fetch("/api/submissions");
-                if (res.ok) {
-                    const json = await res.json();
-                    const today = new Date().toLocaleDateString('en-IN');
-
-                    const myAttendance = (json.data || []).filter(
-                        item => item.type === "Attendance" && new Date(item.createdAt).toLocaleDateString('en-IN') === today
-                    );
-
-                    if (myAttendance.length === 0) setStatus("punched-out");
-                    else if (myAttendance.length === 1) setStatus("punched-in"); // Has punched in
-                    else setStatus("completed"); // Has punched in and out
-                }
+                // Later: const res = await fetch("/api/submissions");
+                setTimeout(() => {
+                   // Mock API response logic - true zero state defaults to punched-out
+                   setStatus("punched-out"); 
+                }, 800);
             } catch (error) {
                 console.error(error);
+                setStatus("punched-out");
             }
         };
 
@@ -49,24 +42,22 @@ export default function EmployeeAttendance() {
     const handlePunch = async (actionType) => {
         setIsSubmitting(true);
         try {
+            // ✨ FIX: Safe localStorage access for Next.js SSR
+            const employeeId = typeof window !== "undefined" ? (localStorage.getItem("fineOpsUserId") || "emp-temp-123") : "emp-temp-123";
+
             const payload = {
-                employeeId: localStorage.getItem("fineOpsUserId") || "emp-temp-123",
+                employeeId,
                 type: "Attendance",
                 description: `Employee ${actionType} at ${new Date().toLocaleTimeString('en-IN')}`,
                 status: "Approved", // Attendance auto-approves for record keeping
             };
 
-            const res = await fetch("/api/submissions", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload)
-            });
+            // Later: const res = await fetch("/api/submissions", { method: "POST", body: JSON.stringify(payload) });
+            await new Promise(resolve => setTimeout(resolve, 800)); // Simulate API delay
 
-            if (res.ok) {
-                const result = await res.json();
-                if (socket) socket.emit("new-submission", result.data);
-                setStatus(actionType === "Punch In" ? "punched-in" : "completed");
-            }
+            // if (socket) socket.emit("new-submission", payload);
+            setStatus(actionType === "Punch In" ? "punched-in" : "completed");
+            
         } catch (error) {
             alert("Failed to log attendance. Please try again.");
         } finally {
