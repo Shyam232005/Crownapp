@@ -16,34 +16,33 @@ export default function PurchasesAndVendors() {
   useEffect(() => {
     const fetchPurchases = async () => {
       try {
-        const res = await fetch("/api/submissions");
+        // Updated to call our new secure Transactions API
+        const res = await fetch("/api/owner/transactions?type=PURCHASE");
         if (res.ok) {
           const json = await res.json();
           
-          // Sirf Vendor Payments aur Approved entries uthao
-          const purchaseData = (json.data || []).filter(
-            item => item.type === "Vendor Payment" && item.status === "Approved"
-          );
+          const purchaseData = json.data || [];
           setPurchases(purchaseData);
 
           // Auto-generate Vendor Directory based on bills
           const vendorMap = {};
           purchaseData.forEach((bill) => {
-            if (bill.partyName) {
-              const name = bill.partyName.trim();
+            const vendorName = bill.metadata?.vendorName;
+            if (vendorName) {
+              const name = vendorName.trim();
               if (!vendorMap[name]) {
                 vendorMap[name] = { 
                   name, 
-                  gstin: bill.gstin || "Not Provided", 
+                  gstin: bill.metadata?.gstin || "Not Provided", 
                   totalVolume: 0, 
                   billCount: 0 
                 };
               }
-              vendorMap[name].totalVolume += (bill.amount || 0);
+              vendorMap[name].totalVolume += (bill.totalAmount || 0);
               vendorMap[name].billCount += 1;
-              // Update GSTIN if found in a newer bill
-              if (bill.gstin && vendorMap[name].gstin === "Not Provided") {
-                vendorMap[name].gstin = bill.gstin;
+              
+              if (bill.metadata?.gstin && vendorMap[name].gstin === "Not Provided") {
+                vendorMap[name].gstin = bill.metadata.gstin;
               }
             }
           });
@@ -61,17 +60,15 @@ export default function PurchasesAndVendors() {
     fetchPurchases();
   }, []);
 
-  // Stats for Day 0 mindset
   const stats = {
-    totalValue: purchases.reduce((acc, curr) => acc + (curr.amount || 0), 0),
+    totalValue: purchases.reduce((acc, curr) => acc + (curr.totalAmount || 0), 0),
     totalBills: purchases.length,
     activeVendors: vendors.length
   };
 
-  // Search functionality
   const filteredPurchases = purchases.filter(p => 
-    (p.partyName || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (p.billNumber || "").toLowerCase().includes(searchQuery.toLowerCase())
+    (p.metadata?.vendorName || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (p.metadata?.invoiceNumber || "").toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const filteredVendors = vendors.filter(v => 
@@ -170,7 +167,6 @@ export default function PurchasesAndVendors() {
             <p className="text-sm font-bold">Loading records...</p>
           </div>
         ) : activeTab === "Bills" ? (
-          // --- BILLS TAB ---
           filteredPurchases.length === 0 ? (
             <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="w-full bg-white rounded-2xl border border-slate-100 shadow-sm h-64 flex flex-col items-center justify-center text-center p-8">
               <div className="w-16 h-16 bg-indigo-50 rounded-2xl flex items-center justify-center mb-4">
@@ -194,15 +190,22 @@ export default function PurchasesAndVendors() {
                       <Receipt className="w-6 h-6 text-indigo-600" />
                     </div>
                     <div>
-                      <h4 className="text-sm sm:text-base font-black text-slate-900 mb-1">{item.partyName || "Unknown Vendor"}</h4>
+                      <h4 className="text-sm sm:text-base font-black text-slate-900 mb-1">{item.metadata?.vendorName || "Unknown Vendor"}</h4>
                       <div className="flex flex-wrap items-center gap-2">
-                        {item.billNumber && (
+                        {item.metadata?.invoiceNumber && (
                           <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
-                            Bill: {item.billNumber}
+                            Bill: {item.metadata.invoiceNumber}
                           </span>
                         )}
                         <span className="text-[10px] font-bold text-slate-400">
-                          {item.billDate || new Date(item.createdAt).toLocaleDateString('en-IN')}
+                          {new Date(item.transactionDate || item.createdAt).toLocaleDateString('en-IN')}
+                        </span>
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
+                          item.status === 'APPROVED' || item.status === 'EXPORTED' 
+                            ? 'bg-emerald-100 text-emerald-700' 
+                            : 'bg-orange-100 text-orange-700'
+                        }`}>
+                          {item.status.replace(/_/g, ' ')}
                         </span>
                       </div>
                     </div>
@@ -210,9 +213,9 @@ export default function PurchasesAndVendors() {
 
                   <div className="flex items-center justify-between md:justify-end gap-6 border-t md:border-0 border-slate-100 pt-4 md:pt-0">
                     <div className="text-left md:text-right">
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Paid Via {item.paymentMode || 'N/A'}</p>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Paid Via {item.metadata?.paymentMode || 'Bank/Cash'}</p>
                       <p className="text-lg font-black text-slate-900 flex items-center">
-                        <IndianRupee className="w-4 h-4 mr-0.5" /> {item.amount.toLocaleString("en-IN")}
+                        <IndianRupee className="w-4 h-4 mr-0.5" /> {item.totalAmount?.toLocaleString("en-IN")}
                       </p>
                     </div>
                     <button className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-50 text-slate-400 hover:bg-slate-900 hover:text-white transition-colors">
@@ -224,7 +227,6 @@ export default function PurchasesAndVendors() {
             </AnimatePresence>
           )
         ) : (
-          // --- VENDORS TAB ---
           filteredVendors.length === 0 ? (
             <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="w-full bg-white rounded-2xl border border-slate-100 shadow-sm h-64 flex flex-col items-center justify-center text-center p-8">
               <div className="w-16 h-16 bg-amber-50 rounded-2xl flex items-center justify-center mb-4">

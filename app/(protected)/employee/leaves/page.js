@@ -6,6 +6,7 @@ import {
   CalendarDays, Send, Clock, CheckCircle2, 
   XCircle, AlertCircle, Loader2, Inbox 
 } from "lucide-react";
+import toast from "react-hot-toast";
 
 export default function LeaveRequestsUI() {
   const [isLoading, setIsLoading] = useState(true);
@@ -27,38 +28,43 @@ export default function LeaveRequestsUI() {
 
   const fetchLeaves = async () => {
     try {
-      const employeeId = typeof window !== "undefined" ? (localStorage.getItem("fineOpsUserId") || "emp-temp-123") : "emp-temp-123";
-      const res = await fetch(`/api/employee/leaves?employeeId=${employeeId}`);
+      // Secure API call: No need to pass employeeId, the server knows who is logged in
+      const res = await fetch(`/api/employee/leaves`);
       if (res.ok) {
         const json = await res.json();
         setLeaves(json.data || []);
       }
     } catch (error) {
       console.error("Failed to fetch leaves:", error);
+      toast.error("Failed to load leave history.");
     } finally {
       setIsLoading(false);
     }
   };
 
   const onSubmit = async (data) => {
+    const loadingToast = toast.loading("Submitting request...");
     try {
-      const employeeId = typeof window !== "undefined" ? (localStorage.getItem("fineOpsUserId") || "emp-temp-123") : "emp-temp-123";
-      
       const res = await fetch("/api/employee/leaves", { 
         method: 'POST', 
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...data, employeeId }) 
+        body: JSON.stringify(data) 
       });
 
-      if (!res.ok) throw new Error("Failed to submit leave");
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to submit leave");
+      }
 
       const json = await res.json();
       setLeaves([json.data, ...leaves]);
+      
+      toast.success("Leave request submitted to owner!", { id: loadingToast });
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 3000);
       reset();
     } catch (error) {
-      alert("Failed to submit leave request. Please try again.");
+      toast.error(error.message, { id: loadingToast });
     }
   };
 

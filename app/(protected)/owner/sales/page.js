@@ -15,26 +15,27 @@ export default function SalesAndCustomers() {
     useEffect(() => {
         const fetchSales = async () => {
             try {
-                const res = await fetch("/api/submissions");
+                // Fetching from our new dynamic transaction API
+                const res = await fetch("/api/owner/transactions?type=SALES");
                 if (res.ok) {
                     const json = await res.json();
-
-                    // Only take approved Sales & Collections
-                    const data = (json.data || []).filter(
-                        item => (item.type === "Sales Invoice" || item.type === "Customer Received") && item.status === "Approved"
-                    );
+                    const data = json.data || [];
+                    
                     setSalesData(data);
 
                     const custMap = {};
                     data.forEach((entry) => {
-                        if (entry.partyName) {
-                            const name = entry.partyName.trim();
+                        // In our smart backend, the customer name is stored in metadata.vendorName
+                        const customerName = entry.metadata?.vendorName; 
+                        if (customerName) {
+                            const name = customerName.trim();
                             if (!custMap[name]) custMap[name] = { name, totalBilled: 0, totalPaid: 0, pending: 0 };
 
-                            if (entry.type === "Sales Invoice") custMap[name].totalBilled += entry.amount;
-                            if (entry.type === "Customer Received") custMap[name].totalPaid += entry.amount;
-
-                            custMap[name].pending = custMap[name].totalBilled - custMap[name].totalPaid;
+                            if (entry.type === "SALES") {
+                                custMap[name].totalBilled += entry.totalAmount;
+                                // For MVP: Assuming pending is total billed until the Collections module is built
+                                custMap[name].pending += entry.totalAmount; 
+                            }
                         }
                     });
 
@@ -56,7 +57,7 @@ export default function SalesAndCustomers() {
         totalPending: customers.reduce((acc, curr) => acc + curr.pending, 0)
     };
 
-    const invoiceList = salesData.filter(d => d.type === "Sales Invoice");
+    const invoiceList = salesData.filter(d => d.type === "SALES");
 
     return (
         <div className="p-4 sm:p-8 max-w-7xl mx-auto w-full">
@@ -135,7 +136,6 @@ export default function SalesAndCustomers() {
                         <Loader2 className="w-8 h-8 animate-spin text-indigo-500 mb-4" />
                     </div>
                 ) : activeTab === "Sales" ? (
-                    // SALES INVOICES LIST
                     invoiceList.length === 0 ? (
                         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="w-full bg-white rounded-2xl border border-slate-100 shadow-sm h-64 flex flex-col items-center justify-center text-center p-8">
                             <ReceiptText className="w-10 h-10 text-slate-300 mb-4" />
@@ -151,14 +151,18 @@ export default function SalesAndCustomers() {
                                                 <ReceiptText className="w-5 h-5 text-indigo-600" />
                                             </div>
                                             <div>
-                                                <h4 className="text-sm font-black text-slate-900">{item.partyName}</h4>
-                                                <p className="text-xs font-medium text-slate-500">{item.description}</p>
+                                                <h4 className="text-sm font-black text-slate-900">{item.metadata?.vendorName}</h4>
+                                                <p className="text-xs font-medium text-slate-500">
+                                                    INV: {item.metadata?.invoiceNumber} | {new Date(item.transactionDate || item.createdAt).toLocaleDateString()}
+                                                </p>
                                             </div>
                                         </div>
                                         <div className="text-right">
-                                            <p className="text-xs font-bold text-slate-400 uppercase">Billed</p>
+                                            <p className="text-xs font-bold text-slate-400 uppercase">
+                                                {item.status.replace(/_/g, ' ')}
+                                            </p>
                                             <p className="text-sm font-black text-slate-900 flex items-center justify-end">
-                                                <IndianRupee className="w-3.5 h-3.5" /> {item.amount.toLocaleString("en-IN")}
+                                                <IndianRupee className="w-3.5 h-3.5" /> {item.totalAmount?.toLocaleString("en-IN")}
                                             </p>
                                         </div>
                                     </motion.div>
@@ -167,7 +171,6 @@ export default function SalesAndCustomers() {
                         </div>
                     )
                 ) : (
-                    // CUSTOMER DIRECTORY (KHATA)
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <AnimatePresence>
                             {customers.map((cust, idx) => (

@@ -5,9 +5,10 @@ import {
   Search, CheckCircle2, MessageSquare, AlertCircle, 
   FileText, IndianRupee, Filter, Loader2, Inbox
 } from "lucide-react";
+import toast from "react-hot-toast";
 
 export default function VoucherScrutinyUI() {
-  const [activeTab, setActiveTab] = useState("Pending");
+  const [activeTab, setActiveTab] = useState("PENDING_CA_REVIEW");
   const [isLoading, setIsLoading] = useState(true);
   const [vouchers, setVouchers] = useState([]);
 
@@ -30,50 +31,58 @@ export default function VoucherScrutinyUI() {
   };
 
   const updateVoucherStatus = async (id, newStatus) => {
+    const loadingToast = toast.loading("Updating voucher...");
     try {
       const res = await fetch('/api/ca-staff/vouchers', {
         method: 'PATCH',
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, status: newStatus })
+        body: JSON.stringify({ transactionId: id, status: newStatus })
       });
 
       if (res.ok) {
-        setVouchers(vouchers.map(v => v.id === id ? { ...v, status: newStatus } : v));
+        toast.success(newStatus === "APPROVED" ? "Verified & Ready for Tally" : "Query Sent to Owner", { id: loadingToast });
+        setVouchers(vouchers.map(v => v._id === id ? { ...v, status: newStatus } : v));
       } else {
-        alert("Failed to update status.");
+        const errData = await res.json();
+        throw new Error(errData.error || "Failed to update status.");
       }
     } catch (error) {
-      alert("Network error.");
+      toast.error(error.message, { id: loadingToast });
     }
   };
 
-  const filteredVouchers = vouchers.filter(v => activeTab === "All" || v.status === activeTab);
+  const filteredVouchers = vouchers.filter(v => activeTab === "ALL" || v.status === activeTab || (activeTab === "APPROVED" && v.status === "EXPORTED"));
 
   return (
     <div className="p-4 sm:p-8 max-w-7xl mx-auto w-full pb-24">
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-4 mb-8">
         <div>
           <motion.h1 initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-            <Search className="w-6 h-6 text-indigo-600" /> Voucher Scrutiny[cite: 20]
+            <Search className="w-6 h-6 text-indigo-600" /> Voucher Scrutiny
           </motion.h1>
-          <p className="text-xs sm:text-sm font-medium text-slate-500 mt-1">Verify client entries before finalizing them for Tally export.[cite: 20]</p>
+          <p className="text-xs sm:text-sm font-medium text-slate-500 mt-1">Verify client entries before finalizing them for Tally export.</p>
         </div>
         <button className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-50 shadow-sm transition-all">
-          <Filter className="w-4 h-4" /> Filter Client[cite: 20]
+          <Filter className="w-4 h-4" /> Filter Client
         </button>
       </div>
 
       <div className="flex gap-3 mb-6 border-b border-slate-100 pb-4 overflow-x-auto scrollbar-hide">
-        {["Pending", "Query Raised", "Verified", "All"].map((tab) => (
+        {[
+          { id: "PENDING_CA_REVIEW", label: "Pending" }, 
+          { id: "QUERY_RAISED", label: "Query Raised" }, 
+          { id: "APPROVED", label: "Verified" }, 
+          { id: "ALL", label: "All" }
+        ].map((tab) => (
           <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
             className={`relative px-5 py-2.5 rounded-xl text-sm font-black transition-all whitespace-nowrap ${
-              activeTab === tab ? "text-slate-900" : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
+              activeTab === tab.id ? "text-slate-900" : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
             }`}
           >
-            {activeTab === tab && <motion.div layoutId="scrutinyTab" className="absolute inset-0 bg-slate-100 rounded-xl -z-10" />}
-            {tab}
+            {activeTab === tab.id && <motion.div layoutId="scrutinyTab" className="absolute inset-0 bg-slate-100 rounded-xl -z-10" />}
+            {tab.label}
           </button>
         ))}
       </div>
@@ -83,10 +92,10 @@ export default function VoucherScrutinyUI() {
           <table className="w-full text-left border-collapse min-w-[800px]">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-100">
-                <th className="p-5 text-xs font-bold text-slate-400 uppercase">Voucher Details[cite: 20]</th>
-                <th className="p-5 text-xs font-bold text-slate-400 uppercase">Client[cite: 20]</th>
-                <th className="p-5 text-xs font-bold text-slate-400 uppercase">Amount[cite: 20]</th>
-                <th className="p-5 text-xs font-bold text-slate-400 uppercase text-center">Actions[cite: 20]</th>
+                <th className="p-5 text-xs font-bold text-slate-400 uppercase">Voucher Details</th>
+                <th className="p-5 text-xs font-bold text-slate-400 uppercase">Client</th>
+                <th className="p-5 text-xs font-bold text-slate-400 uppercase">Amount</th>
+                <th className="p-5 text-xs font-bold text-slate-400 uppercase text-center">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
@@ -95,57 +104,71 @@ export default function VoucherScrutinyUI() {
                   <td colSpan="4" className="p-16 text-center">
                     <div className="flex flex-col items-center justify-center text-slate-400">
                       <Loader2 className="w-8 h-8 animate-spin mb-3 text-indigo-600" />
-                      <p className="text-sm font-bold">Loading scrutiny queue...[cite: 20]</p>
+                      <p className="text-sm font-bold">Loading scrutiny queue...</p>
                     </div>
                   </td>
                 </tr>
               ) : filteredVouchers.length > 0 ? (
                 <AnimatePresence>
                   {filteredVouchers.map((voucher) => (
-                    <motion.tr layout initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} key={voucher.id} className="hover:bg-slate-50/50 transition-colors">
+                    <motion.tr layout initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} key={voucher._id} className="hover:bg-slate-50/50 transition-colors">
                       <td className="p-5">
                         <div className="flex items-start gap-3">
-                          <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center shrink-0">
-                            <FileText className="w-5 h-5 text-indigo-600" />
+                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border ${
+                            voucher.type === 'SALES' ? 'bg-emerald-50 border-emerald-100 text-emerald-600' :
+                            voucher.type === 'PURCHASE' ? 'bg-indigo-50 border-indigo-100 text-indigo-600' :
+                            'bg-orange-50 border-orange-100 text-orange-600'
+                          }`}>
+                            <FileText className="w-5 h-5" />
                           </div>
                           <div>
-                            <p className="font-black text-slate-900 text-sm">{voucher.desc}</p>
+                            <p className="font-black text-slate-900 text-sm">
+                              {voucher.metadata?.vendorName || voucher.metadata?.customerName || voucher.metadata?.payeeName || "Internal Entry"}
+                            </p>
                             <div className="flex items-center gap-2 mt-1">
-                              <span className="text-[10px] font-bold uppercase bg-slate-100 text-slate-500 px-2 py-0.5 rounded">{voucher.type}</span>
-                              <span className="text-xs font-medium text-slate-400">{voucher.date}</span>
+                              <span className="text-[10px] font-bold uppercase bg-slate-100 text-slate-500 px-2 py-0.5 rounded">
+                                {voucher.type}
+                              </span>
+                              <span className="text-xs font-medium text-slate-400">
+                                {new Date(voucher.transactionDate || voucher.createdAt).toLocaleDateString('en-IN')}
+                              </span>
                             </div>
                           </div>
                         </div>
                       </td>
-                      <td className="p-5 text-sm font-bold text-slate-600">{voucher.client}</td>
                       <td className="p-5">
-                        <span className="text-sm font-black text-slate-900 flex items-center">
-                          <IndianRupee className="w-3.5 h-3.5 mr-0.5" />{voucher.amount.toLocaleString("en-IN")}
+                        <span className="text-sm font-bold text-slate-600 bg-slate-50 px-3 py-1 rounded-lg border border-slate-100">
+                          {voucher.companyId?.companyName || "Unknown Client"}
                         </span>
                       </td>
                       <td className="p-5">
-                        {voucher.status === "Pending" ? (
+                        <span className="text-sm font-black text-slate-900 flex items-center">
+                          <IndianRupee className="w-3.5 h-3.5 mr-0.5" />{voucher.totalAmount?.toLocaleString("en-IN")}
+                        </span>
+                      </td>
+                      <td className="p-5">
+                        {voucher.status === "PENDING_CA_REVIEW" ? (
                           <div className="flex items-center justify-center gap-2">
                             <button 
-                              onClick={() => updateVoucherStatus(voucher.id, "Verified")}
+                              onClick={() => updateVoucherStatus(voucher._id, "APPROVED")}
                               className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white rounded-lg text-xs font-bold transition-colors"
                             >
-                              <CheckCircle2 className="w-4 h-4" /> Verify[cite: 20]
+                              <CheckCircle2 className="w-4 h-4" /> Verify
                             </button>
                             <button 
-                              onClick={() => updateVoucherStatus(voucher.id, "Query Raised")}
+                              onClick={() => updateVoucherStatus(voucher._id, "QUERY_RAISED")}
                               className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 text-amber-600 hover:bg-amber-500 hover:text-white rounded-lg text-xs font-bold transition-colors"
                             >
-                              <MessageSquare className="w-4 h-4" /> Query[cite: 20]
+                              <MessageSquare className="w-4 h-4" /> Query
                             </button>
                           </div>
                         ) : (
                           <div className="flex justify-center">
                             <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider ${
-                              voucher.status === 'Verified' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'
+                              voucher.status === 'APPROVED' || voucher.status === 'EXPORTED' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'
                             }`}>
-                              {voucher.status === 'Verified' ? <CheckCircle2 className="w-3 h-3" /> : <AlertCircle className="w-3 h-3" />}
-                              {voucher.status}
+                              {voucher.status === 'APPROVED' || voucher.status === 'EXPORTED' ? <CheckCircle2 className="w-3 h-3" /> : <AlertCircle className="w-3 h-3" />}
+                              {voucher.status.replace(/_/g, ' ')}
                             </span>
                           </div>
                         )}
@@ -160,12 +183,12 @@ export default function VoucherScrutinyUI() {
                       <div className="w-16 h-16 bg-slate-50 border border-slate-100 rounded-full flex items-center justify-center mb-4">
                         <Inbox className="w-8 h-8 text-slate-400" />
                       </div>
-                      <h4 className="text-base font-black text-slate-800 mb-1">Queue is Clear[cite: 20]</h4>
+                      <h4 className="text-base font-black text-slate-800 mb-1">Queue is Clear</h4>
                       <p className="text-sm font-medium text-slate-500 max-w-sm">
-                        {activeTab === "Pending" ? "No pending vouchers waiting for your scrutiny.[cite: 20]" :
-                         activeTab === "Query Raised" ? "You haven't raised any queries on client vouchers.[cite: 20]" :
-                         activeTab === "Verified" ? "No vouchers have been verified yet.[cite: 20]" :
-                         "No vouchers found for your assigned clients.[cite: 20]"}
+                        {activeTab === "PENDING_CA_REVIEW" ? "No pending vouchers waiting for your scrutiny." :
+                         activeTab === "QUERY_RAISED" ? "You haven't raised any queries on client vouchers." :
+                         activeTab === "APPROVED" ? "No vouchers have been verified yet." :
+                         "No vouchers found for your assigned clients."}
                       </p>
                     </div>
                   </td>

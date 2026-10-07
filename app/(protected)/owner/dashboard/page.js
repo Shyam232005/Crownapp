@@ -12,29 +12,29 @@ export default function OwnerDashboardUI() {
     const [isLoading, setIsLoading] = useState(true);
     const [stats, setStats] = useState({
         pendingApprovals: 0,
-        cashBalance: 0, // In this context, cash balance maps to Total Income from the API
-        pendingDues: 0  // Maps to Total Expense for dashboard visualization
+        cashBalance: 0, // Maps to Total Sales (Income)
+        pendingDues: 0  // Maps to Total Purchases + Expenses
     });
     
-    // We will store the actual submission objects here
+    // We will store the actual Transaction objects here
     const [recentApprovals, setRecentApprovals] = useState([]);
 
     useEffect(() => {
         const fetchDashboardData = async () => {
             try {
-                // 1. Fetch Aggregated Stats
+                // 1. Fetch Aggregated Stats from our new Double-Entry engine
                 const statsRes = await fetch("/api/owner/stats");
                 if (statsRes.ok) {
                     const statsJson = await statsRes.json();
                     setStats({
-                        pendingApprovals: statsJson.data.pendingApprovals,
-                        cashBalance: statsJson.data.totalIncome,
-                        pendingDues: statsJson.data.totalExpense
+                        pendingApprovals: statsJson.data.pendingApprovals || 0,
+                        cashBalance: statsJson.data.totalIncome || 0,
+                        pendingDues: statsJson.data.totalExpense || 0
                     });
                 }
 
-                // 2. Fetch the actual Pending Submissions Queue
-                const queueRes = await fetch("/api/submissions?status=Pending");
+                // 2. Fetch the Pending CA Review Queue
+                const queueRes = await fetch("/api/owner/pending-transactions");
                 if (queueRes.ok) {
                     const queueJson = await queueRes.json();
                     setRecentApprovals(queueJson.data || []);
@@ -48,7 +48,7 @@ export default function OwnerDashboardUI() {
 
         fetchDashboardData();
         
-        // Optional: Poll every 10 seconds to auto-update stats if multiple tabs are open
+        // Auto-update stats every 10 seconds
         const interval = setInterval(fetchDashboardData, 10000);
         return () => clearInterval(interval);
     }, []);
@@ -132,17 +132,26 @@ export default function OwnerDashboardUI() {
                                             <Receipt className="w-5 h-5 text-indigo-600" />
                                         </div>
                                         <div>
-                                            <h4 className="text-sm font-black text-slate-900">{item.partyName || "Internal Expense"}</h4>
+                                            <h4 className="text-sm font-black text-slate-900">
+                                                {/* Pull from Transaction metadata */}
+                                                {item.metadata?.vendorName || item.metadata?.customerName || "Internal Expense"}
+                                            </h4>
                                             <div className="flex items-center gap-2 mt-0.5">
-                                                <span className="text-[10px] font-bold uppercase bg-slate-100 text-slate-500 px-2 py-0.5 rounded">{item.type}</span>
+                                                <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded ${
+                                                    item.type === 'SALES' ? 'bg-emerald-100 text-emerald-600' :
+                                                    item.type === 'PURCHASE' ? 'bg-blue-100 text-blue-600' :
+                                                    'bg-orange-100 text-orange-600'
+                                                }`}>
+                                                    {item.type}
+                                                </span>
                                                 <span className="text-[10px] font-medium text-slate-400">
-                                                    {new Date(item.createdAt).toLocaleDateString()}
+                                                    {new Date(item.transactionDate || item.createdAt).toLocaleDateString()}
                                                 </span>
                                             </div>
                                         </div>
                                     </div>
                                     <p className="text-sm font-black text-slate-900 flex items-center">
-                                        <IndianRupee className="w-3.5 h-3.5 mr-0.5" /> {item.amount.toLocaleString("en-IN")}
+                                        <IndianRupee className="w-3.5 h-3.5 mr-0.5" /> {item.totalAmount?.toLocaleString("en-IN")}
                                     </p>
                                 </div>
                             ))
@@ -173,7 +182,6 @@ export default function OwnerDashboardUI() {
                     </div>
 
                     <div className="space-y-3">
-                        {/* Directed to the specific approvals page where the Data Vault unlock banner lives */}
                         <Link href="/owner/approvals" className="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl text-sm font-bold transition-colors shadow-sm">
                             Manage Data Vault
                         </Link>

@@ -13,14 +13,14 @@ export default function CashAndBanking() {
     useEffect(() => {
         const fetchFinances = async () => {
             try {
-                // Optimized: Ask the database for only Approved entries to save bandwidth
-                const res = await fetch("/api/submissions?status=Approved");
+                // Fetch from our secure, JWT-backed Owner Transactions API
+                const res = await fetch("/api/owner/transactions");
                 if (res.ok) {
                     const json = await res.json();
                     
-                    // Filter out any entries that don't affect cash flow directly
+                    // Filter for only finalized entries that affect cash flow
                     const financialData = (json.data || []).filter(
-                        item => item.amount > 0 && item.paymentMode
+                        item => (item.status === "APPROVED" || item.status === "EXPORTED") && item.totalAmount > 0
                     );
                     setTransactions(financialData);
                 }
@@ -34,21 +34,24 @@ export default function CashAndBanking() {
         fetchFinances();
     }, []);
 
-    // Galla (Cash) & Bank Logic
+    // Galla (Cash) & Bank Logic mapped to our Double-Entry Types
     let cashBalance = 0;
     let bankBalance = 0;
 
     transactions.forEach((txn) => {
-        const isMoneyIn = txn.type === "Customer Received";
-        const isMoneyOut = txn.type === "Vendor Payment" || txn.type === "General Expense";
-        const isCash = txn.paymentMode === "Cash";
+        const isMoneyIn = txn.type === "SALES" || txn.type === "COLLECTION";
+        const isMoneyOut = txn.type === "PURCHASE" || txn.type === "EXPENSE";
+        
+        // Safely extract payment mode, defaulting to Bank/UPI if unstated
+        const mode = txn.metadata?.paymentMode || "UPI";
+        const isCash = mode.toLowerCase().includes("cash");
 
         if (isMoneyIn) {
-            if (isCash) cashBalance += txn.amount;
-            else bankBalance += txn.amount;
+            if (isCash) cashBalance += txn.totalAmount;
+            else bankBalance += txn.totalAmount;
         } else if (isMoneyOut) {
-            if (isCash) cashBalance -= txn.amount;
-            else bankBalance -= txn.amount;
+            if (isCash) cashBalance -= txn.totalAmount;
+            else bankBalance -= txn.totalAmount;
         }
     });
 
@@ -114,7 +117,7 @@ export default function CashAndBanking() {
                             <div className="divide-y divide-slate-50">
                                 <AnimatePresence>
                                     {transactions.slice(0, 15).map((txn) => {
-                                        const isMoneyIn = txn.type === "Customer Received";
+                                        const isMoneyIn = txn.type === "SALES" || txn.type === "COLLECTION";
                                         return (
                                             <motion.div layout key={txn._id} className="p-4 sm:p-5 flex items-center justify-between hover:bg-slate-50 transition-colors">
                                                 <div className="flex items-center gap-4">
@@ -122,16 +125,18 @@ export default function CashAndBanking() {
                                                         {isMoneyIn ? <ArrowDownRight className="w-5 h-5 text-emerald-500" /> : <ArrowUpRight className="w-5 h-5 text-rose-500" />}
                                                     </div>
                                                     <div>
-                                                        <p className="text-sm font-black text-slate-900">{txn.partyName || "General"}</p>
+                                                        <p className="text-sm font-black text-slate-900">
+                                                            {txn.metadata?.vendorName || txn.metadata?.customerName || txn.metadata?.payeeName || "General"}
+                                                        </p>
                                                         <p className="text-xs font-bold text-slate-400 mt-0.5">{txn.type}</p>
                                                     </div>
                                                 </div>
                                                 <div className="text-right">
                                                     <p className={`text-sm font-black flex items-center justify-end ${isMoneyIn ? 'text-emerald-600' : 'text-slate-900'}`}>
-                                                        {isMoneyIn ? '+' : '-'}<IndianRupee className="w-3.5 h-3.5 mx-0.5" />{txn.amount.toLocaleString("en-IN")}
+                                                        {isMoneyIn ? '+' : '-'}<IndianRupee className="w-3.5 h-3.5 mx-0.5" />{txn.totalAmount?.toLocaleString("en-IN")}
                                                     </p>
                                                     <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-500 bg-indigo-50 px-2 py-0.5 rounded mt-1 inline-block">
-                                                        Via {txn.paymentMode}
+                                                        Via {txn.metadata?.paymentMode || 'Bank/UPI'}
                                                     </span>
                                                 </div>
                                             </motion.div>

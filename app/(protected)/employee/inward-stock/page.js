@@ -9,6 +9,7 @@ import {
   FileText, CheckCircle2, Loader2, History, Inbox,
   Scan, UploadCloud, Camera, Sparkles
 } from "lucide-react";
+import toast from "react-hot-toast";
 
 export default function StockInwardUI() {
   const [showSuccess, setShowSuccess] = useState(false);
@@ -44,7 +45,8 @@ export default function StockInwardUI() {
 
   const fetchRecentEntries = async () => {
     try {
-      const res = await fetch("/api/inventory");
+      // Fetch securely using the new employee-scoped API
+      const res = await fetch("/api/employee/inventory");
       if (res.ok) {
         const json = await res.json();
         setRecentEntries(json.data || []);
@@ -57,24 +59,28 @@ export default function StockInwardUI() {
   };
 
   const onSubmit = async (data) => {
+    const loadingToast = toast.loading("Logging inward stock...");
     try {
-      const employeeId = typeof window !== "undefined" ? localStorage.getItem("fineOpsUserId") || "emp-temp-123" : "emp-temp-123";
-      
-      const res = await fetch("/api/inventory", {
+      // Removed vulnerable localStorage. Backend strictly uses the secure cookie.
+      const res = await fetch("/api/employee/inventory", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...data, employeeId })
+        body: JSON.stringify(data)
       });
 
-      if (!res.ok) throw new Error("Failed to save entry");
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to save entry");
+      }
 
+      toast.success("Stock logged successfully!", { id: loadingToast });
       setShowSuccess(true);
       setScanSuccess(false);
       reset(); 
       fetchRecentEntries(); // Refresh the list instantly
       setTimeout(() => setShowSuccess(false), 3000);
     } catch (error) {
-      alert("Failed to save inventory entry.");
+      toast.error(error.message, { id: loadingToast });
     }
   };
 
@@ -117,11 +123,13 @@ export default function StockInwardUI() {
 
       setValue("remarks", "Auto-extracted by Offline AI. Please verify.");
       setScanSuccess(true);
+      toast.success("Document scanned successfully!");
     } catch (error) {
       console.error("AI Scan failed:", error);
-      alert("Failed to scan document. Please enter details manually.");
+      toast.error("Failed to scan document. Please enter manually.");
     } finally {
       setIsScanning(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
 
@@ -179,7 +187,7 @@ export default function StockInwardUI() {
                 <button 
                     type="button"
                     disabled={isScanning}
-                    className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 px-6 py-3 rounded-xl text-sm font-bold transition-colors disabled:opacity-50"
+                    className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 px-6 py-3 rounded-xl text-sm font-bold transition-colors disabled:opacity-50 cursor-not-allowed"
                 >
                     <Camera className="w-4 h-4" /> Open Camera
                 </button>

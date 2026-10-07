@@ -7,6 +7,7 @@ import {
   KeyRound, Save, CreditCard, Copy, 
   CheckCircle2, Loader2 
 } from "lucide-react";
+import toast from "react-hot-toast";
 
 export default function SettingsUI() {
   const [isCopied, setIsCopied] = useState(false);
@@ -38,7 +39,6 @@ export default function SettingsUI() {
           
           setInviteCode(owner.inviteCode || "PENDING");
           
-          // Map DB schema names back to form fields
           reset({
             businessName: owner.companyName || "",
             gstin: owner.gstin || "",
@@ -66,6 +66,8 @@ export default function SettingsUI() {
 
   const onSubmit = async (data) => {
     setIsSaving(true);
+    const loadingToast = toast.loading("Saving preferences...");
+    
     try {
       const res = await fetch('/api/owner/settings', { 
         method: 'PATCH', 
@@ -74,13 +76,15 @@ export default function SettingsUI() {
       });
       
       if (res.ok) {
+        toast.success("Settings saved successfully!", { id: loadingToast });
         setShowSuccess(true);
         setTimeout(() => setShowSuccess(false), 3000);
       } else {
-        alert("Failed to save settings.");
+        const err = await res.json();
+        throw new Error(err.error || "Failed to save settings.");
       }
     } catch (error) {
-      alert("Network error while saving settings.");
+      toast.error(error.message, { id: loadingToast });
     } finally {
       setIsSaving(false);
     }

@@ -1,59 +1,87 @@
-// app/api/owner/settings/route.js
 import { NextResponse } from "next/server";
-import { jwtVerify } from "jose";
-import connectDB from "@/lib/mongodb";
-import Owner from "@/models/Owner";
+import mongoose from "mongoose";
+import jwt from "jsonwebtoken";
+import { cookies } from "next/headers";
+import Owner from "@/models/Owner"; // Ensure you have this model
+
+const connectDB = async () => {
+  if (mongoose.connection.readyState >= 1) return;
+  await mongoose.connect(process.env.MONGODB_URI);
+};
 
 export async function GET(request) {
   try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get("crown_session")?.value;
+    
+    if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    if (decoded.role !== "Owner") {
+      return NextResponse.json({ error: "Forbidden: Owner access only" }, { status: 403 });
+    }
+
     await connectDB();
     
-    const token = request.cookies.get("fineops_auth_token")?.value;
-    if (!token) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
-
-    const secret = new TextEncoder().encode(process.env.JWT_SECRET);
-    const { payload } = await jwtVerify(token, secret);
-
-    const owner = await Owner.findById(payload.userId).select("-password");
-    if (!owner) return NextResponse.json({ success: false, error: "Owner not found" }, { status: 404 });
+    const owner = await Owner.findById(decoded.userId).select("-password");
+    
+    if (!owner) {
+      return NextResponse.json({ error: "Owner not found" }, { status: 404 });
+    }
 
     return NextResponse.json({ success: true, data: owner }, { status: 200 });
+
   } catch (error) {
-    console.error("Fetch Settings Error:", error);
-    return NextResponse.json({ success: false, error: "Failed to fetch settings" }, { status: 500 });
+    console.error("GET Owner Settings Error:", error);
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
 
 export async function PATCH(request) {
   try {
-    await connectDB();
+    const cookieStore = await cookies();
+    const token = cookieStore.get("crown_session")?.value;
     
-    const token = request.cookies.get("fineops_auth_token")?.value;
-    const secret = new TextEncoder().encode(process.env.JWT_SECRET);
-    const { payload } = await jwtVerify(token, secret);
+    if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    if (decoded.role !== "Owner") {
+      return NextResponse.json({ error: "Forbidden: Owner access only" }, { status: 403 });
+    }
+
+    await connectDB();
     const body = await request.json();
-    
-    // Map the frontend form names to the database schema fields
+
+    // Map the form payload back to our database schema
+    const updatePayload = {
+      companyName: body.businessName,
+      gstin: body.gstin,
+      location: body.address,
+      name: body.fullName,
+      phoneNumber: body.phone,
+      upiId: body.upiId,
+      bankAccount: body.bankAccount
+    };
+
+    // Remove empty fields to avoid overwriting existing data with blanks
+    Object.keys(updatePayload).forEach(key => {
+      if (updatePayload[key] === undefined) delete updatePayload[key];
+    });
+
     const updatedOwner = await Owner.findByIdAndUpdate(
-      payload.userId,
-      {
-        $set: {
-          name: body.fullName,
-          companyName: body.businessName,
-          gstin: body.gstin,
-          location: body.address,
-          phoneNumber: body.phone,
-          upiId: body.upiId,
-          bankAccount: body.bankAccount
-        }
-      },
-      { new: true }
-    );
+      decoded.userId,
+      { $set: updatePayload },
+      { new: true, runValidators: true }
+    ).select("-password");
+
+    if (!updatedOwner) {
+      return NextResponse.json({ error: "Failed to update profile" }, { status: 400 });
+    }
 
     return NextResponse.json({ success: true, data: updatedOwner }, { status: 200 });
+
   } catch (error) {
-    console.error("Update Settings Error:", error);
-    return NextResponse.json({ success: false, error: "Failed to update settings" }, { status: 500 });
+    console.error("PATCH Owner Settings Error:", error);
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }

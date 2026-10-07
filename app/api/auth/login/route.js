@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
+import { cookies } from "next/headers";
 import Owner from "@/models/Owner";
 import Employee from "@/models/Employee";
 import CA from "@/models/CA";
@@ -50,7 +52,36 @@ export async function POST(request) {
       return NextResponse.json({ error: "Galat password! Kripya sahi password daalein." }, { status: 401 });
     }
 
-    // 5. Success! User details return karo (password ko chhod kar)
+   // 5. Generate Secure Session Token (JWT)
+    let companyId = null;
+    if (role === "Owner") companyId = user._id;
+    else if (role === "Employee") companyId = user.ownerId;
+    else if (role === "CA") companyId = user._id;
+    else if (role === "CA-Employee") companyId = user.caId;
+
+    const payload = {
+      userId: user._id.toString(),
+      role: role,
+      companyId: companyId ? companyId.toString() : null 
+    };
+
+    const token = jwt.sign(payload, process.env.JWT_SECRET, {
+      expiresIn: '7d' // Token valid for 1 week
+    });
+
+    // 6. Set HTTP-only cookie (Next.js 15 requires awaiting cookies())
+    const cookieStore = await cookies();
+    cookieStore.set({
+      name: 'crown_session',
+      value: token,
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 60 * 60 * 24 * 7,
+      path: '/',
+    });
+
+    // 7. Success! User details return karo frontend state ke liye
     const userData = {
       id: user._id,
       name: user.name,

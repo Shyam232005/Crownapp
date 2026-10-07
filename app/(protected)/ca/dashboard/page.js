@@ -9,7 +9,6 @@ import {
 } from "lucide-react";
 
 export default function CADashboardUI() {
-  // ✨ FIX: Set up state for future API integration (Zero-State by default)
   const [isLoading, setIsLoading] = useState(true);
   const [stats, setStats] = useState({
     activeClients: 0,
@@ -18,20 +17,20 @@ export default function CADashboardUI() {
   });
   const [clientAlerts, setClientAlerts] = useState([]);
 
-  // ✨ Mock API Call to simulate fetching data for a new CA
   useEffect(() => {
     const fetchDashboardData = async () => {
-        // Later, replace this with: const res = await fetch('/api/ca/dashboard');
-        setTimeout(() => {
-            // Simulating a brand new CA account with 0 data
-            setStats({
-                activeClients: 0,
-                pendingAudits: 0,
-                readyForSync: 0
-            });
-            setClientAlerts([]); 
+        try {
+            const res = await fetch('/api/ca/dashboard');
+            if (res.ok) {
+                const json = await res.json();
+                setStats(json.stats);
+                setClientAlerts(json.alerts || []);
+            }
+        } catch (error) {
+            console.error("Failed to fetch CA dashboard data:", error);
+        } finally {
             setIsLoading(false);
-        }, 800);
+        }
     };
     fetchDashboardData();
   }, []);
@@ -102,7 +101,7 @@ export default function CADashboardUI() {
       <div className="bg-white border border-slate-100 rounded-3xl shadow-sm overflow-hidden flex flex-col min-h-[300px]">
         <div className="px-6 py-5 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
           <h3 className="text-sm font-black text-slate-800 flex items-center gap-2">
-            <Clock className="w-5 h-5 text-slate-400" /> Recent Client Alerts
+            <Clock className="w-5 h-5 text-slate-400" /> Recent Client Activity
           </h3>
         </div>
         
@@ -117,8 +116,8 @@ export default function CADashboardUI() {
               <div key={alert.id} className="p-5 flex flex-col sm:flex-row sm:items-center justify-between hover:bg-slate-50 transition-colors gap-4">
                 <div className="flex items-center gap-4">
                   <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-                    alert.status === 'Data Unlocked' ? 'bg-emerald-50 text-emerald-500' :
-                    alert.status === 'Pending Approval' ? 'bg-amber-50 text-amber-500' : 'bg-rose-50 text-rose-500'
+                    alert.status === 'APPROVED' ? 'bg-emerald-50 text-emerald-500' :
+                    alert.status === 'PENDING_CA_REVIEW' ? 'bg-amber-50 text-amber-500' : 'bg-slate-50 text-slate-500'
                   }`}>
                     <Building2 className="w-5 h-5" />
                   </div>
@@ -132,23 +131,22 @@ export default function CADashboardUI() {
                     {alert.type}
                   </span>
                   <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-md ${
-                    alert.status === 'Data Unlocked' ? 'bg-emerald-100 text-emerald-700' :
-                    alert.status === 'Pending Approval' ? 'bg-amber-100 text-amber-700' : 'bg-rose-100 text-rose-700'
+                    alert.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-700' :
+                    alert.status === 'PENDING_CA_REVIEW' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-700'
                   }`}>
-                    {alert.status}
+                    {alert.status.replace(/_/g, ' ')}
                   </span>
                 </div>
               </div>
             ))
           ) : (
-             // ✨ FIX: Zero-State UI for empty client alerts
              <div className="flex-1 flex flex-col items-center justify-center py-16 text-center px-4">
                 <div className="w-16 h-16 bg-slate-50 border border-slate-100 rounded-full flex items-center justify-center mb-4">
                     <Inbox className="w-8 h-8 text-slate-400" />
                 </div>
-                <h4 className="text-base font-black text-slate-800 mb-1">Your Portfolio is Empty</h4>
+                <h4 className="text-base font-black text-slate-800 mb-1">Your Portfolio is Caught Up</h4>
                 <p className="text-sm font-medium text-slate-500 max-w-sm">
-                    You don't have any linked clients yet. Share your Firm Invite Link with business owners to start managing their audits.
+                    There are no pending audits or alerts across your linked clients right now.
                 </p>
             </div>
           )}

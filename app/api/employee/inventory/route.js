@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import mongoose from "mongoose";
 import jwt from "jsonwebtoken";
 import { cookies } from "next/headers";
-import Leave from "@/models/Leave"; // Assuming you have a Leave model
+import Inventory from "@/models/Inventory"; // Assuming an Inventory model exists
 
 const connectDB = async () => {
   if (mongoose.connection.readyState >= 1) return;
@@ -23,16 +23,24 @@ export async function GET(request) {
 
     await connectDB();
 
-    // Fetch leaves specifically requested by this employee
-    const leaves = await Leave.find({
+    // Get today's start and end times to show only today's entries
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date();
+    endOfDay.setHours(23, 59, 59, 999);
+
+    // Fetch entries logged by this specific employee today
+    const recentEntries = await Inventory.find({
       companyId: decoded.companyId,
-      employeeId: decoded.userId
+      createdBy: decoded.userId,
+      createdAt: { $gte: startOfDay, $lte: endOfDay },
+      type: "INWARD"
     }).sort({ createdAt: -1 });
 
-    return NextResponse.json({ success: true, data: leaves }, { status: 200 });
+    return NextResponse.json({ success: true, data: recentEntries }, { status: 200 });
 
   } catch (error) {
-    console.error("GET Leaves Error:", error);
+    console.error("GET Inventory Error:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
@@ -52,26 +60,29 @@ export async function POST(request) {
     await connectDB();
     const body = await request.json();
     
-    const { leaveType, fromDate, toDate, reason } = body;
+    const { itemName, quantity, unit, supplierName, challanNumber, remarks } = body;
 
-    if (!leaveType || !fromDate || !toDate || !reason) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    if (!itemName || !quantity || !supplierName) {
+        return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
-    const newLeave = await Leave.create({
-      companyId: decoded.companyId,
-      employeeId: decoded.userId,
-      leaveType,
-      fromDate,
-      toDate,
-      reason,
-      status: "Pending" // Automatically sets to Pending for Owner review
+    const newStockEntry = await Inventory.create({
+        companyId: decoded.companyId,
+        createdBy: decoded.userId,
+        type: "INWARD",
+        itemName,
+        quantity,
+        unit,
+        supplierName,
+        challanNumber,
+        remarks,
+        date: new Date()
     });
 
-    return NextResponse.json({ success: true, data: newLeave }, { status: 201 });
+    return NextResponse.json({ success: true, data: newStockEntry }, { status: 201 });
 
   } catch (error) {
-    console.error("POST Leave Error:", error);
+    console.error("POST Inventory Error:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }

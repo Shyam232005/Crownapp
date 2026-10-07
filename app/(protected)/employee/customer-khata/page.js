@@ -26,23 +26,23 @@ export default function EmployeeKhata() {
   useEffect(() => {
     const fetchKhata = async () => {
       try {
-        const res = await fetch("/api/submissions");
+        // Securely fetch this employee's specific entries
+        const res = await fetch("/api/employee/transactions?type=SALES");
         if (res.ok) {
           const json = await res.json();
-          const customerData = (json.data || []).filter(
-            item => item.type === "Sales Invoice" || item.type === "Customer Received"
-          );
+          const customerData = json.data || [];
+          
           setKhataEntries(customerData);
 
           const custMap = {};
           customerData.forEach((entry) => {
-            if (entry.status !== "Rejected" && entry.partyName) {
-              const name = entry.partyName.trim();
+            if (entry.status !== "REJECTED" && entry.metadata?.vendorName) {
+              const name = entry.metadata.vendorName.trim();
               if (!custMap[name]) custMap[name] = { name, balance: 0 };
               
-              if (entry.status === "Approved") {
-                if (entry.type === "Sales Invoice") custMap[name].balance += entry.amount;
-                if (entry.type === "Customer Received") custMap[name].balance -= entry.amount;
+              if (entry.status === "APPROVED" || entry.status === "EXPORTED") {
+                if (entry.type === "SALES") custMap[name].balance += entry.totalAmount;
+                // Note: Customer Received would subtract from balance, mapped to COLLECTIONS later
               }
             }
           });
@@ -96,25 +96,38 @@ export default function EmployeeKhata() {
 
   const onSubmit = async (data) => {
     try {
+      // Map frontend fields to our new Double-Entry API
       const payload = {
-        employeeId: typeof window !== "undefined" ? (localStorage.getItem("fineOpsUserId") || "emp-temp-123") : "emp-temp-123",
-        ...data,
-        amount: data.amount ? parseFloat(data.amount) : 0,
-        status: "Pending" 
+        companyId: null, // JWT token handles this securely on the backend
+        customerName: data.partyName,
+        invoiceNumber: `INV-AUTO-${Math.floor(Math.random() * 10000)}`,
+        hsnCode: "0000",
+        baseAmount: Number(data.amount),
+        cgst: 0, 
+        sgst: 0,
+        igst: 0 
       };
 
-      const res = await fetch("/api/submissions", {
-        method: "POST",
+      // Since employee khata currently logs generic sales, route to our robust sales engine
+      const res = await fetch('/api/transactions/sales', { 
+        method: 'POST', 
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload) 
       });
 
       if (!res.ok) throw new Error("Failed to save");
 
-      const savedEntry = (await res.json()).data;
+      const savedEntry = await res.json();
       
-      // Instantly append to the local state without requiring a full reload or sockets
-      setKhataEntries([savedEntry, ...khataEntries]);
+      // Update local state instantly for a snappy UI
+      setKhataEntries([{
+        _id: savedEntry.transactionId,
+        type: 'SALES',
+        status: 'PENDING_OWNER_APPROVAL',
+        totalAmount: payload.baseAmount,
+        metadata: { vendorName: payload.customerName, description: data.description }
+      }, ...khataEntries]);
+      
       reset(); 
       setIsModalOpen(false);
 

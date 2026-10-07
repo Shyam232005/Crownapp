@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
+import { cookies } from "next/headers";
 import Owner from "@/models/Owner";
 import Employee from "@/models/Employee";
 import CA from "@/models/CA";
@@ -22,7 +24,6 @@ export async function POST(request) {
       firmName, icaiNumber, inviteCode, planName, joinedViaCode 
     } = body;
 
-    // Basic Validation
     if (!name || !phoneNumber || !email || !password || !role) {
       return NextResponse.json({ error: "Missing required fields." }, { status: 400 });
     }
@@ -30,9 +31,11 @@ export async function POST(request) {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    // ==========================================
+    let newUser = null;
+    let companyId = null; // Unified ID for the transaction engine
+    let successMessage = "";
+
     // 1. REGISTER OWNER
-    // ==========================================
     if (role === "Owner") {
       const existingOwner = await Owner.findOne({ $or: [{ email }, { phoneNumber }] });
       if (existingOwner) return NextResponse.json({ error: "Owner already exists." }, { status: 400 });
@@ -53,7 +56,7 @@ export async function POST(request) {
         subStatus = "trialing";
       }
 
-      const newOwner = new Owner({
+      newUser = new Owner({
         name, phoneNumber, email, password: hashedPassword,
         companyName, gstin, location, Category,
         subscription: {
@@ -64,15 +67,12 @@ export async function POST(request) {
           endDate: calculatedEndDate
         }
       });
-      await newOwner.save();
-      
-      // ✅ Must return response
-      return NextResponse.json({ message: "Workspace created successfully!" }, { status: 201 });
+      await newUser.save();
+      companyId = newUser._id;
+      successMessage = "Workspace created successfully!";
     }
 
-    // ==========================================
     // 2. REGISTER EMPLOYEE
-    // ==========================================
     else if (role === "Employee") {
       if (!inviteCode) return NextResponse.json({ error: "Invite code is required." }, { status: 400 });
       
@@ -82,22 +82,19 @@ export async function POST(request) {
       const existingEmp = await Employee.findOne({ $or: [{ email }, { phoneNumber }] });
       if (existingEmp) return NextResponse.json({ error: "Employee already exists." }, { status: 400 });
 
-      const newEmployee = new Employee({
+      newUser = new Employee({
         name, phoneNumber, email, password: hashedPassword,
         ownerId: owner._id
       });
-      await newEmployee.save();
+      await newUser.save();
 
-      owner.employees.push(newEmployee._id);
+      owner.employees.push(newUser._id);
       await owner.save();
-
-      // ✅ Must return response
-      return NextResponse.json({ message: "Staff joined successfully!" }, { status: 201 });
+      companyId = owner._id;
+      successMessage = "Staff joined successfully!";
     }
 
-    // ==========================================
     // 3. REGISTER CA FIRM
-    // ==========================================
     else if (role === "CA") {
       const existingCA = await CA.findOne({ $or: [{ email }, { phoneNumber }, { icaiNumber }] });
       if (existingCA) return NextResponse.json({ error: "CA Firm already exists." }, { status: 400 });
@@ -105,27 +102,24 @@ export async function POST(request) {
       const codeToLink = joinedViaCode || inviteCode;
       if (!codeToLink) return NextResponse.json({ error: "Invite code is required to register CA." }, { status: 400 });
 
-      const newCA = new CA({
+      newUser = new CA({
         name, phoneNumber, email, password: hashedPassword,
         firmName, icaiNumber, joinedViaCode: codeToLink 
       });
-      await newCA.save();
+      await newUser.save();
       
       const owner = await Owner.findOne({ inviteCode: codeToLink });
       if(owner) {
-         owner.linkedCAs.push(newCA._id);
+         owner.linkedCAs.push(newUser._id);
          await owner.save();
-         newCA.clients.push(owner._id);
-         await newCA.save();
+         newUser.clients.push(owner._id);
+         await newUser.save();
       }
-      
-      // ✅ Must return response
-      return NextResponse.json({ message: "CA Firm registered successfully!" }, { status: 201 });
+      companyId = newUser._id;
+      successMessage = "CA Firm registered successfully!";
     }
 
-    // ==========================================
     // 4. REGISTER CA-EMPLOYEE (Staff)
-    // ==========================================
     else if (role === "CA-Employee") {
       if (!inviteCode) return NextResponse.json({ error: "Invite code is required." }, { status: 400 });
       
@@ -135,30 +129,48 @@ export async function POST(request) {
       const existingStaff = await CAStaff.findOne({ $or: [{ email }, { phoneNumber }] });
       if (existingStaff) return NextResponse.json({ error: "Staff already exists." }, { status: 400 });
 
-      const newCAStaff = new CAStaff({
+      newUser = new CAStaff({
         name, phoneNumber, email, password: hashedPassword,
         caId: caFirm._id
       });
-      await newCAStaff.save();
+      await newUser.save();
 
-      caFirm.staff.push(newCAStaff._id);
+      caFirm.staff.push(newUser._id);
       await caFirm.save();
-
-      // ✅ Must return response
-      return NextResponse.json({ message: "Audit Staff joined successfully!" }, { status: 201 });
+      companyId = caFirm._id;
+      successMessage = "Audit Staff joined successfully!";
     }
 
-    // ==========================================
-    // ✨ FIX: 5. CATCH-ALL FALLBACK
-    // ==========================================
     else {
-      // Agar role kuch ajeeb aaya (match nahi kiya), tab API undefined dene ke bajay 400 error degi.
       return NextResponse.json({ error: "Invalid role specified." }, { status: 400 });
     }
 
+    // 5. Generate Secure Session Token (Auto-Login on Registration)
+    const payload = {
+      userId: newUser._id.toString(),
+      role: role,
+      companyId: companyId ? companyId.toString() : null
+    };
+
+    const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '7d' });
+    const cookieStore = await cookies();
+    cookieStore.set({
+      name: 'crown_session',
+      value: token,
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 60 * 60 * 24 * 7,
+      path: '/',
+    });
+
+    return NextResponse.json({ 
+      message: successMessage,
+      user: { id: newUser._id, name: newUser.name, email: newUser.email, role }
+    }, { status: 201 });
+
   } catch (error) {
     console.error("Registration Error:", error);
-    // Yeh catch block internal server errors properly return karega
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }

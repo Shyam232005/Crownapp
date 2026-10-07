@@ -15,12 +15,11 @@ export default function EmployeeDashboardUI() {
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        const employeeId = typeof window !== "undefined" ? (localStorage.getItem("fineOpsUserId") || "emp-temp-123") : "emp-temp-123";
-        const res = await fetch(`/api/attendance?employeeId=${employeeId}`);
+        // Removed vulnerable localStorage. The backend now securely reads the JWT cookie.
+        const res = await fetch(`/api/attendance`);
         
         if (res.ok) {
           const data = await res.json();
-          // Map backend status to user-friendly UI text
           if (data.status === "punched-in") {
             setAttendanceStatus("Punched In");
           } else if (data.status === "completed") {
@@ -44,9 +43,9 @@ export default function EmployeeDashboardUI() {
 
   const quickActions = [
     { name: "Quick Entry", href: "/employee", icon: PlusSquare, bgClass: "bg-indigo-50", textClass: "text-indigo-600", desc: "Fast general logging" },
-    { name: "Log Expense", href: "/employee/expenses", icon: Receipt, bgClass: "bg-rose-50", textClass: "text-rose-600", desc: "Upload bills & petty cash" },
-    { name: "Stock Inward", href: "/employee/stock-inward", icon: PackageOpen, bgClass: "bg-amber-50", textClass: "text-amber-600", desc: "Add new inventory" },
-    { name: "Customer Khata", href: "/employee/khata", icon: Users, bgClass: "bg-emerald-50", textClass: "text-emerald-600", desc: "Sales & Payments" },
+    { name: "Log Expense", href: "/employee/log-expense", icon: Receipt, bgClass: "bg-rose-50", textClass: "text-rose-600", desc: "Upload bills & petty cash" },
+    { name: "Stock Inward", href: "/employee/inward-stock", icon: PackageOpen, bgClass: "bg-amber-50", textClass: "text-amber-600", desc: "Add new inventory" },
+    { name: "Customer Khata", href: "/employee/customer-khata", icon: Users, bgClass: "bg-emerald-50", textClass: "text-emerald-600", desc: "Sales & Payments" },
     { name: "Stock Check", href: "/employee/stock-check", icon: ClipboardCheck, bgClass: "bg-blue-50", textClass: "text-blue-600", desc: "View current godown stock" },
     { name: "Leave Request", href: "/employee/leaves", icon: CalendarDays, bgClass: "bg-purple-50", textClass: "text-purple-600", desc: "Apply for time-off" }
   ];

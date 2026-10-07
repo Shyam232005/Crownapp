@@ -6,6 +6,7 @@ import {
   DownloadCloud, Filter, CheckCircle2, FileText, 
   FileSpreadsheet, Code, Loader2, Inbox 
 } from "lucide-react";
+import toast from "react-hot-toast";
 
 export default function ExportDataUI() {
   const [isLoading, setIsLoading] = useState(true);
@@ -16,14 +17,15 @@ export default function ExportDataUI() {
   const { register, handleSubmit } = useForm({
     defaultValues: {
       clientId: "",
-      period: "September 2026",
-      format: "xml"
+      period: "Current Month",
+      format: "csv"
     }
   });
 
   useEffect(() => {
     const fetchClients = async () => {
       try {
+        // We can reuse the CA dashboard API or a specific clients API you have
         const res = await fetch('/api/ca-staff/clients');
         if (res.ok) {
           const json = await res.json();
@@ -40,6 +42,8 @@ export default function ExportDataUI() {
 
   const onSubmit = async (data) => {
     setIsExporting(true);
+    const loadingToast = toast.loading("Compiling ledger data...");
+    
     try {
       const res = await fetch('/api/ca-staff/export', { 
         method: 'POST', 
@@ -50,8 +54,8 @@ export default function ExportDataUI() {
       if (res.ok) {
         const json = await res.json();
         
-        // Trigger browser download
-        const blob = new Blob([json.fileData], { type: data.format === 'xml' ? 'application/xml' : 'text/csv' });
+        // Trigger browser download securely
+        const blob = new Blob([json.fileData], { type: 'text/csv' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.href = url;
@@ -60,13 +64,15 @@ export default function ExportDataUI() {
         link.click();
         document.body.removeChild(link);
 
+        toast.success("Export Downloaded!", { id: loadingToast });
         setShowSuccess(true);
         setTimeout(() => setShowSuccess(false), 3000);
       } else {
-        alert("Failed to generate export file.");
+        const err = await res.json();
+        toast.error(err.error || "Failed to generate export.", { id: loadingToast });
       }
     } catch (error) {
-      alert("Network error during export.");
+      toast.error("Network error during export.", { id: loadingToast });
     } finally {
       setIsExporting(false);
     }
@@ -76,71 +82,73 @@ export default function ExportDataUI() {
     <div className="p-4 sm:p-8 max-w-4xl mx-auto w-full pb-24">
       <div className="mb-8">
         <motion.h1 initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-          <DownloadCloud className="w-6 h-6 text-indigo-600" /> Export Data[cite: 20]
+          <DownloadCloud className="w-6 h-6 text-indigo-600" /> Export Data
         </motion.h1>
-        <p className="text-xs sm:text-sm font-medium text-slate-500 mt-1">Download clean, scrutinized client data for offline processing[cite: 20].</p>
+        <p className="text-xs sm:text-sm font-medium text-slate-500 mt-1">Download clean, scrutinized client data for offline processing.</p>
       </div>
 
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden min-h-[400px] flex flex-col">
         <div className="px-6 py-5 border-b border-slate-100 bg-slate-50 flex items-center gap-2">
           <Filter className="w-5 h-5 text-indigo-500" />
-          <h2 className="text-sm font-black text-slate-800">Export Filters[cite: 20]</h2>
+          <h2 className="text-sm font-black text-slate-800">Export Filters</h2>
         </div>
 
         {isLoading ? (
           <div className="flex-1 flex flex-col items-center justify-center py-20 text-slate-400">
             <Loader2 className="w-8 h-8 animate-spin mb-3 text-indigo-600" />
-            <p className="text-sm font-bold">Loading your client list...[cite: 20]</p>
+            <p className="text-sm font-bold">Loading your client list...</p>
           </div>
         ) : assignedClients.length > 0 ? (
           <form className="p-6 space-y-6 flex-1 flex flex-col" onSubmit={handleSubmit(onSubmit)}>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Select Client[cite: 20]</label>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Select Client</label>
                 <select 
                   {...register("clientId", { required: true })}
                   className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-600 transition-all"
                 >
                   {assignedClients.map(client => (
-                    <option key={client.id} value={client.id}>{client.name}</option>
+                    <option key={client._id || client.id} value={client._id || client.id}>
+                      {client.companyName || client.name}
+                    </option>
                   ))}
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Data Period[cite: 20]</label>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Data Period</label>
                 <select 
                   {...register("period", { required: true })}
                   className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-600 transition-all"
                 >
-                  <option value="September 2026">September 2026[cite: 20]</option>
-                  <option value="August 2026">August 2026[cite: 20]</option>
-                  <option value="Q2 2026">Q2 (Jul - Sep 2026)[cite: 20]</option>
+                  <option value="Current Month">Current Month</option>
+                  <option value="Previous Month">Previous Month</option>
+                  <option value="Q2 2026">Q2 (Jul - Sep 2026)</option>
                 </select>
               </div>
             </div>
 
             <div className="flex-1">
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Export Format[cite: 20]</label>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Export Format</label>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <label className="cursor-pointer">
-                  <input type="radio" value="xml" {...register("format")} className="peer sr-only" defaultChecked />
-                  <div className="flex flex-col items-center gap-2 p-4 rounded-2xl border-2 border-slate-100 peer-checked:border-indigo-600 peer-checked:bg-indigo-50 transition-all hover:bg-slate-50">
-                    <Code className="w-6 h-6 text-slate-600 peer-checked:text-indigo-600" />
-                    <span className="text-sm font-bold text-slate-700">Tally XML[cite: 20]</span>
+                  <input type="radio" value="xml" {...register("format")} className="peer sr-only" disabled />
+                  <div className="flex flex-col items-center gap-2 p-4 rounded-2xl border-2 border-slate-100 opacity-50 transition-all">
+                    <Code className="w-6 h-6 text-slate-400" />
+                    <span className="text-sm font-bold text-slate-500">Tally XML (Pro)</span>
                   </div>
                 </label>
                 <label className="cursor-pointer">
-                  <input type="radio" value="xlsx" {...register("format")} className="peer sr-only" />
-                  <div className="flex flex-col items-center gap-2 p-4 rounded-2xl border-2 border-slate-100 peer-checked:border-emerald-600 peer-checked:bg-emerald-50 transition-all hover:bg-slate-50">
-                    <FileSpreadsheet className="w-6 h-6 text-slate-600 peer-checked:text-emerald-600" />
-                    <span className="text-sm font-bold text-slate-700">Excel (XLSX)[cite: 20]</span>
+                  <input type="radio" value="xlsx" {...register("format")} className="peer sr-only" disabled />
+                  <div className="flex flex-col items-center gap-2 p-4 rounded-2xl border-2 border-slate-100 opacity-50 transition-all">
+                    <FileSpreadsheet className="w-6 h-6 text-slate-400" />
+                    <span className="text-sm font-bold text-slate-500">Excel (XLSX)</span>
                   </div>
                 </label>
                 <label className="cursor-pointer">
-                  <input type="radio" value="csv" {...register("format")} className="peer sr-only" />
+                  <input type="radio" value="csv" {...register("format")} className="peer sr-only" defaultChecked />
                   <div className="flex flex-col items-center gap-2 p-4 rounded-2xl border-2 border-slate-100 peer-checked:border-amber-600 peer-checked:bg-amber-50 transition-all hover:bg-slate-50">
                     <FileText className="w-6 h-6 text-slate-600 peer-checked:text-amber-600" />
-                    <span className="text-sm font-bold text-slate-700">CSV Standard[cite: 20]</span>
+                    <span className="text-sm font-bold text-slate-700">CSV Standard</span>
                   </div>
                 </label>
               </div>
@@ -150,7 +158,7 @@ export default function ExportDataUI() {
               <AnimatePresence>
                 {showSuccess && (
                   <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="flex items-center gap-2 text-emerald-600 font-bold text-sm">
-                    <CheckCircle2 className="w-5 h-5" /> Export Generated Successfully![cite: 20]
+                    <CheckCircle2 className="w-5 h-5" /> Export Generated Successfully!
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -164,9 +172,9 @@ export default function ExportDataUI() {
                 }`}
               >
                 {isExporting ? (
-                  <><Loader2 className="w-5 h-5 animate-spin" /> Generating...[cite: 20]</>
+                  <><Loader2 className="w-5 h-5 animate-spin" /> Generating...</>
                 ) : (
-                  <><DownloadCloud className="w-5 h-5" /> Generate & Download[cite: 20]</>
+                  <><DownloadCloud className="w-5 h-5" /> Generate & Download</>
                 )}
               </motion.button>
             </div>
@@ -176,9 +184,9 @@ export default function ExportDataUI() {
             <div className="w-16 h-16 bg-slate-50 border border-slate-100 rounded-full flex items-center justify-center mb-4">
               <Inbox className="w-8 h-8 text-slate-400" />
             </div>
-            <h4 className="text-base font-black text-slate-800 mb-1">No Clients Assigned[cite: 20]</h4>
+            <h4 className="text-base font-black text-slate-800 mb-1">No Clients Assigned</h4>
             <p className="text-sm font-medium text-slate-500 max-w-sm">
-              You haven't been assigned any clients yet. You need at least one active client to generate data exports[cite: 20].
+              You haven't been assigned any clients yet. You need at least one active client to generate data exports.
             </p>
           </div>
         )}

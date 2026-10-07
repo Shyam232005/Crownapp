@@ -5,52 +5,52 @@ import {
   ShieldCheck, LockKeyhole, FileKey, Send, 
   CheckCircle2, Clock, Link2, Building, Loader2 
 } from "lucide-react";
+import toast from "react-hot-toast";
 
 export default function CAAccessManagement() {
     const [dataRequests, setDataRequests] = useState([]);
     const [sentHistory, setSentHistory] = useState([]);
     const [isApproving, setIsApproving] = useState(false);
     
-    // Priority 4: Firm Mapping State
+    // CA Firm Mapping State
     const [inviteCode, setInviteCode] = useState("");
     const [isLinking, setIsLinking] = useState(false);
     const [linkedFirm, setLinkedFirm] = useState(null);
 
-    // 🔴 Serverless Polling (Replaces Socket.io)
+    // Initial load of Firm Link status and Data Vault history
     useEffect(() => {
-        const checkVaultStatus = async () => {
+        const fetchHubData = async () => {
             try {
-                const res = await fetch("/api/vault-status");
+                const res = await fetch("/api/owner/ca-hub");
                 if (res.ok) {
                     const data = await res.json();
+                    if (data.linkedFirm) setLinkedFirm(data.linkedFirm);
                     
-                    // If CA requested access and it's not already in UI
-                    if (data.status === "Requested" && dataRequests.length === 0) {
+                    // Show month if there are pending approved transactions waiting for the CA to export
+                    if (data.pendingExportCount > 0) {
                         setDataRequests([{ 
-                            id: Date.now(), 
+                            id: "current", 
                             month: new Date().toLocaleString('default', { month: 'long', year: 'numeric' }), 
-                            status: "Pending" 
+                            count: data.pendingExportCount 
                         }]);
                     }
+                    
+                    setSentHistory(data.history || []);
                 }
             } catch (error) {
-                console.error("Failed to poll vault status:", error);
+                console.error("Failed to fetch hub data:", error);
             }
         };
-
-        // Poll every 3 seconds to instantly catch CA requests
-        const interval = setInterval(checkVaultStatus, 3000);
-        return () => clearInterval(interval);
-    }, [dataRequests.length]);
+        fetchHubData();
+    }, []);
 
     const handleApprove = async (request) => {
         setIsApproving(true);
+        const loadingToast = toast.loading("Unlocking data vault...");
         try {
             // Unlocks the database for the CA
-            const res = await fetch("/api/vault-status", {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ status: "Unlocked" })
+            const res = await fetch("/api/owner/ca-hub/unlock", {
+                method: "POST"
             });
 
             if (!res.ok) throw new Error("Failed to unlock vault");
@@ -58,10 +58,10 @@ export default function CAAccessManagement() {
             // Update UI
             setDataRequests((prev) => prev.filter((r) => r.id !== request.id));
             setSentHistory((prev) => [{ ...request, sentAt: new Date().toLocaleTimeString('en-IN') }, ...prev]);
-            alert(`Success: ${request.month} data securely unlocked for your CA!`);
+            toast.success(`${request.month} data securely unlocked for your CA!`, { id: loadingToast });
             
         } catch (error) {
-            alert(error.message);
+            toast.error(error.message, { id: loadingToast });
         } finally {
             setIsApproving(false);
         }
@@ -72,8 +72,9 @@ export default function CAAccessManagement() {
         if (!inviteCode) return;
         
         setIsLinking(true);
+        const loadingToast = toast.loading("Verifying CA invite code...");
         try {
-            const res = await fetch("/api/owner/link-ca", {
+            const res = await fetch("/api/owner/ca-hub/link", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ inviteCode })
@@ -84,8 +85,9 @@ export default function CAAccessManagement() {
             
             setLinkedFirm(result.firmName);
             setInviteCode("");
+            toast.success(`Successfully connected to ${result.firmName}!`, { id: loadingToast });
         } catch (error) {
-            alert(error.message);
+            toast.error(error.message, { id: loadingToast });
         } finally {
             setIsLinking(false);
         }
@@ -104,7 +106,7 @@ export default function CAAccessManagement() {
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 <div className="space-y-8">
-                    {/* Priority 4: CA Firm Mapping Module */}
+                    {/* CA Firm Mapping Module */}
                     <div className="bg-slate-900 rounded-2xl border border-slate-800 shadow-xl overflow-hidden p-6 text-white">
                         <h2 className="text-sm font-black uppercase tracking-wider mb-4 flex items-center gap-2 text-indigo-300">
                             <Building className="w-4 h-4" /> Linked CA Firm
@@ -118,7 +120,7 @@ export default function CAAccessManagement() {
                                         <CheckCircle2 className="w-3 h-3" /> Securely connected
                                     </p>
                                 </div>
-                                <button className="text-xs font-bold text-slate-400 hover:text-white transition-colors">
+                                <button className="text-xs font-bold text-slate-400 hover:text-white transition-colors cursor-not-allowed" title="Contact support to unlink">
                                     Unlink
                                 </button>
                             </div>
@@ -132,12 +134,12 @@ export default function CAAccessManagement() {
                                         type="text" 
                                         value={inviteCode}
                                         onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
-                                        placeholder="e.g. BIZ-AB5537"
+                                        placeholder="e.g. CA-XYZ789"
                                         className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500 uppercase tracking-widest text-white placeholder:text-slate-600"
                                     />
                                     <button 
                                         type="submit"
-                                        disabled={isLinking}
+                                        disabled={isLinking || !inviteCode}
                                         className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl text-sm font-bold transition-colors flex items-center gap-2 disabled:opacity-50 shrink-0"
                                     >
                                         {isLinking ? <Loader2 className="w-4 h-4 animate-spin" /> : <Link2 className="w-4 h-4" />}
@@ -170,7 +172,7 @@ export default function CAAccessManagement() {
                                     >
                                         <div>
                                             <p className="text-sm font-bold text-slate-900">CA requesting <span className="text-indigo-600">{req.month}</span> Data</p>
-                                            <p className="text-xs font-medium text-slate-500 flex items-center gap-1 mt-1"><Clock className="w-3 h-3" /> Requested just now</p>
+                                            <p className="text-xs font-medium text-slate-500 flex items-center gap-1 mt-1"><Clock className="w-3 h-3" /> {req.count} items ready</p>
                                         </div>
                                         <motion.button
                                             whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
@@ -210,7 +212,7 @@ export default function CAAccessManagement() {
                                             <FileKey className="w-5 h-5 text-emerald-600" />
                                         </div>
                                         <div>
-                                            <p className="text-sm font-bold text-slate-800">{item.month} Accounting Data</p>
+                                            <p className="text-sm font-bold text-slate-800">{item.month || "Historical"} Accounting Data</p>
                                             <p className="text-[10px] font-medium text-slate-500">Access granted at {item.sentAt}</p>
                                         </div>
                                     </div>

@@ -7,7 +7,6 @@ import {
 } from "lucide-react";
 
 export default function FinancialHealthUI() {
-  // ✨ FIX: State setup for API integration (Zero-State by default)
   const [isLoading, setIsLoading] = useState(true);
   const [stats, setStats] = useState({
     netProfitMargin: 0,
@@ -17,22 +16,75 @@ export default function FinancialHealthUI() {
   });
   const [monthlyData, setMonthlyData] = useState([]);
 
-  // ✨ Mock API Call
   useEffect(() => {
     const fetchFinancials = async () => {
-      // Later: const res = await fetch('/api/owner/financial-health');
-      setTimeout(() => {
-        // True zero-state for a new business
-        setStats({
-          netProfitMargin: 0,
-          profitTrend: 0,
-          burnRate: 0,
-          runway: 0
-        });
-        setMonthlyData([]); // Empty array for zero-state chart
+      try {
+        // Fetch from our new Double-Entry Transactions API
+        const res = await fetch('/api/owner/transactions');
+        if (res.ok) {
+          const json = await res.json();
+          const allTransactions = json.data || [];
+          
+          // Filter ONLY approved/exported entries for accurate financial realization
+          const submissions = allTransactions.filter(
+              tx => tx.status === "APPROVED" || tx.status === "EXPORTED"
+          );
+
+          if (submissions.length === 0) {
+            setIsLoading(false);
+            return; // Leave zero-state intact
+          }
+
+          let totalIncome = 0;
+          let totalExpense = 0;
+          let currentMonthIncome = 0;
+          let currentMonthExpense = 0;
+          
+          const currentMonth = new Date().getMonth();
+
+          // Aggregate the raw ledger entries using the new schema
+          submissions.forEach(sub => {
+            const subMonth = new Date(sub.transactionDate || sub.createdAt).getMonth();
+            const isIncome = sub.type === "SALES";
+            const isExpense = sub.type === "PURCHASE" || sub.type === "EXPENSE";
+
+            if (isIncome) {
+              totalIncome += sub.totalAmount;
+              if (subMonth === currentMonth) currentMonthIncome += sub.totalAmount;
+            } else if (isExpense) {
+              totalExpense += sub.totalAmount;
+              if (subMonth === currentMonth) currentMonthExpense += sub.totalAmount;
+            }
+          });
+
+          // Calculate Key Metrics
+          const netProfit = currentMonthIncome - currentMonthExpense;
+          const profitMargin = currentMonthIncome > 0 ? ((netProfit / currentMonthIncome) * 100).toFixed(1) : 0;
+          const cashBalance = totalIncome - totalExpense; // Simulated Bank+Cash
+          const runway = currentMonthExpense > 0 ? (cashBalance / currentMonthExpense).toFixed(1) : 0;
+
+          setStats({
+            netProfitMargin: profitMargin,
+            profitTrend: 0, // Would calculate against previous month in a real scenario
+            burnRate: currentMonthExpense.toLocaleString("en-IN"),
+            runway: runway
+          });
+
+          // For the chart, we'll format the current month's data (scaled to Lakhs for UI)
+          const formatLakhs = (amt) => (amt / 100000).toFixed(2);
+          setMonthlyData([{
+            month: new Date().toLocaleString('default', { month: 'short' }),
+            revenue: formatLakhs(currentMonthIncome),
+            expense: formatLakhs(currentMonthExpense)
+          }]);
+        }
+      } catch (error) {
+        console.error("Failed to calculate financial health:", error);
+      } finally {
         setIsLoading(false);
-      }, 800);
+      }
     };
+    
     fetchFinancials();
   }, []);
 
@@ -43,7 +95,7 @@ export default function FinancialHealthUI() {
           <Activity className="w-6 h-6 text-indigo-600" /> Financial Health
         </motion.h1>
         <p className="text-xs sm:text-sm font-medium text-slate-500 mt-1">
-          Monitor your business profitability and 6-month cashflow trends.
+          Monitor your business profitability and cashflow trends based on your approved ledger.
         </p>
       </div>
 
@@ -54,7 +106,7 @@ export default function FinancialHealthUI() {
             {isLoading ? <Loader2 className="w-7 h-7 animate-spin text-emerald-400" /> : `${stats.netProfitMargin}%`}
           </h2>
           <p className="text-sm font-bold text-emerald-600 flex items-center gap-1 bg-emerald-50 w-max px-2 py-1 rounded-md">
-            <TrendingUp className="w-4 h-4" /> {isLoading ? "..." : `+${stats.profitTrend}% from last month`}
+            <TrendingUp className="w-4 h-4" /> {isLoading ? "..." : `Current Month Calculation`}
           </p>
         </div>
         
@@ -93,14 +145,14 @@ export default function FinancialHealthUI() {
             </div>
         ) : monthlyData.length > 0 ? (
             <>
-                <div className="h-64 flex items-end gap-2 sm:gap-6 justify-between px-2 sm:px-4">
+                <div className="h-64 flex items-end gap-2 sm:gap-6 justify-center px-2 sm:px-4">
                 {monthlyData.map((data, idx) => (
-                    <div key={idx} className="flex flex-col items-center gap-2 w-full">
+                    <div key={idx} className="flex flex-col items-center gap-2 w-full max-w-[200px]">
                     <div className="flex gap-1 sm:gap-2 items-end w-full justify-center h-48">
                         {/* Expense Bar */}
                         <motion.div 
-                        initial={{ height: 0 }} animate={{ height: `${(data.expense / 8) * 100}%` }} transition={{ delay: idx * 0.1, duration: 0.5 }}
-                        className="w-1/3 max-w-[24px] bg-rose-400 rounded-t-md relative group"
+                        initial={{ height: 0 }} animate={{ height: `${Math.min((data.expense / Math.max(data.revenue, data.expense, 1)) * 100, 100)}%` }} transition={{ delay: idx * 0.1, duration: 0.5 }}
+                        className="w-1/2 max-w-[40px] bg-rose-400 rounded-t-md relative group"
                         >
                         <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[10px] py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
                             ₹{data.expense}L
@@ -108,8 +160,8 @@ export default function FinancialHealthUI() {
                         </motion.div>
                         {/* Revenue Bar */}
                         <motion.div 
-                        initial={{ height: 0 }} animate={{ height: `${(data.revenue / 8) * 100}%` }} transition={{ delay: idx * 0.1, duration: 0.5 }}
-                        className="w-1/3 max-w-[24px] bg-emerald-500 rounded-t-md relative group"
+                        initial={{ height: 0 }} animate={{ height: `${Math.min((data.revenue / Math.max(data.revenue, data.expense, 1)) * 100, 100)}%` }} transition={{ delay: idx * 0.1, duration: 0.5 }}
+                        className="w-1/2 max-w-[40px] bg-emerald-500 rounded-t-md relative group"
                         >
                         <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[10px] py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
                             ₹{data.revenue}L
@@ -126,14 +178,13 @@ export default function FinancialHealthUI() {
                 </div>
             </>
         ) : (
-            // ✨ FIX: Zero-State UI for the chart
             <div className="h-64 flex flex-col items-center justify-center text-center px-4">
                 <div className="w-16 h-16 bg-slate-50 border border-slate-100 rounded-full flex items-center justify-center mb-4">
                     <BarChart3 className="w-8 h-8 text-slate-400" />
                 </div>
                 <h4 className="text-base font-black text-slate-800 mb-1">No Financial Data Yet</h4>
                 <p className="text-sm font-medium text-slate-500 max-w-sm">
-                    Start logging your revenues and expenses. Your monthly cashflow trends will appear here.
+                    Start logging your revenues and expenses. Your monthly cashflow trends will appear here once approved.
                 </p>
             </div>
         )}

@@ -5,6 +5,7 @@ import {
   FileText, Download, Filter, CheckCircle2, 
   AlertCircle, Loader2, Inbox 
 } from "lucide-react";
+import toast from "react-hot-toast";
 
 export default function TaxReportsUI() {
   const [isLoading, setIsLoading] = useState(true);
@@ -13,15 +14,15 @@ export default function TaxReportsUI() {
   useEffect(() => {
     const fetchReports = async () => {
       try {
-        // Utilizing the bi-directional API built in Priority 3.
-        // The backend automatically uses the JWT to return only this Owner's reports.
-        const res = await fetch('/api/ca/audits');
+        // Fetching securely from the Owner's dedicated reports endpoint
+        const res = await fetch('/api/owner/reports');
         if (res.ok) {
           const json = await res.json();
           setReports(json.data || []);
         }
       } catch (error) {
         console.error("Failed to fetch tax reports:", error);
+        toast.error("Failed to load tax records.");
       } finally {
         setIsLoading(false);
       }
@@ -30,11 +31,18 @@ export default function TaxReportsUI() {
   }, []);
 
   const handleDownload = (report) => {
-    if (!report.fileData) return alert("File data corrupted or missing.");
+    if (!report.fileData) {
+      toast.error("File data corrupted or missing.");
+      return;
+    }
+    
+    toast.success(`Downloading ${report.reportType}...`);
     const link = document.createElement("a");
-    link.href = report.fileData;
+    link.href = report.fileData; // Assuming this is a secure Base64 string or presigned URL
     link.download = `${report.reportType.replace(/\s+/g, '_')}_${report.period}`;
+    document.body.appendChild(link);
     link.click();
+    document.body.removeChild(link);
   };
 
   return (

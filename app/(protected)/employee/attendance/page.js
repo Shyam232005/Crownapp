@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Clock, CheckCircle2, LogIn, LogOut, Loader2, Calendar } from "lucide-react";
+import toast from "react-hot-toast";
 
 export default function EmployeeAttendance() {
     const [status, setStatus] = useState("loading"); // "loading" | "punched-out" | "punched-in" | "completed"
@@ -13,8 +14,8 @@ export default function EmployeeAttendance() {
 
         const checkStatus = async () => {
             try {
-                const employeeId = typeof window !== "undefined" ? (localStorage.getItem("fineOpsUserId") || "emp-temp-123") : "emp-temp-123";
-                const res = await fetch(`/api/attendance?employeeId=${employeeId}`);
+                // Secure API call: Identity is inferred from the HTTP-only JWT cookie
+                const res = await fetch(`/api/attendance`);
                 
                 if (res.ok) {
                     const data = await res.json();
@@ -35,13 +36,10 @@ export default function EmployeeAttendance() {
 
     const handlePunch = async (actionType) => {
         setIsSubmitting(true);
+        const loadingToast = toast.loading(`${actionType}...`);
+        
         try {
-            const employeeId = typeof window !== "undefined" ? (localStorage.getItem("fineOpsUserId") || "emp-temp-123") : "emp-temp-123";
-
-            const payload = {
-                employeeId,
-                actionType // "Punch In" or "Punch Out"
-            };
+            const payload = { actionType };
 
             const res = await fetch("/api/attendance", { 
                 method: "POST", 
@@ -51,11 +49,13 @@ export default function EmployeeAttendance() {
 
             if (res.ok) {
                 setStatus(actionType === "Punch In" ? "punched-in" : "completed");
+                toast.success(`Successfully ${actionType}ed!`, { id: loadingToast });
             } else {
-                throw new Error("API failed");
+                const err = await res.json();
+                throw new Error(err.error || "API failed");
             }
         } catch (error) {
-            alert("Failed to log attendance. Please try again.");
+            toast.error(error.message, { id: loadingToast });
         } finally {
             setIsSubmitting(false);
         }
