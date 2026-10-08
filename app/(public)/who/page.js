@@ -50,10 +50,33 @@ export default function WhoItsForPage() {
                     <motion.p variants={fadeUp} className="mx-auto text-lg leading-relaxed text-slate-600 sm:text-xl font-medium max-w-3xl">
                         Founders, in-house accountants, and external CAs often have conflicting priorities. We bring all three onto a single, cooperative cloud platform—without forcing anyone to change their fundamental workflows.
                     </motion.p>
+
+                    {/* Quick Persona Navigation Bar */}
+                    <motion.div variants={fadeUp} className="pt-4 flex flex-wrap justify-center gap-2">
+                        <a
+                            href="#persona-founders"
+                            className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-bold text-emerald-800 hover:bg-emerald-100 transition-colors"
+                        >
+                            1. Founders & Directors
+                        </a>
+                        <a
+                            href="#persona-finance"
+                            className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-2 text-xs font-bold text-blue-800 hover:bg-blue-100 transition-colors"
+                        >
+                            2. In-House Finance
+                        </a>
+                        <a
+                            href="#persona-auditors"
+                            className="rounded-xl border border-purple-200 bg-purple-50 px-4 py-2 text-xs font-bold text-purple-800 hover:bg-purple-100 transition-colors"
+                        >
+                            3. Chartered Accountants
+                        </a>
+                    </motion.div>
                 </motion.section>
 
                 {/* PERSONA 1: FOUNDERS */}
                 <motion.section
+                    id="persona-founders"
                     variants={staggerContainer}
                     initial="hidden"
                     whileInView="visible"
@@ -137,6 +160,7 @@ export default function WhoItsForPage() {
 
                 {/* PERSONA 2: OPERATIONS */}
                 <motion.section
+                    id="persona-finance"
                     variants={staggerContainer}
                     initial="hidden"
                     whileInView="visible"
@@ -220,6 +244,7 @@ export default function WhoItsForPage() {
 
                 {/* PERSONA 3: AUDITORS */}
                 <motion.section
+                    id="persona-auditors"
                     variants={staggerContainer}
                     initial="hidden"
                     whileInView="visible"

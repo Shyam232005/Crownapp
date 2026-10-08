@@ -132,8 +132,19 @@ export default function SalesAndCustomers() {
 
             <div className="flex flex-col gap-3 sm:gap-4 overflow-hidden p-1">
                 {isLoading ? (
-                    <div className="w-full bg-white rounded-2xl border border-slate-100 shadow-sm h-64 flex flex-col items-center justify-center text-slate-400">
-                        <Loader2 className="w-8 h-8 animate-spin text-indigo-500 mb-4" />
+                    <div className="w-full bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-4">
+                        {[1, 2, 3, 4].map((n) => (
+                            <div key={n} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl animate-pulse">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-10 h-10 bg-slate-200 rounded-xl"></div>
+                                    <div className="space-y-2">
+                                        <div className="h-4 w-40 bg-slate-200 rounded"></div>
+                                        <div className="h-3 w-24 bg-slate-200 rounded"></div>
+                                    </div>
+                                </div>
+                                <div className="h-5 w-20 bg-slate-200 rounded"></div>
+                            </div>
+                        ))}
                     </div>
                 ) : activeTab === "Sales" ? (
                     invoiceList.length === 0 ? (

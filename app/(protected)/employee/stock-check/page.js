@@ -5,7 +5,7 @@ import {
   ClipboardCheck, Search, AlertCircle, Box, 
   Loader2, Inbox 
 } from "lucide-react";
-import toast from "react-hot-toast";
+import { toast } from "sonner";
 
 export default function StockCheckUI() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -99,14 +99,21 @@ export default function StockCheckUI() {
             </thead>
             <tbody className="divide-y divide-slate-50 h-full">
               {isLoading ? (
-                <tr>
-                  <td colSpan="4" className="p-16 text-center">
-                    <div className="flex flex-col items-center justify-center text-slate-400 h-full">
-                      <Loader2 className="w-8 h-8 animate-spin mb-3 text-indigo-600" />
-                      <p className="text-sm font-bold">Loading inventory data...</p>
-                    </div>
-                  </td>
-                </tr>
+                <>
+                  {[1, 2, 3, 4].map((n) => (
+                    <tr key={n} className="animate-pulse">
+                      <td className="p-4 sm:p-5">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 bg-slate-100 rounded-lg"></div>
+                          <div className="h-4 w-32 bg-slate-100 rounded"></div>
+                        </div>
+                      </td>
+                      <td className="p-4 sm:p-5 text-right"><div className="h-4 w-12 bg-slate-100 rounded ml-auto"></div></td>
+                      <td className="p-4 sm:p-5"><div className="h-4 w-20 bg-slate-100 rounded"></div></td>
+                      <td className="p-4 sm:p-5 text-right"><div className="h-6 w-16 bg-slate-100 rounded ml-auto"></div></td>
+                    </tr>
+                  ))}
+                </>
               ) : filteredStock.length > 0 ? (
                 <AnimatePresence>
                   {filteredStock.map((item) => (

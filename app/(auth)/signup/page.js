@@ -9,6 +9,8 @@ import {
     Crown, ShieldCheck, CheckCircle2, Sparkles, ShieldAlert, Check
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { toast } from "sonner";
+import LiveComplianceTicker from "@/components/dynamic/LiveComplianceTicker";
 
 // Custom Input Component - Styled for Premium SaaS Feel
 const Input = ({ icon: Icon, isDark, as = "input", children, registration, ...props }) => (
@@ -110,28 +112,41 @@ function SignupFormContent() {
         setApiError("");
         try {
             if (data.role === "CA") data.joinedViaCode = data.inviteCode;
+            
+            console.log("Submitting registration for:", { role: data.role, email: data.email });
+
             const res = await fetch("/api/auth/register", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(data)
             });
-            const result = await res.json();
+
+            let result;
+            try {
+                result = await res.json();
+            } catch (jsonErr) {
+                console.error("Failed to parse JSON response:", jsonErr);
+                setApiError("Server returned an invalid response format.");
+                return;
+            }
+
             if (res.ok) {
-                if (data.role === "Owner" || data.role === "Employee") {
-                    router.push(`/setup?role=${data.role}`);
-                } else {
-                    router.push("/login"); 
-                }
+                toast.success("Account created successfully!");
+                // Crucial Routing Update: Redirect to /login for ALL roles
+                router.push("/login");
             } else {
-                setApiError(result.error || "Registration failed.");
+                setApiError(result?.error || result?.message || "Registration failed.");
             }
         } catch (err) {
-            setApiError("Network error. Please check your connection.");
+            console.error("Registration request error:", err);
+            setApiError(err?.message || "Network error. Please check your connection.");
         }
     };
 
     return (
-        <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row overflow-x-hidden overflow-y-auto selection:bg-indigo-100 selection:text-indigo-900">
+        <div className="min-h-screen bg-slate-50 flex flex-col selection:bg-indigo-100 selection:text-indigo-900">
+            <LiveComplianceTicker />
+            <div className="flex-1 flex flex-col md:flex-row overflow-x-hidden overflow-y-auto">
             
             {/* LEFT BRANDING PANEL */}
             <div className={`relative w-full md:min-h-screen md:w-5/12 p-8 sm:p-12 lg:p-16 flex flex-col justify-between transition-colors duration-700 ease-in-out ${isFlipped ? 'bg-slate-950' : 'bg-slate-900'}`}>
@@ -362,6 +377,7 @@ function SignupFormContent() {
                 </div>
             </div>
         </div>
+    </div>
     );
 }
 

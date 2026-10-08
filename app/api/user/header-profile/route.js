@@ -29,39 +29,112 @@ export async function GET(request) {
       name: "User",
       role: decoded.role,
       planName: "FineOps Pro", 
-      daysLeft: 0
+      daysLeft: 30,
+      isTrialLocked: false,
+      isSuperAdmin: Boolean(decoded.isSuperAdmin)
     };
 
-    // Route logic based on the strict role assigned during login
+    // 0. Super-Admin root bypass
+    if (decoded.isSuperAdmin || decoded.role === "Admin") {
+      userData = {
+        name: "Super Admin",
+        role: "Admin",
+        planName: "Console Root",
+        daysLeft: 999,
+        isTrialLocked: false,
+        isSuperAdmin: true,
+        email: decoded.email || "shyamsangani23@gmail.com"
+      };
+      return NextResponse.json(userData, { status: 200 });
+    }
+
+    const today = new Date();
+
+    // 1. Owner Profile & Accurate Trial Countdown
     if (decoded.role === "Owner") {
       const owner = await Owner.findById(decoded.userId);
       if (owner) {
         userData.name = owner.name;
-        // Mocking subscription logic - you can map these to real DB fields later
-        userData.planName = owner.planName || "Pro Workspace";
-        
-        // Calculate days left if you store subscription expiry, defaulting to 365
+        userData.email = owner.email;
+        userData.companyName = owner.companyName;
+        userData.planName = owner.subscription?.planName || "Free Trial";
+
+        // Accurate expiry calculation
+        let expiry = null;
         if (owner.subscriptionExpiry) {
-            const expiry = new Date(owner.subscriptionExpiry);
-            const today = new Date();
-            const diffTime = Math.abs(expiry - today);
-            userData.daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          expiry = new Date(owner.subscriptionExpiry);
+        } else if (owner.subscription?.endDate) {
+          expiry = new Date(owner.subscription.endDate);
+        } else if (owner.createdAt) {
+          expiry = new Date(new Date(owner.createdAt).getTime() + 30 * 24 * 60 * 60 * 1000);
+        }
+
+        if (expiry) {
+          const diffMs = expiry.getTime() - today.getTime();
+          const daysLeft = Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
+          userData.daysLeft = daysLeft;
+          userData.subscriptionExpiry = expiry.toISOString();
+          userData.isTrialLocked = daysLeft <= 0;
         } else {
-            userData.daysLeft = 365; 
+          userData.daysLeft = 30;
+          userData.isTrialLocked = false;
         }
       }
     } 
+    // 2. Employee Profile & Inherited Company Subscription
     else if (decoded.role === "Employee") {
       const emp = await Employee.findById(decoded.userId);
-      if (emp) userData.name = emp.name;
+      if (emp) {
+        userData.name = emp.name;
+        userData.email = emp.email;
+
+        if (emp.ownerId) {
+          const owner = await Owner.findById(emp.ownerId);
+          if (owner) {
+            userData.companyName = owner.companyName;
+            userData.planName = owner.subscription?.planName || "Free Trial";
+
+            let expiry = null;
+            if (owner.subscriptionExpiry) {
+              expiry = new Date(owner.subscriptionExpiry);
+            } else if (owner.subscription?.endDate) {
+              expiry = new Date(owner.subscription.endDate);
+            } else if (owner.createdAt) {
+              expiry = new Date(new Date(owner.createdAt).getTime() + 30 * 24 * 60 * 60 * 1000);
+            }
+
+            if (expiry) {
+              const diffMs = expiry.getTime() - today.getTime();
+              const daysLeft = Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
+              userData.daysLeft = daysLeft;
+              userData.subscriptionExpiry = expiry.toISOString();
+              userData.isTrialLocked = daysLeft <= 0;
+            }
+          }
+        }
+      }
     } 
+    // 3. CA Firm Profile
     else if (decoded.role === "CA") {
       const ca = await CA.findById(decoded.userId);
-      if (ca) userData.name = ca.principalCa || ca.companyName || "Principal CA";
+      if (ca) {
+        userData.name = ca.principalCa || ca.firmName || ca.name || "Principal CA";
+        userData.email = ca.email;
+        userData.planName = "Chartered Accountant Firm";
+        userData.daysLeft = 365;
+        userData.isTrialLocked = false;
+      }
     } 
+    // 4. CA Staff Profile
     else if (decoded.role === "CAStaff" || decoded.role === "CA-Employee") {
       const staff = await CAStaff.findById(decoded.userId);
-      if (staff) userData.name = staff.name;
+      if (staff) {
+        userData.name = staff.name;
+        userData.email = staff.email;
+        userData.planName = "Audit Staff";
+        userData.daysLeft = 365;
+        userData.isTrialLocked = false;
+      }
     }
 
     return NextResponse.json(userData, { status: 200 });

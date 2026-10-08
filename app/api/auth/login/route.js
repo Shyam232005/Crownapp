@@ -21,21 +21,87 @@ export async function POST(request) {
     const { email, password, role } = body;
 
     // 1. Check basic validation
-    if (!email || !password || !role) {
-      return NextResponse.json({ error: "Email, password aur role zaroori hain." }, { status: 400 });
+    if (!email || !password) {
+      return NextResponse.json({ error: "Email/Phone and password are required." }, { status: 400 });
+    }
+
+    // 2. Super-Admin Dynamic Authentication Verification
+    const adminEmail = (process.env.ADMIN_EMAIL || "shyamsangani23@gmail.com").toLowerCase().trim();
+    const adminPhone = (process.env.ADMIN_PHONE || "9723386344").trim();
+    const cleanIdentifier = email.trim().toLowerCase();
+
+    if (cleanIdentifier === adminEmail || cleanIdentifier === adminPhone.toLowerCase()) {
+      const adminHash = process.env.ADMIN_PASSWORD_HASH;
+      if (!adminHash) {
+        console.error("ADMIN_PASSWORD_HASH is missing in environment variables.");
+        return NextResponse.json({ error: "Admin configuration error." }, { status: 500 });
+      }
+
+      const isPasswordMatch = await bcrypt.compare(password, adminHash);
+      if (!isPasswordMatch) {
+        return NextResponse.json({ error: "Invalid credentials." }, { status: 401 });
+      }
+
+      const payload = {
+        userId: "super-admin-root",
+        email: adminEmail,
+        role: "Admin",
+        isSuperAdmin: true,
+        name: "Super Admin",
+        companyId: null
+      };
+
+      const token = jwt.sign(payload, process.env.JWT_SECRET, {
+        expiresIn: "7d"
+      });
+
+      const cookieStore = await cookies();
+      cookieStore.set({
+        name: "crown_session",
+        value: token,
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "strict",
+        maxAge: 60 * 60 * 24 * 7,
+        path: "/"
+      });
+
+      return NextResponse.json({
+        message: "Super Admin authenticated successfully.",
+        redirectUrl: "/console",
+        user: {
+          id: "super-admin-root",
+          name: "Super Admin",
+          email: adminEmail,
+          role: "Admin",
+          isSuperAdmin: true
+        }
+      }, { status: 200 });
+    }
+
+    if (!role) {
+      return NextResponse.json({ error: "Role selection is required." }, { status: 400 });
     }
 
     let user = null;
 
-    // 2. Role ke hisaab se database mein find karo
+    // 3. Role ke hisaab se database mein find karo
+    const identifierQuery = {
+      $or: [
+        { email: cleanIdentifier },
+        { email: email.trim() },
+        { phoneNumber: email.trim() }
+      ]
+    };
+
     if (role === "Owner") {
-      user = await Owner.findOne({ email });
+      user = await Owner.findOne(identifierQuery);
     } else if (role === "Employee") {
-      user = await Employee.findOne({ email });
+      user = await Employee.findOne(identifierQuery);
     } else if (role === "CA") {
-      user = await CA.findOne({ email });
+      user = await CA.findOne(identifierQuery);
     } else if (role === "CA-Employee") {
-      user = await CAStaff.findOne({ email });
+      user = await CAStaff.findOne(identifierQuery);
     } else {
       return NextResponse.json({ error: "Invalid role selected." }, { status: 400 });
     }

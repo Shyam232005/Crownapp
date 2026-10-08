@@ -6,6 +6,7 @@ import CA from "@/models/CA";
 import CAStaff from "@/models/CAStaff";
 import Owner from "@/models/Owner";
 import Transaction from "@/models/Transaction";
+import AuditLog from "@/models/AuditLog";
 
 const connectDB = async () => {
   if (mongoose.connection.readyState >= 1) return;
@@ -46,6 +47,19 @@ export async function POST(request) {
     // Fetch the client to get the business name for the filename
     const client = await Owner.findById(clientId);
     const companyName = client?.companyName || "Unknown_Client";
+
+    // Zero-Trust Vault API-level Blocking
+    const latestUnlockLog = await AuditLog.findOne({
+      entityId: clientId,
+      action: "VAULT_UNLOCKED"
+    }).sort({ createdAt: -1 });
+
+    const isVaultUnlocked = (client && client.vaultStatus === "Unlocked") || !!latestUnlockLog;
+    if (!isVaultUnlocked) {
+      return NextResponse.json({ 
+        error: "Zero-Trust Vault Locked: Data export blocked. The SME Owner must explicitly unlock the Data Vault for this period." 
+      }, { status: 423 });
+    }
 
     // 2. Build Date Filters based on period
     const now = new Date();

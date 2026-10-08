@@ -6,7 +6,7 @@ import {
   FileSearch, CheckCircle2, AlertCircle, Loader2,
   LockKeyhole, Unlock, Receipt, Download, Building2
 } from "lucide-react";
-import toast from "react-hot-toast";
+import { toast } from "sonner";
 
 function ScrutinyContent() {
   const searchParams = useSearchParams();
@@ -209,9 +209,19 @@ function ScrutinyContent() {
             </div>
 
             {isLoadingData ? (
-              <div className="flex-1 flex flex-col items-center justify-center py-20 text-slate-400">
-                <Loader2 className="w-8 h-8 animate-spin mb-3 text-indigo-600" />
-                <p className="text-sm font-bold">Extracting secure ledger...</p>
+              <div className="p-6 divide-y divide-slate-100">
+                {[1, 2, 3].map((n) => (
+                  <div key={n} className="py-4 flex items-center justify-between animate-pulse">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 bg-slate-100 rounded-xl"></div>
+                      <div className="space-y-2">
+                        <div className="h-4 w-40 bg-slate-100 rounded"></div>
+                        <div className="h-3 w-24 bg-slate-100 rounded"></div>
+                      </div>
+                    </div>
+                    <div className="h-8 w-24 bg-slate-100 rounded-lg"></div>
+                  </div>
+                ))}
               </div>
             ) : vouchers.length === 0 ? (
               <div className="flex-1 flex flex-col items-center justify-center py-20 text-center px-4">

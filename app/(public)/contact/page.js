@@ -5,6 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { contactSchema } from '@/validations/contactSchema';
 import { motion, AnimatePresence } from 'framer-motion';
+import confetti from 'canvas-confetti';
 
 // Refined Spring Animations matching your SaaS theme
 const fadeUp = {
@@ -63,6 +64,9 @@ export default function ContactUsPage() {
             }
 
             setSubmittedData(data);
+            try {
+                confetti({ particleCount: 50, spread: 70, origin: { y: 0.6 } });
+            } catch (e) {}
             window.scrollTo({ top: 0, behavior: 'smooth' });
 
         } catch (error) {

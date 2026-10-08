@@ -7,7 +7,8 @@ import {
   Save, ShieldCheck, FileText, MapPin,
   CheckCircle2, Loader2 
 } from "lucide-react";
-import toast from "react-hot-toast";
+import { toast } from "sonner";
+import confetti from "canvas-confetti";
 
 export default function FirmSettingsUI() {
   const [isLoading, setIsLoading] = useState(true);
@@ -55,7 +56,7 @@ export default function FirmSettingsUI() {
 
   const onSubmit = async (data) => {
     setIsSaving(true);
-    const loadingToast = toast.loading("Saving firm details...");
+    const toastId = toast.loading("Saving firm details...");
     
     try {
       const res = await fetch('/api/ca/settings', { 
@@ -66,12 +67,16 @@ export default function FirmSettingsUI() {
       
       if (!res.ok) throw new Error("Failed to save settings");
       
-      toast.success("Settings saved successfully!", { id: loadingToast });
+      confetti({ particleCount: 75, spread: 65, origin: { y: 0.6 } });
+      toast.success("Settings saved successfully!", { id: toastId });
       setShowSuccess(true);
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("fineops_profile_updated"));
+      }
       setTimeout(() => setShowSuccess(false), 3000);
       
     } catch (error) {
-      toast.error("Network error while saving settings.", { id: loadingToast });
+      toast.error(error.message || "Network error while saving settings.", { id: toastId });
     } finally {
       setIsSaving(false);
     }
@@ -79,9 +84,30 @@ export default function FirmSettingsUI() {
 
   if (isLoading) {
     return (
-      <div className="p-8 max-w-4xl mx-auto w-full h-[60vh] flex flex-col items-center justify-center text-slate-400">
-        <Loader2 className="w-8 h-8 animate-spin mb-3 text-indigo-600" />
-        <p className="text-sm font-bold">Loading firm profile...</p>
+      <div className="p-4 sm:p-8 max-w-4xl mx-auto w-full pb-24 animate-pulse space-y-6">
+        <div className="space-y-2">
+          <div className="h-7 w-48 bg-slate-200 rounded-lg" />
+          <div className="h-4 w-80 bg-slate-200 rounded" />
+        </div>
+        <div className="bg-white rounded-3xl border border-slate-100 p-6 space-y-6 shadow-sm">
+          <div className="h-5 w-32 bg-slate-200 rounded" />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div className="h-12 bg-slate-100 rounded-xl" />
+            <div className="h-12 bg-slate-100 rounded-xl" />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div className="h-12 bg-slate-100 rounded-xl" />
+            <div className="h-12 bg-slate-100 rounded-xl" />
+          </div>
+          <div className="h-20 bg-slate-100 rounded-xl" />
+        </div>
+        <div className="bg-white rounded-3xl border border-slate-100 p-6 space-y-5 shadow-sm">
+          <div className="h-5 w-36 bg-slate-200 rounded" />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div className="h-12 bg-slate-100 rounded-xl" />
+            <div className="h-12 bg-slate-100 rounded-xl" />
+          </div>
+        </div>
       </div>
     );
   }

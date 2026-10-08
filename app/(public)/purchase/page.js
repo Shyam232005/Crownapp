@@ -2,6 +2,7 @@
 import { useRouter } from 'next/navigation';
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import confetti from 'canvas-confetti';
 
 // Refined Spring Animations matching your SaaS theme
 const fadeUp = {
@@ -69,13 +70,23 @@ export default function PurchaseSoftwarePage() {
         },
     ];
 
-    // ✨ Intact routing logic ✨
+    // ✨ Intact routing logic with dynamic visual feedback ✨
     const handlePurchaseClick = (plan) => {
+        try {
+            confetti({
+                particleCount: 50,
+                spread: 70,
+                origin: { y: 0.6 }
+            });
+        } catch (e) {}
+
         const isAnnual = billingCycle === 'annual';
         const finalPrice = isAnnual ? (plan.annualPrice * 12) : plan.monthlyPrice;
         const cycleName = isAnnual ? 'Annual' : 'Monthly';
 
-        router.push(`/payment?plan=${encodeURIComponent(plan.name)}&cycle=${cycleName}&price=${finalPrice}`);
+        setTimeout(() => {
+            router.push(`/payment?plan=${encodeURIComponent(plan.name)}&cycle=${cycleName}&price=${finalPrice}`);
+        }, 300);
     };
 
     return (

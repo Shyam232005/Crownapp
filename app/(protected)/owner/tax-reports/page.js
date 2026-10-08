@@ -5,7 +5,8 @@ import {
   FileText, Download, Filter, CheckCircle2, 
   AlertCircle, Loader2, Inbox 
 } from "lucide-react";
-import toast from "react-hot-toast";
+import { toast } from "sonner";
+import confetti from "canvas-confetti";
 
 export default function TaxReportsUI() {
   const [isLoading, setIsLoading] = useState(true);
@@ -43,6 +44,7 @@ export default function TaxReportsUI() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    confetti({ particleCount: 70, spread: 60, origin: { y: 0.6 } });
   };
 
   return (
@@ -68,9 +70,19 @@ export default function TaxReportsUI() {
         
         <div className="flex-1 flex flex-col">
           {isLoading ? (
-            <div className="flex-1 flex flex-col items-center justify-center py-20 text-slate-400">
-              <Loader2 className="w-8 h-8 animate-spin mb-3 text-indigo-600" />
-              <p className="text-sm font-bold">Loading your tax records...</p>
+            <div className="p-6 divide-y divide-slate-100">
+              {[1, 2, 3].map((n) => (
+                <div key={n} className="py-4 flex items-center justify-between animate-pulse">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-slate-100 rounded-xl"></div>
+                    <div className="space-y-2">
+                      <div className="h-4 w-36 bg-slate-100 rounded"></div>
+                      <div className="h-3 w-24 bg-slate-100 rounded"></div>
+                    </div>
+                  </div>
+                  <div className="h-8 w-24 bg-slate-100 rounded-lg"></div>
+                </div>
+              ))}
             </div>
           ) : reports.length > 0 ? (
             <div className="divide-y divide-slate-100">
@@ -104,12 +116,14 @@ export default function TaxReportsUI() {
                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Prepared By</p>
                         <p className="text-sm font-black text-slate-900">{report.staffName || "Your CA"}</p>
                       </div>
-                      <button 
+                      <motion.button 
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.97 }}
                         onClick={() => handleDownload(report)}
-                        className="flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white rounded-lg text-xs font-bold transition-colors"
+                        className="flex items-center gap-2 px-4 py-2.5 min-h-[44px] bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white rounded-xl text-xs font-black transition-all cursor-pointer shadow-xs"
                       >
                         <Download className="w-4 h-4" /> Download
-                      </button>
+                      </motion.button>
                     </div>
                   </motion.div>
                 ))}

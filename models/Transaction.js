@@ -5,7 +5,7 @@ const TransactionSchema = new mongoose.Schema({
   createdBy: { type: String, required: true }, // Can be Employee ID or Owner ID
   type: { 
     type: String, 
-    enum: ['SALES', 'PURCHASE', 'EXPENSE', 'COLLECTION'], 
+    enum: ['SALES', 'PURCHASE', 'EXPENSE', 'COLLECTION', 'OPENING_BALANCE'], 
     required: true 
   },
   status: { 

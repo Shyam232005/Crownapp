@@ -6,7 +6,8 @@ import {
   CalendarDays, Send, Clock, CheckCircle2, 
   XCircle, AlertCircle, Loader2, Inbox 
 } from "lucide-react";
-import toast from "react-hot-toast";
+import { toast } from "sonner";
+import confetti from "canvas-confetti";
 
 export default function LeaveRequestsUI() {
   const [isLoading, setIsLoading] = useState(true);
@@ -60,6 +61,9 @@ export default function LeaveRequestsUI() {
       setLeaves([json.data, ...leaves]);
       
       toast.success("Leave request submitted to owner!", { id: loadingToast });
+      try {
+        confetti({ particleCount: 35, spread: 60, origin: { y: 0.7 } });
+      } catch (e) {}
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 3000);
       reset();
@@ -155,9 +159,19 @@ export default function LeaveRequestsUI() {
         <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden flex-1 flex flex-col min-h-[400px]">
           <div className="divide-y divide-slate-100 flex-1 flex flex-col">
             {isLoading ? (
-              <div className="flex-1 flex flex-col items-center justify-center py-20 text-slate-400">
-                <Loader2 className="w-8 h-8 animate-spin mb-3 text-indigo-600" />
-                <p className="text-sm font-bold">Loading your leave history...</p>
+              <div className="p-6 divide-y divide-slate-100">
+                {[1, 2, 3].map((n) => (
+                  <div key={n} className="py-4 flex items-center justify-between animate-pulse">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 bg-slate-100 rounded-2xl"></div>
+                      <div className="space-y-2">
+                        <div className="h-4 w-32 bg-slate-100 rounded"></div>
+                        <div className="h-3 w-20 bg-slate-100 rounded"></div>
+                      </div>
+                    </div>
+                    <div className="h-6 w-20 bg-slate-100 rounded-lg"></div>
+                  </div>
+                ))}
               </div>
             ) : leaves.length > 0 ? (
               <>

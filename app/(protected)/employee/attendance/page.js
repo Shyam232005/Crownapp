@@ -2,7 +2,8 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Clock, CheckCircle2, LogIn, LogOut, Loader2, Calendar } from "lucide-react";
-import toast from "react-hot-toast";
+import { toast } from "sonner";
+import confetti from "canvas-confetti";
 
 export default function EmployeeAttendance() {
     const [status, setStatus] = useState("loading"); // "loading" | "punched-out" | "punched-in" | "completed"
@@ -50,6 +51,9 @@ export default function EmployeeAttendance() {
             if (res.ok) {
                 setStatus(actionType === "Punch In" ? "punched-in" : "completed");
                 toast.success(`Successfully ${actionType}ed!`, { id: loadingToast });
+                try {
+                    confetti({ particleCount: 30, spread: 50, origin: { y: 0.6 } });
+                } catch (e) {}
             } else {
                 const err = await res.json();
                 throw new Error(err.error || "API failed");

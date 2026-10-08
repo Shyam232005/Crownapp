@@ -5,7 +5,7 @@ import {
   Landmark, Check, X, FileSpreadsheet, 
   ArrowRightLeft, Loader2, Inbox, Building2
 } from "lucide-react";
-import toast from "react-hot-toast";
+import { toast } from "sonner";
 
 export default function BankRecoUI() {
   const [isLoading, setIsLoading] = useState(true);
@@ -162,9 +162,25 @@ export default function BankRecoUI() {
         
         <div className="divide-y divide-slate-100 flex-1 flex flex-col">
           {isLoading ? (
-            <div className="flex-1 flex flex-col items-center justify-center py-20 text-slate-400">
-              <Loader2 className="w-8 h-8 animate-spin mb-3 text-indigo-600" />
-              <p className="text-sm font-bold">Loading reconciliation data...</p>
+            <div className="divide-y divide-slate-100 p-4 space-y-3">
+              {[1, 2, 3, 4].map((n) => (
+                <div key={n} className="grid grid-cols-12 py-3 items-center animate-pulse">
+                  <div className="col-span-4 space-y-1.5">
+                    <div className="h-4 w-36 bg-slate-100 rounded"></div>
+                    <div className="h-3 w-20 bg-slate-100 rounded"></div>
+                  </div>
+                  <div className="col-span-2 text-center">
+                    <div className="h-4 w-4 bg-slate-100 rounded mx-auto"></div>
+                  </div>
+                  <div className="col-span-4 space-y-1.5">
+                    <div className="h-4 w-32 bg-slate-100 rounded"></div>
+                    <div className="h-3 w-16 bg-slate-100 rounded"></div>
+                  </div>
+                  <div className="col-span-2 text-right">
+                    <div className="h-6 w-16 bg-slate-100 rounded ml-auto"></div>
+                  </div>
+                </div>
+              ))}
             </div>
           ) : recoData.length > 0 ? (
             <AnimatePresence>

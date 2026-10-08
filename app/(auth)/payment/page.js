@@ -6,6 +6,7 @@ import {
   CreditCard, Smartphone, ShieldCheck, 
   IndianRupee, CheckCircle2, Loader2, Lock, ChevronRight, Building
 } from "lucide-react";
+import LiveComplianceTicker from "@/components/dynamic/LiveComplianceTicker";
 
 // Refined Spring Animations matching your SaaS theme
 const fadeUp = {
@@ -220,6 +221,7 @@ function PaymentCheckoutContent() {
 export default function PaymentPage() {
   return (
     <div className="min-h-screen bg-[#FAFAFA] relative selection:bg-indigo-100 selection:text-indigo-900 overflow-hidden">
+      <LiveComplianceTicker />
       {/* Ambient Background Glow */}
       <div className="absolute top-0 right-0 -z-10 h-[500px] w-[500px] translate-x-1/3 -translate-y-1/4 rounded-full bg-indigo-500/5 blur-[120px] pointer-events-none"></div>
       <div className="absolute bottom-0 left-0 -z-10 h-[400px] w-[400px] -translate-x-1/3 translate-y-1/4 rounded-full bg-blue-500/5 blur-[100px] pointer-events-none"></div>

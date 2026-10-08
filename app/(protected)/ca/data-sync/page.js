@@ -5,7 +5,8 @@ import {
     DownloadCloud, Lock, Unlock, Loader2, Database, 
     FileText, CheckCircle2, Inbox 
 } from "lucide-react";
-import toast from "react-hot-toast";
+import { toast } from "sonner";
+import confetti from "canvas-confetti";
 
 export default function TallySyncPage() {
     const [isLoadingClients, setIsLoadingClients] = useState(true);
@@ -141,6 +142,7 @@ export default function TallySyncPage() {
             link.click();
             document.body.removeChild(link);
 
+            confetti({ particleCount: 75, spread: 65, origin: { y: 0.6 } });
             toast.success("File downloaded successfully!", { id: loadingToast });
 
         } catch (error) {
@@ -161,9 +163,23 @@ export default function TallySyncPage() {
             </div>
 
             {isLoadingClients ? (
-                <div className="w-full bg-white rounded-3xl border border-slate-200 shadow-sm py-24 flex flex-col items-center justify-center text-slate-400">
-                    <Loader2 className="w-8 h-8 animate-spin mb-4 text-indigo-600" />
-                    <p className="text-sm font-bold">Loading sync modules...</p>
+                <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 max-w-2xl shadow-sm animate-pulse space-y-6">
+                    <div className="flex items-center justify-between border-b border-slate-100 pb-6">
+                        <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 bg-slate-200 rounded-xl" />
+                            <div className="space-y-2">
+                                <div className="h-5 w-44 bg-slate-200 rounded" />
+                                <div className="h-3 w-28 bg-slate-200 rounded" />
+                            </div>
+                        </div>
+                        <div className="h-7 w-28 bg-slate-200 rounded-lg" />
+                    </div>
+                    <div className="bg-slate-50 p-8 rounded-xl border border-slate-100 flex flex-col items-center space-y-3">
+                        <div className="w-12 h-12 bg-slate-200 rounded-full" />
+                        <div className="h-4 w-48 bg-slate-200 rounded" />
+                        <div className="h-3 w-64 bg-slate-200 rounded" />
+                        <div className="h-10 w-44 bg-slate-200 rounded-xl mt-3" />
+                    </div>
                 </div>
             ) : activeClient ? (
                 <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 max-w-2xl shadow-sm">

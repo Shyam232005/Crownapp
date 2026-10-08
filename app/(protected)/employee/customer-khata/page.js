@@ -155,8 +155,19 @@ export default function EmployeeKhata() {
       </div>
 
       {isLoading ? (
-        <div className="w-full bg-white rounded-2xl border border-slate-100 shadow-sm h-64 flex flex-col items-center justify-center text-slate-400">
-          <Loader2 className="w-8 h-8 animate-spin text-indigo-500 mb-4" />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {[1, 2, 3, 4, 5, 6].map((n) => (
+            <div key={n} className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm space-y-3 animate-pulse">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-slate-100"></div>
+                <div className="space-y-1.5 flex-1">
+                  <div className="h-4 w-28 bg-slate-100 rounded"></div>
+                  <div className="h-3 w-16 bg-slate-100 rounded"></div>
+                </div>
+              </div>
+              <div className="h-6 w-20 bg-slate-100 rounded"></div>
+            </div>
+          ))}
         </div>
       ) : customers.length === 0 ? (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="w-full bg-white rounded-2xl border border-slate-100 shadow-sm h-64 flex flex-col items-center justify-center text-center p-8">

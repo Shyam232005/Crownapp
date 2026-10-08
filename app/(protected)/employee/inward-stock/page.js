@@ -9,7 +9,8 @@ import {
   FileText, CheckCircle2, Loader2, History, Inbox,
   Scan, UploadCloud, Camera, Sparkles
 } from "lucide-react";
-import toast from "react-hot-toast";
+import { toast } from "sonner";
+import confetti from "canvas-confetti";
 
 export default function StockInwardUI() {
   const [showSuccess, setShowSuccess] = useState(false);
@@ -74,6 +75,9 @@ export default function StockInwardUI() {
       }
 
       toast.success("Stock logged successfully!", { id: loadingToast });
+      try {
+        confetti({ particleCount: 35, spread: 60, origin: { y: 0.7 } });
+      } catch (e) {}
       setShowSuccess(true);
       setScanSuccess(false);
       reset(); 
@@ -314,9 +318,19 @@ export default function StockInwardUI() {
         
         <div className="flex-1 flex flex-col justify-center">
           {isLoadingHistory ? (
-            <div className="flex flex-col items-center justify-center py-10 text-slate-400">
-              <Loader2 className="w-8 h-8 animate-spin mb-3 text-indigo-600" />
-              <p className="text-sm font-bold">Loading entries...</p>
+            <div className="p-4 sm:p-6 divide-y divide-slate-100">
+              {[1, 2, 3].map((n) => (
+                <div key={n} className="py-3 flex items-center justify-between animate-pulse">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-slate-100 rounded-lg"></div>
+                    <div className="space-y-1.5">
+                      <div className="h-4 w-32 bg-slate-100 rounded"></div>
+                      <div className="h-3 w-20 bg-slate-100 rounded"></div>
+                    </div>
+                  </div>
+                  <div className="h-4 w-16 bg-slate-100 rounded"></div>
+                </div>
+              ))}
             </div>
           ) : recentEntries.length > 0 ? (
             <div className="divide-y divide-slate-100">

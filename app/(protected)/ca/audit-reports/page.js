@@ -6,7 +6,8 @@ import {
   AlertTriangle, Clock, Upload,
   Loader2, Inbox, Building2
 } from "lucide-react";
-import toast from "react-hot-toast";
+import { toast } from "sonner";
+import confetti from "canvas-confetti";
 
 export default function AuditReportsUI() {
   const [search, setSearch] = useState("");
@@ -93,6 +94,7 @@ export default function AuditReportsUI() {
         });
 
         if (res.ok) {
+          confetti({ particleCount: 75, spread: 65, origin: { y: 0.6 } });
           toast.success("Report successfully uploaded!", { id: loadingToast });
           fetchAudits(); 
         } else {
@@ -177,9 +179,25 @@ export default function AuditReportsUI() {
         
         <div className="flex-1 flex flex-col">
           {isLoading ? (
-            <div className="flex-1 flex flex-col items-center justify-center py-20 text-slate-400">
-              <Loader2 className="w-8 h-8 animate-spin mb-3 text-indigo-600" />
-              <p className="text-sm font-bold">Loading audit reports...</p>
+            <div className="p-6 space-y-4">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="flex items-center justify-between p-4 bg-slate-50/70 border border-slate-100 rounded-2xl animate-pulse">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-slate-200 rounded-2xl shrink-0" />
+                    <div className="space-y-2">
+                      <div className="h-4 w-40 bg-slate-200 rounded" />
+                      <div className="flex gap-2">
+                        <div className="h-3 w-16 bg-slate-200 rounded" />
+                        <div className="h-3 w-20 bg-slate-200 rounded" />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <div className="h-6 w-24 bg-slate-200 rounded-md" />
+                    <div className="h-8 w-24 bg-slate-200 rounded-xl" />
+                  </div>
+                </div>
+              ))}
             </div>
           ) : filteredAudits.length > 0 ? (
             <div className="divide-y divide-slate-100">

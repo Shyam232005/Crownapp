@@ -6,7 +6,8 @@ import {
   FileSpreadsheet, Plus, CheckCircle2, IndianRupee, 
   Clock, Send, Loader2, Inbox, X 
 } from "lucide-react";
-import toast from "react-hot-toast";
+import { toast } from "sonner";
+import confetti from "canvas-confetti";
 
 export default function DraftTaxSheetsUI() {
   const [isLoading, setIsLoading] = useState(true);
@@ -82,6 +83,9 @@ export default function DraftTaxSheetsUI() {
       }
 
       toast.success("Draft saved successfully!", { id: loadingToast });
+      try {
+        confetti({ particleCount: 35, spread: 60 });
+      } catch (e) {}
       fetchDrafts(); // Refresh list to get the new DB entry
       reset({ month: currentMonthStr });
       setIsModalOpen(false);
@@ -134,9 +138,23 @@ export default function DraftTaxSheetsUI() {
         
         <div className="flex-1 flex flex-col">
           {isLoading ? (
-            <div className="flex-1 flex flex-col items-center justify-center py-20 text-slate-400">
-              <Loader2 className="w-8 h-8 animate-spin mb-3 text-indigo-600" />
-              <p className="text-sm font-bold">Loading tax drafts...</p>
+            <div className="p-6 divide-y divide-slate-100">
+              {[1, 2, 3].map((n) => (
+                <div key={n} className="py-4 flex flex-col xl:flex-row xl:items-center justify-between animate-pulse gap-4">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-slate-100 rounded-2xl"></div>
+                    <div className="space-y-2">
+                      <div className="h-4 w-40 bg-slate-100 rounded"></div>
+                      <div className="h-3 w-20 bg-slate-100 rounded"></div>
+                    </div>
+                  </div>
+                  <div className="flex gap-8">
+                    <div className="h-8 w-20 bg-slate-100 rounded"></div>
+                    <div className="h-8 w-20 bg-slate-100 rounded"></div>
+                    <div className="h-8 w-20 bg-slate-100 rounded"></div>
+                  </div>
+                </div>
+              ))}
             </div>
           ) : drafts.length > 0 ? (
             <div className="divide-y divide-slate-100">

@@ -5,7 +5,8 @@ import {
   WifiOff, Wifi, RefreshCw, AlertCircle, 
   FileText, Clock, Receipt, CheckCircle2, Loader2, Database
 } from "lucide-react";
-import toast from "react-hot-toast";
+import { toast } from "sonner";
+import confetti from "canvas-confetti";
 
 export default function OfflineQueueUI() {
   const [isOnline, setIsOnline] = useState(true);
@@ -69,6 +70,9 @@ export default function OfflineQueueUI() {
       // Clear the queue on successful sync
       localStorage.removeItem("fineops_offline_queue");
       setOfflineItems([]);
+      try {
+        confetti({ particleCount: 35, spread: 60 });
+      } catch (e) {}
       toast.success("All items synced successfully!", { id: loadingToast });
 
     } catch (error) {

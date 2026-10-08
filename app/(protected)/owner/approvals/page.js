@@ -3,9 +3,11 @@ import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   CheckCircle2, XCircle, Clock, Receipt, 
-  Loader2, IndianRupee, ShieldCheck, CheckSquare, X
+  Loader2, IndianRupee, ShieldCheck, CheckSquare, X,
+  Sparkles, CheckCheck, Inbox
 } from "lucide-react";
-import toast from "react-hot-toast";
+import { toast } from "sonner";
+import confetti from "canvas-confetti";
 
 export default function ApprovalsQueueUI() {
   const [transactions, setTransactions] = useState([]);
@@ -15,7 +17,6 @@ export default function ApprovalsQueueUI() {
   useEffect(() => {
     const fetchQueue = async () => {
       try {
-        // Fetch all transactions for this company
         const res = await fetch('/api/owner/transactions');
         if (res.ok) {
           const json = await res.json();
@@ -31,10 +32,9 @@ export default function ApprovalsQueueUI() {
     fetchQueue();
   }, []);
 
-  // Filter logic based on our strict RBAC statuses
+  // Filter logic based on strict RBAC statuses
   const pendingQueue = transactions.filter(tx => tx.status === "PENDING_OWNER_APPROVAL" || tx.status === "PENDING");
   
-  // Anything that has moved past the owner (to the CA, or rejected)
   const reviewedQueue = transactions.filter(tx => 
     tx.status === "PENDING_CA_REVIEW" || 
     tx.status === "APPROVED" || 
@@ -45,8 +45,7 @@ export default function ApprovalsQueueUI() {
   const displayList = activeTab === "PENDING" ? pendingQueue : reviewedQueue;
 
   const handleAction = async (id, actionType) => {
-    // actionType: 'APPROVE' or 'REJECT'
-    const loadingToast = toast.loading(`${actionType === 'APPROVE' ? 'Approving' : 'Rejecting'} transaction...`);
+    const toastId = toast.loading(`${actionType === 'APPROVE' ? 'Approving' : 'Rejecting'} voucher...`);
     
     try {
       const res = await fetch('/api/owner/transactions/action', {
@@ -56,9 +55,14 @@ export default function ApprovalsQueueUI() {
       });
 
       if (res.ok) {
-        toast.success(`Transaction ${actionType === 'APPROVE' ? 'Sent to CA!' : 'Rejected'}`, { id: loadingToast });
+        toast.success(`Transaction ${actionType === 'APPROVE' ? 'Approved & Sent to CA Vault!' : 'Rejected'}`, { id: toastId });
+        if (actionType === 'APPROVE') {
+          try {
+            confetti({ particleCount: 45, spread: 65, origin: { y: 0.6 } });
+          } catch (e) {}
+        }
         
-        // Update UI instantly without reloading
+        // Update UI state with smooth morphing collapse
         const newStatus = actionType === 'APPROVE' ? 'PENDING_CA_REVIEW' : 'REJECTED';
         setTransactions(prev => prev.map(tx => 
           tx._id === id ? { ...tx, status: newStatus } : tx
@@ -68,70 +72,117 @@ export default function ApprovalsQueueUI() {
         throw new Error(data.error || 'Action failed');
       }
     } catch (error) {
-      toast.error(error.message, { id: loadingToast });
+      toast.error(error.message || 'Action failed', { id: toastId });
     }
   };
 
   return (
-    <div className="p-4 sm:p-8 max-w-5xl mx-auto w-full pb-24">
+    <div className="p-4 sm:p-8 max-w-7xl mx-auto w-full pb-24">
       {/* Header */}
       <div className="mb-8">
-        <motion.h1 initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-          <ShieldCheck className="w-6 h-6 text-indigo-600" /> Approval Queue
-        </motion.h1>
-        <p className="text-xs sm:text-sm font-medium text-slate-500 mt-1">
-          Review employee submissions. Approved entries are securely routed to your CA's audit dashboard.
+        <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="flex items-center gap-2.5 mb-1">
+          <div className="w-8 h-8 rounded-xl bg-indigo-600/10 text-indigo-600 flex items-center justify-center font-black">
+            <ShieldCheck className="w-5 h-5" />
+          </div>
+          <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+            Owner Approval Queue
+          </h1>
+        </motion.div>
+        <p className="text-xs sm:text-sm font-semibold text-slate-400 pl-10.5">
+          Review employee submissions. Approved entries atomically write double-entry rows and route to your CA.
         </p>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-3 mb-6 border-b border-slate-100 pb-4">
+      {/* Tabs with Shared Layout Morphing */}
+      <div className="flex gap-2 mb-6 bg-slate-100/70 p-1.5 rounded-2xl w-fit border border-slate-200/50">
         <button
           onClick={() => setActiveTab("PENDING")}
-          className={`relative px-5 py-2.5 rounded-xl text-sm font-black transition-all flex items-center gap-2 ${
-            activeTab === "PENDING" ? "text-slate-900" : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
+          className={`relative px-5 py-2.5 rounded-xl text-xs sm:text-sm font-black transition-all flex items-center gap-2 cursor-pointer ${
+            activeTab === "PENDING" ? "text-indigo-900" : "text-slate-500 hover:text-slate-800"
           }`}
         >
           {activeTab === "PENDING" && (
-            <motion.div layoutId="approvalTabIndicator" className="absolute inset-0 bg-slate-100 rounded-xl -z-10" />
+            <motion.div 
+              layoutId="approvalTabIndicator" 
+              transition={{ type: "spring", stiffness: 400, damping: 30 }}
+              className="absolute inset-0 bg-white rounded-xl shadow-sm border border-slate-200/40" 
+            />
           )}
-          Requires Review 
-          {pendingQueue.length > 0 && (
-            <span className="bg-amber-100 text-amber-600 px-2 py-0.5 rounded-md text-[10px]">{pendingQueue.length}</span>
-          )}
+          <span className="relative z-10 flex items-center gap-2">
+            Requires Review 
+            {pendingQueue.length > 0 && (
+              <span className="bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full text-[10px] font-black">
+                {pendingQueue.length}
+              </span>
+            )}
+          </span>
         </button>
+
         <button
           onClick={() => setActiveTab("REVIEWED")}
-          className={`relative px-5 py-2.5 rounded-xl text-sm font-black transition-all ${
-            activeTab === "REVIEWED" ? "text-slate-900" : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
+          className={`relative px-5 py-2.5 rounded-xl text-xs sm:text-sm font-black transition-all flex items-center gap-2 cursor-pointer ${
+            activeTab === "REVIEWED" ? "text-indigo-900" : "text-slate-500 hover:text-slate-800"
           }`}
         >
           {activeTab === "REVIEWED" && (
-            <motion.div layoutId="approvalTabIndicator" className="absolute inset-0 bg-slate-100 rounded-xl -z-10" />
+            <motion.div 
+              layoutId="approvalTabIndicator" 
+              transition={{ type: "spring", stiffness: 400, damping: 30 }}
+              className="absolute inset-0 bg-white rounded-xl shadow-sm border border-slate-200/40" 
+            />
           )}
-          Past Decisions
+          <span className="relative z-10">Past Decisions</span>
         </button>
       </div>
 
-      {/* Content Area */}
-      <div className="bg-white border border-slate-100 rounded-3xl shadow-sm overflow-hidden min-h-[400px] flex flex-col">
+      {/* Content Container */}
+      <div className="bg-white/90 backdrop-blur-md border border-slate-200/60 rounded-3xl shadow-sm overflow-hidden min-h-[420px] flex flex-col">
         {isLoading ? (
-          <div className="flex-1 flex flex-col items-center justify-center text-slate-400">
-            <Loader2 className="w-8 h-8 animate-spin mb-3 text-indigo-600" />
-            <p className="text-sm font-bold">Loading queue...</p>
+          /* Shimmering Skeletons */
+          <div className="p-6 divide-y divide-slate-100/60">
+            {[1, 2, 3, 4].map((n) => (
+              <div key={n} className="py-4 flex items-center justify-between animate-pulse">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-slate-200/60 rounded-2xl" />
+                  <div className="space-y-2">
+                    <div className="h-4 w-44 bg-slate-200/60 rounded-md" />
+                    <div className="h-3 w-28 bg-slate-100 rounded-md" />
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="h-6 w-20 bg-slate-100 rounded-lg" />
+                  <div className="h-10 w-24 bg-slate-200/60 rounded-xl" />
+                </div>
+              </div>
+            ))}
           </div>
         ) : displayList.length === 0 ? (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex-1 flex flex-col items-center justify-center text-center p-8">
-            <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mb-4 ${activeTab === 'PENDING' ? 'bg-amber-50' : 'bg-slate-50'}`}>
-              <CheckSquare className={`w-8 h-8 ${activeTab === 'PENDING' ? 'text-amber-300' : 'text-slate-300'}`} />
-            </div>
-            <h3 className="text-lg font-black text-slate-800 mb-2">
-              {activeTab === "PENDING" ? "Inbox Zero!" : "No History"}
+          /* Organic Zero State */
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.96 }} 
+            animate={{ opacity: 1, scale: 1 }} 
+            className="flex-1 flex flex-col items-center justify-center text-center p-12 bg-gradient-to-br from-slate-50/60 via-indigo-50/20 to-slate-50/60"
+          >
+            <motion.div 
+              animate={{ y: [0, -6, 0] }}
+              transition={{ duration: 3.5, repeat: Infinity, ease: "easeInOut" }}
+              className={`w-16 h-16 rounded-3xl flex items-center justify-center mb-4 shadow-sm ${
+                activeTab === 'PENDING' ? 'bg-amber-50 border border-amber-100/80 text-amber-500' : 'bg-slate-50 border border-slate-200/80 text-slate-400'
+              }`}
+            >
+              {activeTab === 'PENDING' ? (
+                <Inbox className="w-8 h-8 animate-pulse" />
+              ) : (
+                <CheckSquare className="w-8 h-8 text-slate-400" />
+              )}
+            </motion.div>
+            <h3 className="text-lg font-black text-slate-800 tracking-tight mb-1">
+              {activeTab === "PENDING" ? "Inbox Zero! Everything Approved" : "No Historical Decisions"}
             </h3>
-            <p className="text-sm font-medium text-slate-500 max-w-sm mx-auto">
+            <p className="text-xs font-semibold text-slate-400 max-w-sm mx-auto leading-relaxed">
               {activeTab === "PENDING" 
-                ? "Your employees haven't submitted any new entries. You're all caught up."
-                : "You haven't approved or rejected any transactions yet."}
+                ? "Your staff members have no pending submissions requiring owner sign-off. All historical vouchers are synced."
+                : "You have not processed or rejected any transactions in this queue yet."}
             </p>
           </motion.div>
         ) : (
@@ -139,28 +190,31 @@ export default function ApprovalsQueueUI() {
             <AnimatePresence mode="popLayout">
               {displayList.map((item) => (
                 <motion.div 
-                  layout initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }}
+                  layout
+                  initial={{ opacity: 0, y: 15 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.92, height: 0, paddingTop: 0, paddingBottom: 0, transition: { duration: 0.3 } }}
                   key={item._id} 
-                  className="p-5 flex flex-col md:flex-row md:items-center justify-between hover:bg-slate-50 transition-colors gap-4"
+                  className="p-5 sm:p-6 flex flex-col md:flex-row md:items-center justify-between hover:bg-slate-50/80 transition-colors gap-4 group"
                 >
                   <div className="flex items-center gap-4">
-                    <div className={`w-12 h-12 shrink-0 rounded-2xl flex items-center justify-center border ${
-                      item.type === 'SALES' ? 'bg-emerald-50 border-emerald-100 text-emerald-600' :
-                      item.type === 'PURCHASE' ? 'bg-indigo-50 border-indigo-100 text-indigo-600' :
-                      'bg-orange-50 border-orange-100 text-orange-600'
+                    <div className={`w-12 h-12 shrink-0 rounded-2xl flex items-center justify-center border transition-transform group-hover:scale-105 ${
+                      item.type === 'SALES' ? 'bg-emerald-50 border-emerald-200/60 text-emerald-600' :
+                      item.type === 'PURCHASE' ? 'bg-indigo-50 border-indigo-200/60 text-indigo-600' :
+                      'bg-amber-50 border-amber-200/60 text-amber-600'
                     }`}>
                       <Receipt className="w-6 h-6" />
                     </div>
                     <div>
-                      <h4 className="text-sm sm:text-base font-black text-slate-900 mb-1">
+                      <h4 className="text-sm sm:text-base font-black text-slate-900 tracking-tight mb-1">
                         {item.metadata?.vendorName || item.metadata?.customerName || "Internal Entry"}
                       </h4>
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
+                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md">
                           {item.type}
                         </span>
-                        <span className="text-[10px] font-bold text-slate-400 flex items-center gap-1">
-                          <Clock className="w-3 h-3" /> {new Date(item.transactionDate || item.createdAt).toLocaleDateString()}
+                        <span className="text-[11px] font-semibold text-slate-400 flex items-center gap-1">
+                          <Clock className="w-3.5 h-3.5" /> {new Date(item.transactionDate || item.createdAt).toLocaleDateString()}
                         </span>
                       </div>
                     </div>
@@ -168,35 +222,39 @@ export default function ApprovalsQueueUI() {
 
                   <div className="flex items-center justify-between md:justify-end gap-6 border-t md:border-0 border-slate-100 pt-4 md:pt-0">
                     <div className="text-left md:text-right">
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Total Value</p>
-                      <p className="text-lg font-black text-slate-900 flex items-center">
-                        <IndianRupee className="w-4 h-4 mr-0.5" /> {item.totalAmount?.toLocaleString("en-IN")}
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-0.5">Value</p>
+                      <p className="text-lg font-black text-slate-900 flex items-center font-mono">
+                        <IndianRupee className="w-4 h-4 mr-0.5 text-slate-500" /> {item.totalAmount?.toLocaleString("en-IN")}
                       </p>
                     </div>
 
-                    {/* Actions Panel */}
+                    {/* Magnetic Tactile Actions */}
                     {activeTab === "PENDING" ? (
                       <div className="flex items-center gap-2">
-                        <button 
+                        <motion.button 
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
                           onClick={() => handleAction(item._id, 'REJECT')}
-                          className="w-10 h-10 flex items-center justify-center rounded-xl bg-rose-50 text-rose-500 hover:bg-rose-500 hover:text-white transition-colors"
-                          title="Reject"
+                          className="w-10 h-10 flex items-center justify-center rounded-xl bg-rose-50 text-rose-500 hover:bg-rose-500 hover:text-white transition-colors cursor-pointer border border-rose-100"
+                          title="Reject Voucher"
                         >
                           <X className="w-5 h-5" />
-                        </button>
-                        <button 
+                        </motion.button>
+                        <motion.button 
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.97 }}
                           onClick={() => handleAction(item._id, 'APPROVE')}
-                          className="px-4 h-10 flex items-center justify-center gap-2 rounded-xl bg-emerald-500 text-white font-bold hover:bg-emerald-600 transition-colors shadow-sm"
+                          className="px-4 h-10 flex items-center justify-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black uppercase tracking-wider transition-all shadow-md shadow-emerald-600/20 cursor-pointer"
                         >
                           <CheckCircle2 className="w-4 h-4" /> Approve
-                        </button>
+                        </motion.button>
                       </div>
                     ) : (
-                      <div className="flex items-center justify-end w-32">
-                        <span className={`text-xs font-bold uppercase px-3 py-1.5 rounded-lg ${
-                          item.status === 'REJECTED' ? 'bg-rose-100 text-rose-600' :
-                          item.status === 'PENDING_CA_REVIEW' ? 'bg-amber-100 text-amber-600' :
-                          'bg-emerald-100 text-emerald-600'
+                      <div className="flex items-center justify-end w-36">
+                        <span className={`text-[11px] font-black uppercase px-3 py-1.5 rounded-xl border ${
+                          item.status === 'REJECTED' ? 'bg-rose-50 text-rose-700 border-rose-200' :
+                          item.status === 'PENDING_CA_REVIEW' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                          'bg-emerald-50 text-emerald-700 border-emerald-200'
                         }`}>
                           {item.status.replace(/_/g, ' ')}
                         </span>

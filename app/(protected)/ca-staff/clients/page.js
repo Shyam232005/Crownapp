@@ -6,7 +6,7 @@ import {
     Briefcase, Search, Building2, ChevronRight, 
     CheckCircle2, Clock, Loader2, Inbox 
 } from "lucide-react";
-import toast from "react-hot-toast";
+import { toast } from "sonner";
 
 export default function MyClientsUI() {
   const [search, setSearch] = useState("");
@@ -61,10 +61,30 @@ export default function MyClientsUI() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {isLoading ? (
-          <div className="col-span-full flex flex-col items-center justify-center py-20 text-slate-400">
-            <Loader2 className="w-8 h-8 animate-spin mb-3 text-indigo-600" />
-            <p className="text-sm font-bold">Loading your clients...</p>
-          </div>
+          <>
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div key={i} className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm animate-pulse space-y-4">
+                <div className="flex items-center gap-4 mb-5">
+                  <div className="w-12 h-12 bg-slate-200 rounded-2xl shrink-0" />
+                  <div className="space-y-2 flex-1">
+                    <div className="h-4 w-36 bg-slate-200 rounded" />
+                    <div className="h-3 w-24 bg-slate-200 rounded" />
+                  </div>
+                </div>
+                <div className="bg-slate-50 rounded-xl p-4 space-y-3 border border-slate-100">
+                  <div className="flex justify-between items-center">
+                    <div className="h-3 w-20 bg-slate-200 rounded" />
+                    <div className="h-4 w-16 bg-slate-200 rounded" />
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <div className="h-3 w-24 bg-slate-200 rounded" />
+                    <div className="h-4 w-8 bg-slate-200 rounded" />
+                  </div>
+                </div>
+                <div className="h-10 w-full bg-slate-200 rounded-xl" />
+              </div>
+            ))}
+          </>
         ) : filteredClients.length > 0 ? (
           <AnimatePresence>
             {filteredClients.map((client, idx) => (

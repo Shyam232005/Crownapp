@@ -20,46 +20,44 @@ export async function POST(request) {
 
     await connectDB();
     const body = await request.json();
-    const { category, totalAmount, payeeName, description } = body;
+    const { category, totalAmount, payeeName, description, paymentMode = "Cash" } = body;
 
     if (!totalAmount || !payeeName) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    const dbSession = await mongoose.startSession();
-    dbSession.startTransaction();
+    const isEmployee = decoded.role === 'Employee';
+    const status = isEmployee ? 'PENDING_OWNER_APPROVAL' : 'PENDING_CA_REVIEW';
 
-    try {
-      // 1. Create the Transaction Record
-      const txArray = await Transaction.create([{
-        companyId: decoded.companyId,
-        createdBy: decoded.userId,
-        type: 'EXPENSE',
-        // Employees require owner approval. Owners bypass straight to CA.
-        status: decoded.role === 'Employee' ? 'PENDING_OWNER_APPROVAL' : 'PENDING_CA_REVIEW',
-        totalAmount,
-        metadata: { payeeName, category, description } 
-      }], { session: dbSession });
+    // 1. Create the Transaction Record
+    const txDoc = await Transaction.create({
+      companyId: decoded.companyId,
+      createdBy: decoded.userId,
+      type: 'EXPENSE',
+      status,
+      totalAmount,
+      metadata: { payeeName, category, description, paymentMode } 
+    });
 
-      const transactionId = txArray[0]._id;
+    const transactionId = txDoc._id;
 
-      // 2. Build the Double-Entry Ledger mapping
+    // 2. If entered directly by Owner, generate Double-Entry Ledger rows immediately
+    // If entered by Employee, stays in PENDING_OWNER_APPROVAL until Owner approval
+    if (!isEmployee) {
       const ledgerEntries = [
-        { transactionId, companyId: decoded.companyId, accountName: `${category} A/C`, type: 'DEBIT', amount: totalAmount },
-        { transactionId, companyId: decoded.companyId, accountName: 'Cash/Bank A/C', type: 'CREDIT', amount: totalAmount }
+        { transactionId, companyId: decoded.companyId, accountName: `${category || 'Operating'} Expense A/C`, type: 'DEBIT', amount: totalAmount },
+        { transactionId, companyId: decoded.companyId, accountName: `${paymentMode} A/C`, type: 'CREDIT', amount: totalAmount }
       ];
-
-      await LedgerEntry.insertMany(ledgerEntries, { session: dbSession });
-
-      await dbSession.commitTransaction();
-      dbSession.endSession();
-
-      return NextResponse.json({ success: true, transactionId }, { status: 201 });
-    } catch (dbError) {
-      await dbSession.abortTransaction();
-      dbSession.endSession();
-      throw dbError;
+      await LedgerEntry.insertMany(ledgerEntries);
     }
+
+    return NextResponse.json({ 
+      success: true, 
+      transactionId,
+      status,
+      message: isEmployee ? "Expense logged and queued for Owner review" : "Expense recorded in general ledger"
+    }, { status: 201 });
+
   } catch (error) {
     console.error('Expense Entry Error:', error);
     return NextResponse.json({ error: 'Failed to process expense' }, { status: 500 });

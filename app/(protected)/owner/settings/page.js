@@ -7,7 +7,7 @@ import {
   KeyRound, Save, CreditCard, Copy, 
   CheckCircle2, Loader2 
 } from "lucide-react";
-import toast from "react-hot-toast";
+import { toast } from "sonner";
 
 export default function SettingsUI() {
   const [isCopied, setIsCopied] = useState(false);
@@ -66,7 +66,7 @@ export default function SettingsUI() {
 
   const onSubmit = async (data) => {
     setIsSaving(true);
-    const loadingToast = toast.loading("Saving preferences...");
+    const toastId = toast.loading("Saving preferences...");
     
     try {
       const res = await fetch('/api/owner/settings', { 
@@ -76,15 +76,18 @@ export default function SettingsUI() {
       });
       
       if (res.ok) {
-        toast.success("Settings saved successfully!", { id: loadingToast });
+        toast.success("Settings saved successfully!", { id: toastId });
         setShowSuccess(true);
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("fineops_profile_updated"));
+        }
         setTimeout(() => setShowSuccess(false), 3000);
       } else {
         const err = await res.json();
         throw new Error(err.error || "Failed to save settings.");
       }
     } catch (error) {
-      toast.error(error.message, { id: loadingToast });
+      toast.error(error.message, { id: toastId });
     } finally {
       setIsSaving(false);
     }
@@ -92,9 +95,19 @@ export default function SettingsUI() {
 
   if (isLoading) {
     return (
-      <div className="p-8 max-w-4xl mx-auto w-full h-[60vh] flex flex-col items-center justify-center text-slate-400">
-        <Loader2 className="w-8 h-8 animate-spin mb-3 text-indigo-600" />
-        <p className="text-sm font-bold">Loading your preferences...</p>
+      <div className="p-4 sm:p-8 max-w-4xl mx-auto w-full pb-24 space-y-6">
+        <div className="space-y-2 animate-pulse">
+          <div className="h-7 w-40 bg-slate-200 rounded-lg"></div>
+          <div className="h-4 w-64 bg-slate-100 rounded"></div>
+        </div>
+        <div className="h-28 bg-indigo-50/60 rounded-3xl animate-pulse"></div>
+        <div className="bg-white rounded-3xl border border-slate-100 p-6 space-y-4 shadow-sm animate-pulse">
+          <div className="h-5 w-32 bg-slate-100 rounded"></div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="h-12 bg-slate-50 rounded-xl"></div>
+            <div className="h-12 bg-slate-50 rounded-xl"></div>
+          </div>
+        </div>
       </div>
     );
   }

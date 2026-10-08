@@ -102,9 +102,13 @@ export default function FinancialHealthUI() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
         <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
           <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Net Profit Margin</p>
-          <h2 className="text-4xl font-black text-emerald-500 mb-2 flex items-center h-10">
-            {isLoading ? <Loader2 className="w-7 h-7 animate-spin text-emerald-400" /> : `${stats.netProfitMargin}%`}
-          </h2>
+          <div className="h-10 flex items-center mb-2">
+            {isLoading ? (
+              <div className="h-8 w-24 bg-slate-100 rounded-lg animate-pulse"></div>
+            ) : (
+              <h2 className="text-4xl font-black text-emerald-500">{`${stats.netProfitMargin}%`}</h2>
+            )}
+          </div>
           <p className="text-sm font-bold text-emerald-600 flex items-center gap-1 bg-emerald-50 w-max px-2 py-1 rounded-md">
             <TrendingUp className="w-4 h-4" /> {isLoading ? "..." : `Current Month Calculation`}
           </p>
@@ -112,23 +116,27 @@ export default function FinancialHealthUI() {
         
         <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
           <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Monthly Burn Rate</p>
-          <h2 className="text-4xl font-black text-slate-900 flex items-center mb-2 h-10">
+          <div className="h-10 flex items-center mb-2">
             {isLoading ? (
-                <Loader2 className="w-7 h-7 animate-spin text-slate-400" />
+              <div className="h-8 w-28 bg-slate-100 rounded-lg animate-pulse"></div>
             ) : (
-                <>
-                    <IndianRupee className="w-6 h-6 mr-1 text-slate-400" /> {stats.burnRate}
-                </>
+              <h2 className="text-4xl font-black text-slate-900 flex items-center">
+                <IndianRupee className="w-6 h-6 mr-1 text-slate-400" /> {stats.burnRate}
+              </h2>
             )}
-          </h2>
+          </div>
           <p className="text-sm font-medium text-slate-500">Fixed expenses & salaries</p>
         </div>
 
         <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm bg-gradient-to-br from-indigo-600 to-indigo-800 text-white">
           <p className="text-xs font-bold text-indigo-200 uppercase tracking-wider mb-2">Runway</p>
-          <h2 className="text-4xl font-black mb-2 flex items-center h-10">
-            {isLoading ? <Loader2 className="w-7 h-7 animate-spin text-indigo-200" /> : stats.runway > 0 ? `${stats.runway} Months` : "N/A"}
-          </h2>
+          <div className="h-10 flex items-center mb-2">
+            {isLoading ? (
+              <div className="h-8 w-28 bg-white/20 rounded-lg animate-pulse"></div>
+            ) : (
+              <h2 className="text-4xl font-black">{stats.runway > 0 ? `${stats.runway} Months` : "N/A"}</h2>
+            )}
+          </div>
           <p className="text-sm font-medium text-indigo-100">Cash available for operations</p>
         </div>
       </div>
@@ -139,9 +147,13 @@ export default function FinancialHealthUI() {
         </h3>
         
         {isLoading ? (
-            <div className="h-64 flex flex-col items-center justify-center text-slate-400">
-                <Loader2 className="w-8 h-8 animate-spin mb-3 text-indigo-600" />
-                <p className="text-sm font-bold">Calculating trends...</p>
+            <div className="h-64 flex items-end justify-center gap-6 px-4 animate-pulse">
+              {[40, 70, 55, 85].map((h, i) => (
+                <div key={i} className="flex gap-2 items-end">
+                  <div style={{ height: `${h}%` }} className="w-8 bg-slate-100 rounded-t-lg"></div>
+                  <div style={{ height: `${h * 0.7}%` }} className="w-8 bg-slate-200 rounded-t-lg"></div>
+                </div>
+              ))}
             </div>
         ) : monthlyData.length > 0 ? (
             <>

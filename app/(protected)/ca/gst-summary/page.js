@@ -2,7 +2,8 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { FileText, Download, CheckCircle2, Clock, Loader2, Inbox } from "lucide-react";
-import toast from "react-hot-toast";
+import { toast } from "sonner";
+import confetti from "canvas-confetti";
 
 export default function GSTSummaryUI() {
   const [isLoading, setIsLoading] = useState(true);
@@ -58,6 +59,7 @@ export default function GSTSummaryUI() {
       link.click();
       document.body.removeChild(link);
       
+      confetti({ particleCount: 75, spread: 65, origin: { y: 0.6 } });
       toast.success("Report downloaded!", { id: loadingToast });
     } catch (error) {
       toast.error("Failed to generate report", { id: loadingToast });
@@ -95,14 +97,16 @@ export default function GSTSummaryUI() {
             </thead>
             <tbody className="divide-y divide-slate-50 h-full">
               {isLoading ? (
-                <tr>
-                  <td colSpan="4" className="p-16 text-center">
-                    <div className="flex flex-col items-center justify-center text-slate-400">
-                      <Loader2 className="w-8 h-8 animate-spin mb-3 text-indigo-600" />
-                      <p className="text-sm font-bold">Loading GST statuses...</p>
-                    </div>
-                  </td>
-                </tr>
+                <>
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <tr key={i} className="animate-pulse">
+                      <td className="p-5"><div className="h-4 w-40 bg-slate-200 rounded" /></td>
+                      <td className="p-5"><div className="h-4 w-28 bg-slate-200 rounded" /></td>
+                      <td className="p-5"><div className="h-6 w-20 bg-slate-200 rounded-md" /></td>
+                      <td className="p-5"><div className="h-6 w-20 bg-slate-200 rounded-md" /></td>
+                    </tr>
+                  ))}
+                </>
               ) : clientsGST.length > 0 ? (
                 <AnimatePresence>
                   {clientsGST.map((client, idx) => (

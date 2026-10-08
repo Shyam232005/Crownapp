@@ -5,7 +5,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Send, Loader2, CheckCircle2, Receipt, ScanLine } from "lucide-react";
 import Tesseract from "tesseract.js";
 import * as pdfjsLib from "pdfjs-dist";
-import toast from "react-hot-toast";
+import { toast } from "sonner";
+import confetti from "canvas-confetti";
 
 export default function EmployeeSubmissionForm() {
   const [showSuccess, setShowSuccess] = useState(false);
@@ -36,7 +37,7 @@ export default function EmployeeSubmissionForm() {
 
     setIsScanning(true);
     let imageToScan = file;
-    const loadingToast = toast.loading("AI Scanning document locally...");
+    const toastId = toast.loading("AI Scanning document locally...");
 
     try {
       if (file.type === "application/pdf") {
@@ -70,11 +71,11 @@ export default function EmployeeSubmissionForm() {
       if (billMatch) setValue("billNumber", billMatch[1]);
 
       setValue("description", "Auto-extracted from uploaded document.");
-      toast.success("Document scanned successfully!", { id: loadingToast });
+      toast.success("Document scanned successfully!", { id: toastId });
 
     } catch (error) {
       console.error("AI Scan failed:", error);
-      toast.error("Failed to scan document. Please enter manually.", { id: loadingToast });
+      toast.error("Failed to scan document. Please enter manually.", { id: toastId });
     } finally {
       setIsScanning(false);
       e.target.value = ""; // Reset file input
@@ -82,7 +83,7 @@ export default function EmployeeSubmissionForm() {
   };
 
   const onSubmit = async (data) => {
-    const loadingToast = toast.loading("Submitting entry...");
+    const toastId = toast.loading("Submitting entry...");
     try {
       // Removed vulnerable localStorage. The JWT handles identity securely.
       const payload = {
@@ -101,13 +102,16 @@ export default function EmployeeSubmissionForm() {
         throw new Error(err.error || "Failed to submit data");
       }
 
-      toast.success("Sent to Owner for Approval!", { id: loadingToast });
+      toast.success("Sent to Owner for Approval!", { id: toastId });
+      try {
+        confetti({ particleCount: 35, spread: 60, origin: { y: 0.7 } });
+      } catch (e) {}
       setShowSuccess(true);
       reset();
       setTimeout(() => setShowSuccess(false), 3000);
 
     } catch (error) {
-      toast.error(error.message, { id: loadingToast });
+      toast.error(error.message, { id: toastId });
     }
   };
 
@@ -138,11 +142,33 @@ export default function EmployeeSubmissionForm() {
               isScanning ? 'bg-amber-50 text-amber-600 border border-amber-200' : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
             }`}
           >
-            {isScanning ? <Loader2 className="w-4 h-4 animate-spin" /> : <ScanLine className="w-4 h-4 text-indigo-500" />}
+            {isScanning ? <Loader2 className="w-4 h-4 animate-spin text-amber-600" /> : <ScanLine className="w-4 h-4 text-indigo-500" />}
             {isScanning ? "AI Scanning..." : "Auto-Scan Bill/PDF"}
           </button>
         </div>
       </div>
+
+      <AnimatePresence>
+        {isScanning && (
+          <motion.div 
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            className="overflow-hidden mb-6 rounded-2xl bg-indigo-50/60 border border-indigo-100 p-3"
+          >
+            <div className="relative h-1.5 w-full bg-indigo-200/50 rounded-full overflow-hidden">
+              <motion.div 
+                className="absolute top-0 bottom-0 bg-gradient-to-r from-indigo-500 via-emerald-400 to-indigo-500 w-1/3 rounded-full"
+                animate={{ x: ["-100%", "300%"] }}
+                transition={{ repeat: Infinity, duration: 1.2, ease: "linear" }}
+              />
+            </div>
+            <p className="text-[11px] font-bold text-indigo-700 text-center mt-2">
+              ⚡ Local OCR scanning document: extracting GSTIN, Amount & Invoice Number...
+            </p>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">

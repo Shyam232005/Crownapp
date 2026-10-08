@@ -1,7 +1,7 @@
 'use client';
-import React from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 
 // Refined Spring Animations matching your SaaS theme
 const fadeUp = {
@@ -18,16 +18,19 @@ const staggerContainer = {
     hidden: { opacity: 0 },
     visible: {
         opacity: 1,
-        transition: { staggerChildren: 0.12, delayChildren: 0.05 }
+        transition: { staggerChildren: 0.1, delayChildren: 0.05 }
     }
 };
 
 export default function PlatformBenefitsPage() {
+    const [activeFilter, setActiveFilter] = useState('All');
+
     const benefits = [
         {
             title: 'Always-Balanced Double-Entry Core',
             description: 'Every approved transaction writes mathematically verified journal vouchers where Total Debits strictly equal Total Credits. Eliminates suspense accounts and balance mismatches.',
             tag: 'Accounting Integrity',
+            category: 'Accounting',
             colorTheme: 'blue',
             icon: (
                 <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
@@ -39,6 +42,7 @@ export default function PlatformBenefitsPage() {
             title: 'MCA-Compliant Immutable Audit Trail',
             description: 'Fully satisfies Ministry of Corporate Affairs regulations. Every voucher creation, adjustment, or user sign-off is time-stamped and preserved in an unalterable audit log.',
             tag: 'Statutory Mandate',
+            category: 'Compliance',
             colorTheme: 'amber',
             icon: (
                 <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
@@ -50,6 +54,7 @@ export default function PlatformBenefitsPage() {
             title: 'GSTR-2B Input Tax Credit (ITC) Protection',
             description: 'Cross-checks vendor GSTINs and filing statuses before payouts are released, preventing blocked input tax credits and interest liabilities under Indian GST law.',
             tag: 'Tax Optimization',
+            category: 'Taxation',
             colorTheme: 'emerald',
             icon: (
                 <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
@@ -61,6 +66,7 @@ export default function PlatformBenefitsPage() {
             title: 'Section 43B(h) MSME Payment Safeguard',
             description: 'Automatic 15-day and 45-day tracking for micro and small enterprise suppliers, ensuring expenditures are not disallowed during Income Tax return filing.',
             tag: 'Compliance',
+            category: 'Compliance',
             colorTheme: 'rose',
             icon: (
                 <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
@@ -72,6 +78,7 @@ export default function PlatformBenefitsPage() {
             title: 'Zero Local Data-Corruption Backups',
             description: 'Hosted on secure cloud infrastructure with real-time replication. Eliminates the risk of damaged desktop database files, virus infections, and manual backup emailing.',
             tag: 'Infrastructure',
+            category: 'Infrastructure',
             colorTheme: 'indigo',
             icon: (
                 <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
@@ -83,6 +90,7 @@ export default function PlatformBenefitsPage() {
             title: 'Read-Only Auditor Collaboration',
             description: 'Give external CAs direct audit-only workspace logins. They can inspect original source bills and download formatted audit schedules without disturbing operational staff.',
             tag: 'Collaboration',
+            category: 'Collaboration',
             colorTheme: 'purple',
             icon: (
                 <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
@@ -92,7 +100,12 @@ export default function PlatformBenefitsPage() {
         },
     ];
 
-    // Elegant, modern translucent color palette
+    const filterTabs = ['All', 'Accounting', 'Compliance', 'Taxation', 'Infrastructure', 'Collaboration'];
+
+    const filteredBenefits = activeFilter === 'All' 
+        ? benefits 
+        : benefits.filter(item => item.category === activeFilter);
+
     const getTagColor = (theme) => {
         const colors = {
             blue: 'bg-blue-500/10 text-blue-700 border-blue-500/20',
@@ -131,7 +144,7 @@ export default function PlatformBenefitsPage() {
 
     return (
         <div className="relative w-full bg-[#FAFAFA] pb-24 pt-12 sm:pt-20 overflow-hidden selection:bg-indigo-100 selection:text-indigo-900">
-            <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-24">
+            <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-16">
 
                 {/* HEADER SECTION */}
                 <motion.section
@@ -156,42 +169,67 @@ export default function PlatformBenefitsPage() {
                     </motion.p>
                 </motion.section>
 
+                {/* FILTER TABS SECTION */}
+                <motion.div 
+                    initial={{ opacity: 0, y: 20 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    className="flex flex-wrap items-center justify-center gap-2 sm:gap-3"
+                >
+                    {filterTabs.map((tab) => (
+                        <button
+                            key={tab}
+                            onClick={() => setActiveFilter(tab)}
+                            className={`rounded-xl px-5 py-2.5 text-xs font-bold uppercase tracking-wider transition-all duration-300 shadow-sm ${
+                                activeFilter === tab
+                                    ? 'bg-indigo-600 text-white shadow-indigo-600/30 scale-105'
+                                    : 'bg-white text-slate-600 border border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                            }`}
+                        >
+                            {tab === 'All' ? 'All Capabilities' : tab}
+                        </button>
+                    ))}
+                </motion.div>
+
                 {/* BENEFITS GRID SECTION */}
                 <section>
                     <motion.div
+                        layout
                         className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3"
-                        variants={staggerContainer}
-                        initial="hidden"
-                        whileInView="visible"
-                        viewport={{ once: true, margin: "-50px" }}
                     >
-                        {benefits.map((item, idx) => (
-                            <motion.div
-                                key={idx}
-                                variants={fadeUp}
-                                className="group relative flex flex-col justify-between rounded-[2rem] border border-slate-200 bg-white p-8 shadow-sm transition-all duration-300 hover:-translate-y-1.5 hover:shadow-xl hover:shadow-slate-200/50 hover:border-slate-300"
-                            >
-                                <div>
-                                    <div className="flex items-center justify-between mb-8">
-                                        <div className={`inline-flex h-14 w-14 items-center justify-center rounded-2xl border ${getIconColor(item.colorTheme)} transition-transform duration-300 group-hover:scale-110 group-hover:-rotate-3`}>
-                                            {item.icon}
+                        <AnimatePresence>
+                            {filteredBenefits.map((item, idx) => (
+                                <motion.div
+                                    key={item.title}
+                                    layout
+                                    initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                                    exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                                    transition={{ duration: 0.3 }}
+                                    className="group relative flex flex-col justify-between rounded-[2rem] border border-slate-200 bg-white p-8 shadow-sm transition-all duration-300 hover:-translate-y-1.5 hover:shadow-xl hover:shadow-slate-200/50 hover:border-slate-300"
+                                >
+                                    <div>
+                                        <div className="flex items-center justify-between mb-8">
+                                            <div className={`inline-flex h-14 w-14 items-center justify-center rounded-2xl border ${getIconColor(item.colorTheme)} transition-transform duration-300 group-hover:scale-110 group-hover:-rotate-3`}>
+                                                {item.icon}
+                                            </div>
+                                            <span className={`inline-flex items-center rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-wider ${getTagColor(item.colorTheme)}`}>
+                                                {item.tag}
+                                            </span>
                                         </div>
-                                        <span className={`inline-flex items-center rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-wider ${getTagColor(item.colorTheme)}`}>
-                                            {item.tag}
-                                        </span>
+                                        <h2 className="text-xl font-black text-slate-900 leading-snug">
+                                            {item.title}
+                                        </h2>
+                                        <p className="mt-4 text-sm leading-relaxed text-slate-500 font-medium">
+                                            {item.description}
+                                        </p>
                                     </div>
-                                    <h2 className="text-xl font-black text-slate-900 leading-snug">
-                                        {item.title}
-                                    </h2>
-                                    <p className="mt-4 text-sm leading-relaxed text-slate-500 font-medium">
-                                        {item.description}
-                                    </p>
-                                </div>
 
-                                {/* Animated Bottom Line matches the card's theme color */}
-                                <div className={`mt-8 h-1.5 w-12 rounded-full bg-slate-100 transition-all duration-300 ${getHoverLineColor(item.colorTheme)} group-hover:w-full`}></div>
-                            </motion.div>
-                        ))}
+                                    {/* Animated Bottom Line matches the card's theme color */}
+                                    <div className={`mt-8 h-1.5 w-12 rounded-full bg-slate-100 transition-all duration-300 ${getHoverLineColor(item.colorTheme)} group-hover:w-full`}></div>
+                                </motion.div>
+                            ))}
+                        </AnimatePresence>
                     </motion.div>
                 </section>
 
@@ -206,7 +244,7 @@ export default function PlatformBenefitsPage() {
                     {/* Premium Grid Pattern Background */}
                     <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]"></div>
 
-                    {/* Ambient Glow matching the Overview Page */}
+                    {/* Ambient Glow */}
                     <div className="absolute left-1/2 top-1/2 -z-10 h-[300px] w-[500px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-indigo-600/20 blur-[120px] pointer-events-none"></div>
 
                     <div className="relative z-10">

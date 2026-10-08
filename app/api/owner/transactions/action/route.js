@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import jwt from "jsonwebtoken";
 import { cookies } from "next/headers";
 import Transaction from "@/models/Transaction";
+import LedgerEntry from "@/models/LedgerEntry";
 import AuditLog from "@/models/AuditLog";
 
 const connectDB = async () => {
@@ -35,19 +36,19 @@ export async function PATCH(request) {
 
     const objectId = new mongoose.Types.ObjectId(transactionId);
     
-    // Determine the new status based on the Owner's action
+    // Determine new status based on Owner's action
     let newStatus = "";
     if (action === "APPROVE") {
-      newStatus = "PENDING_CA_REVIEW"; // Pushes to the CA dashboard
+      newStatus = "PENDING_CA_REVIEW"; // Pushes to CA Scrutiny queue
     } else if (action === "REJECT") {
-      newStatus = "REJECTED"; // Kills the transaction
+      newStatus = "REJECTED"; // Flags and disables the transaction
     } else {
       return NextResponse.json({ error: "Invalid action type" }, { status: 400 });
     }
 
     // Update the transaction
     const updatedTx = await Transaction.findOneAndUpdate(
-      { _id: objectId, companyId: decoded.companyId }, // Ensure they only approve their own company's tx
+      { _id: objectId, companyId: decoded.companyId },
       { $set: { status: newStatus } },
       { new: true }
     );
@@ -56,7 +57,51 @@ export async function PATCH(request) {
       return NextResponse.json({ error: "Transaction not found" }, { status: 404 });
     }
 
-    // Log the action for compliance
+    // Strict Double-Entry Engine: Trigger balanced Debit/Credit ledger entries upon Approval
+    if (action === "APPROVE") {
+      await LedgerEntry.deleteMany({ transactionId: updatedTx._id });
+
+      const ledgerEntries = [];
+      const amount = updatedTx.totalAmount;
+      const meta = updatedTx.metadata || {};
+
+      if (updatedTx.type === "SALES") {
+        const customerName = meta.customerName || meta.vendorName || "Customer";
+        ledgerEntries.push(
+          { transactionId: updatedTx._id, companyId: decoded.companyId, accountName: `${customerName} (Debtor) A/C`, type: "DEBIT", amount },
+          { transactionId: updatedTx._id, companyId: decoded.companyId, accountName: "Sales Revenue A/C", type: "CREDIT", amount }
+        );
+      } else if (updatedTx.type === "PURCHASE") {
+        const vendorName = meta.vendorName || meta.payeeName || "Vendor";
+        ledgerEntries.push(
+          { transactionId: updatedTx._id, companyId: decoded.companyId, accountName: "Purchases / Inventory A/C", type: "DEBIT", amount },
+          { transactionId: updatedTx._id, companyId: decoded.companyId, accountName: `${vendorName} (Creditor) A/C`, type: "CREDIT", amount }
+        );
+      } else if (updatedTx.type === "EXPENSE") {
+        const expCategory = meta.category || "Operating";
+        const paymentMode = meta.paymentMode || "Cash/Bank";
+        ledgerEntries.push(
+          { transactionId: updatedTx._id, companyId: decoded.companyId, accountName: `${expCategory} Expense A/C`, type: "DEBIT", amount },
+          { transactionId: updatedTx._id, companyId: decoded.companyId, accountName: `${paymentMode} A/C`, type: "CREDIT", amount }
+        );
+      } else if (updatedTx.type === "COLLECTION") {
+        const customerName = meta.customerName || "Customer";
+        const paymentMode = meta.paymentMode || "Bank/Cash";
+        ledgerEntries.push(
+          { transactionId: updatedTx._id, companyId: decoded.companyId, accountName: `${paymentMode} A/C`, type: "DEBIT", amount },
+          { transactionId: updatedTx._id, companyId: decoded.companyId, accountName: `${customerName} (Debtor) A/C`, type: "CREDIT", amount }
+        );
+      }
+
+      if (ledgerEntries.length > 0) {
+        await LedgerEntry.insertMany(ledgerEntries);
+      }
+    } else if (action === "REJECT") {
+      // Clean up any ledger entries if rejected
+      await LedgerEntry.deleteMany({ transactionId: updatedTx._id });
+    }
+
+    // Log the action for compliance audit trail
     await AuditLog.create({
       entityId: updatedTx._id,
       entityName: 'Transaction',

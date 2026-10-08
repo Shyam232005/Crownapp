@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { CalendarDays, AlertCircle, Loader2, CalendarCheck } from "lucide-react";
-import toast from "react-hot-toast";
+import { toast } from "sonner";
 
 export default function FilingCalendarUI() {
   const [isLoading, setIsLoading] = useState(true);
@@ -50,9 +50,28 @@ export default function FilingCalendarUI() {
         
         <div className="flex-1 flex flex-col">
           {isLoading ? (
-            <div className="flex-1 flex flex-col items-center justify-center py-16 text-slate-400">
-              <Loader2 className="w-8 h-8 animate-spin mb-3 text-indigo-600" />
-              <p className="text-sm font-bold">Loading compliance calendar...</p>
+            <div className="p-6 space-y-4">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="flex flex-col sm:flex-row sm:items-center justify-between p-5 bg-slate-50/70 border border-slate-100 rounded-2xl animate-pulse gap-4">
+                  <div className="flex items-center gap-5">
+                    <div className="w-16 h-16 bg-slate-200 rounded-2xl shrink-0" />
+                    <div className="space-y-2">
+                      <div className="h-5 w-44 bg-slate-200 rounded" />
+                      <div className="flex gap-2">
+                        <div className="h-3 w-16 bg-slate-200 rounded" />
+                        <div className="h-3 w-36 bg-slate-200 rounded" />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-6">
+                    <div className="space-y-1.5 hidden sm:block">
+                      <div className="h-2.5 w-24 bg-slate-200 rounded" />
+                      <div className="h-4 w-20 bg-slate-200 rounded" />
+                    </div>
+                    <div className="h-8 w-24 bg-slate-200 rounded-lg" />
+                  </div>
+                </div>
+              ))}
             </div>
           ) : deadlines.length > 0 ? (
             <div className="divide-y divide-slate-100">

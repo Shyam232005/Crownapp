@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
+import LiveComplianceTicker from '@/components/dynamic/LiveComplianceTicker';
 
 // --- PREMIUM ANIMATION VARIANTS ---
 const fadeUp = {
@@ -108,9 +109,9 @@ export default function OwnerDemoPage() {
     const balanceDirection = bankBalance > previousBalance ? -20 : 20;
 
     return (
-        <div className="relative min-h-screen w-full bg-[#F8FAFC] pb-24 pt-8 font-sans text-slate-900 selection:bg-emerald-200 selection:text-emerald-900 overflow-hidden">
-
-            <div className="overflow-hidden whitespace-nowrap bg-yellow-200 border border-yellow-400 rounded-lg shadow-md relative z-20">
+        <div className="relative min-h-screen w-full bg-[#F8FAFC] pb-24 font-sans text-slate-900 selection:bg-emerald-200 selection:text-emerald-900 overflow-hidden">
+            <LiveComplianceTicker />
+            <div className="overflow-hidden whitespace-nowrap bg-amber-100 border-b border-amber-300 py-1 relative z-20">
                 <p className="animate-marquee text-red-600 font-bold text-lg inline-block px-6">
                     ⚠️ This is only a sample view — the original dashboard may look different
                 </p>

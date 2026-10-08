@@ -16,6 +16,7 @@ const OwnerSchema = new mongoose.Schema({
   inviteCode: { type: String, unique: true, index: true },
 
   // PRODUCTION-LEVEL: Subscription & Validation Tracking
+  subscriptionExpiry: { type: Date },
   subscription: {
     planName: { 
       type: String, 

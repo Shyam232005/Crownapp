@@ -6,7 +6,7 @@ import {
   Building2, Search, AlertCircle, CheckCircle2, 
   ArrowRight, KeyRound, Copy, Loader2, Inbox, Mail, Phone
 } from "lucide-react";
-import toast from "react-hot-toast";
+import { toast } from "sonner";
 
 export default function CAClientsDirectoryUI() {
   const [isLoading, setIsLoading] = useState(true);
@@ -98,9 +98,23 @@ export default function CAClientsDirectoryUI() {
 
       {/* Client Grid */}
       {isLoading ? (
-        <div className="w-full h-64 bg-white rounded-3xl border border-slate-100 shadow-sm flex flex-col items-center justify-center text-slate-400">
-          <Loader2 className="w-8 h-8 animate-spin mb-3 text-indigo-600" />
-          <p className="text-sm font-bold">Loading your client portfolio...</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+          {[1, 2, 3, 4, 5, 6].map((n) => (
+            <div key={n} className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4 animate-pulse">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 bg-slate-100 rounded-xl"></div>
+                <div className="space-y-2 flex-1">
+                  <div className="h-4 w-32 bg-slate-100 rounded"></div>
+                  <div className="h-3 w-20 bg-slate-100 rounded"></div>
+                </div>
+              </div>
+              <div className="h-3 w-40 bg-slate-100 rounded"></div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="h-14 bg-slate-50 rounded-xl"></div>
+                <div className="h-14 bg-slate-50 rounded-xl"></div>
+              </div>
+            </div>
+          ))}
         </div>
       ) : filteredClients.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">

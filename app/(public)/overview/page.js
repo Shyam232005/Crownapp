@@ -2,6 +2,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
+import ThreeWayMatchSimulator from '@/components/dynamic/ThreeWayMatchSimulator';
 
 // Refined Framer Motion Animations
 const fadeUp = {
@@ -161,6 +162,16 @@ export default function OverviewPage() {
                             </motion.div>
                         ))}
                     </div>
+                </motion.section>
+
+                {/* DYNAMIC 3-WAY MATCHING SIMULATOR */}
+                <motion.section
+                    variants={fadeUp}
+                    initial="hidden"
+                    whileInView="visible"
+                    viewport={{ once: true, margin: "-100px" }}
+                >
+                    <ThreeWayMatchSimulator />
                 </motion.section>
 
                 {/* ARCHITECTURE COMPARISON TABLE */}

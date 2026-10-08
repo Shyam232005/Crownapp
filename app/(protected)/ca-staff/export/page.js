@@ -6,7 +6,8 @@ import {
   DownloadCloud, Filter, CheckCircle2, FileText, 
   FileSpreadsheet, Code, Loader2, Inbox 
 } from "lucide-react";
-import toast from "react-hot-toast";
+import { toast } from "sonner";
+import confetti from "canvas-confetti";
 
 export default function ExportDataUI() {
   const [isLoading, setIsLoading] = useState(true);
@@ -71,6 +72,9 @@ export default function ExportDataUI() {
       document.body.removeChild(link);
 
       toast.success("Export Downloaded!", { id: loadingToast });
+      try {
+        confetti({ particleCount: 35, spread: 60 });
+      } catch (e) {}
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 3000);
       

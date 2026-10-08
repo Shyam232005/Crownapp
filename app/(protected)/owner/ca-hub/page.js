@@ -5,7 +5,8 @@ import {
   ShieldCheck, LockKeyhole, FileKey, Send, 
   CheckCircle2, Clock, Link2, Building, Loader2 
 } from "lucide-react";
-import toast from "react-hot-toast";
+import { toast } from "sonner";
+import confetti from "canvas-confetti";
 
 export default function CAAccessManagement() {
     const [dataRequests, setDataRequests] = useState([]);
@@ -58,6 +59,9 @@ export default function CAAccessManagement() {
             // Update UI
             setDataRequests((prev) => prev.filter((r) => r.id !== request.id));
             setSentHistory((prev) => [{ ...request, sentAt: new Date().toLocaleTimeString('en-IN') }, ...prev]);
+            try {
+              confetti({ particleCount: 35, spread: 60 });
+            } catch (e) {}
             toast.success(`${request.month} data securely unlocked for your CA!`, { id: loadingToast });
             
         } catch (error) {
@@ -137,14 +141,16 @@ export default function CAAccessManagement() {
                                         placeholder="e.g. CA-XYZ789"
                                         className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500 uppercase tracking-widest text-white placeholder:text-slate-600"
                                     />
-                                    <button 
+                                    <motion.button 
+                                        whileHover={{ scale: 1.02 }}
+                                        whileTap={{ scale: 0.97 }}
                                         type="submit"
                                         disabled={isLinking || !inviteCode}
-                                        className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl text-sm font-bold transition-colors flex items-center gap-2 disabled:opacity-50 shrink-0"
+                                        className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 min-h-[44px] rounded-xl text-sm font-bold transition-colors flex items-center gap-2 disabled:opacity-50 shrink-0 cursor-pointer shadow-md shadow-indigo-600/20"
                                     >
                                         {isLinking ? <Loader2 className="w-4 h-4 animate-spin" /> : <Link2 className="w-4 h-4" />}
                                         Link Firm
-                                    </button>
+                                    </motion.button>
                                 </div>
                             </form>
                         )}
@@ -175,10 +181,11 @@ export default function CAAccessManagement() {
                                             <p className="text-xs font-medium text-slate-500 flex items-center gap-1 mt-1"><Clock className="w-3 h-3" /> {req.count} items ready</p>
                                         </div>
                                         <motion.button
-                                            whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+                                            whileHover={{ scale: 1.02 }} 
+                                            whileTap={{ scale: 0.98 }}
                                             onClick={() => handleApprove(req)}
                                             disabled={isApproving}
-                                            className="flex items-center justify-center gap-2 bg-indigo-600 text-white px-5 py-2.5 rounded-xl text-xs font-bold hover:bg-indigo-700 shadow-sm disabled:opacity-50"
+                                            className="flex items-center justify-center gap-2 bg-indigo-600 text-white px-5 min-h-[44px] rounded-xl text-xs font-bold hover:bg-indigo-700 shadow-md shadow-indigo-600/20 disabled:opacity-50 cursor-pointer"
                                         >
                                             {isApproving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />} 
                                             Approve & Send

@@ -17,13 +17,13 @@ const footerLinks = {
     ],
     company: [
         { name: 'Contact Advisory Desk', href: '/contact' },
-        { name: 'Partner Registration', href: '/ca-login' },
-        { name: 'System Status', href: '#' },
+        { name: 'Partner Registration', href: '/login' },
+        { name: 'System Status', href: '/benefits' },
     ],
     legal: [
-        { name: 'Privacy Policy', href: '#' },
-        { name: 'Terms of Service', href: '#' },
-        { name: 'Data Security', href: '#' },
+        { name: 'Privacy Policy', href: '/policy' },
+        { name: 'Terms of Service', href: '/terms' },
+        { name: 'Data Security', href: '/security' },
     ]
 };
 

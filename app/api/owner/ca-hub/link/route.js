@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import jwt from "jsonwebtoken";
 import { cookies } from "next/headers";
 import CA from "@/models/CA";
+import Owner from "@/models/Owner";
 
 const connectDB = async () => {
   if (mongoose.connection.readyState >= 1) return;
@@ -23,23 +24,41 @@ export async function POST(request) {
 
     if (!inviteCode) return NextResponse.json({ error: "Invite code is required" }, { status: 400 });
 
-    // Look up the CA Firm by their unique invite code (Assuming you added an inviteCode field to the CA model)
-    // If you don't have an inviteCode field yet, we can match by CA Firm Name or a generic code for MVP.
+    const cleanCode = inviteCode.trim().toUpperCase();
+
+    // Look up CA firm by inviteCode (supports CA-XXXXXX or direct code)
     const caFirm = await CA.findOne({ 
-      $or: [ { inviteCode: inviteCode }, { _id: inviteCode.length === 24 ? inviteCode : null } ]
+      $or: [ 
+        { inviteCode: cleanCode }, 
+        { inviteCode: `CA-${cleanCode}` },
+        { _id: cleanCode.length === 24 ? cleanCode : null } 
+      ]
     });
 
     if (!caFirm) {
-      return NextResponse.json({ error: "Invalid invite code or CA not found" }, { status: 404 });
+      return NextResponse.json({ error: "Invalid CA Invite Code. Please check with your CA firm." }, { status: 404 });
     }
 
-    // Add this Owner's Company ID to the CA's client list
-    if (!caFirm.clients.includes(decoded.companyId)) {
+    // M:N Handshake Mapping:
+    // 1. Add SME to CA's client portfolio
+    if (!caFirm.clients.some(cId => cId.toString() === decoded.companyId.toString())) {
       caFirm.clients.push(decoded.companyId);
       await caFirm.save();
     }
 
-    return NextResponse.json({ success: true, firmName: caFirm.companyName }, { status: 200 });
+    // 2. Add CA to SME Owner's linked CA network
+    await Owner.findByIdAndUpdate(decoded.companyId, {
+      $addToSet: { linkedCaFirm: caFirm._id }
+    });
+
+    const firmDisplayName = caFirm.firmName || caFirm.name;
+
+    return NextResponse.json({ 
+      success: true, 
+      firmName: firmDisplayName,
+      message: `Successfully linked with ${firmDisplayName}!` 
+    }, { status: 200 });
+
   } catch (error) {
     console.error("Link CA Error:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
