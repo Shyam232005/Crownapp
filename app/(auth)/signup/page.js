@@ -126,14 +126,8 @@ function SignupFormContent() {
             }
 
             if (res.ok) {
-                const userRole = data.role;
-                const redirectPath = 
-                    userRole === "Owner" ? "/owner/dashboard" :
-                    userRole === "Employee" ? "/employee/dashboard" :
-                    userRole === "CA" ? "/ca/dashboard" : "/ca-staff/dashboard";
-                
                 toast.success(result.message || "Account created successfully! Welcome to FineOps.");
-                window.location.href = redirectPath;
+                router.push('/login');
             } else {
                 const msg = result.error || "Registration failed.";
                 setApiError(msg);

@@ -1,14 +1,14 @@
-// models/Attendance.js
 import mongoose from "mongoose";
 
 const attendanceSchema = new mongoose.Schema({
   employeeId: { type: String, required: true, index: true },
-  date: { type: String, required: true, index: true }, // Format: YYYY-MM-DD for easy daily querying
-  punchInTime: { type: Date, required: true },
+  companyId: { type: mongoose.Schema.Types.ObjectId, ref: "Owner" },
+  date: { type: Date, required: true, default: Date.now, index: true },
+  punchInTime: { type: Date, required: true, default: Date.now },
   punchOutTime: { type: Date },
   status: { 
     type: String, 
-    enum: ["punched-in", "completed"], 
+    enum: ["punched-in", "completed", "punched-out"], 
     default: "punched-in" 
   }
 }, { timestamps: true });

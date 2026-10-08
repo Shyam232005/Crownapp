@@ -36,15 +36,17 @@ export async function GET(request) {
       createdAt: { $gte: startOfDay, $lte: endOfDay }
     });
 
+    const isPunchedIn = !!attendanceRecord && (attendanceRecord.status === "punched-in" || attendanceRecord.status === "completed");
+
     if (!attendanceRecord) {
-      return NextResponse.json({ status: "punched-out" }, { status: 200 });
+      return NextResponse.json({ status: "punched-out", isPunchedIn: false }, { status: 200 });
     }
 
-    return NextResponse.json({ status: attendanceRecord.status }, { status: 200 });
+    return NextResponse.json({ status: attendanceRecord.status, isPunchedIn, record: attendanceRecord }, { status: 200 });
 
   } catch (error) {
     console.error("GET Attendance Error:", error);
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    return NextResponse.json({ error: "Internal Server Error", isPunchedIn: false }, { status: 500 });
   }
 }
 
@@ -61,20 +63,35 @@ export async function POST(request) {
     await connectDB();
     const { actionType } = await request.json();
 
-    const startOfDay = new Date();
+    const today = new Date();
+    const startOfDay = new Date(today);
     startOfDay.setHours(0, 0, 0, 0);
-    const endOfDay = new Date();
+    const endOfDay = new Date(today);
     endOfDay.setHours(23, 59, 59, 999);
 
     if (actionType === "Punch In") {
-      // Create new record for today
+      // Check existing record for today
+      const existing = await Attendance.findOne({
+        employeeId: decoded.userId,
+        $or: [
+          { date: { $gte: startOfDay, $lte: endOfDay } },
+          { createdAt: { $gte: startOfDay, $lte: endOfDay } }
+        ]
+      });
+
+      if (existing) {
+        return NextResponse.json({ success: true, isPunchedIn: true, data: existing }, { status: 200 });
+      }
+
+      // Create new record for today with server-side dates
       const newRecord = await Attendance.create({
         employeeId: decoded.userId,
         companyId: decoded.companyId,
-        status: "punched-in",
-        punchInTime: new Date()
+        date: today,
+        punchInTime: today,
+        status: "punched-in"
       });
-      return NextResponse.json({ success: true, data: newRecord }, { status: 201 });
+      return NextResponse.json({ success: true, isPunchedIn: true, data: newRecord }, { status: 201 });
       
     } else if (actionType === "Punch Out") {
       // Update today's record to completed
