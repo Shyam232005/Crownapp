@@ -6,8 +6,9 @@ const EmployeeSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true, lowercase: true, index: true },
   password: { type: String, required: true },
 
-  // Link to the parent company (Owner)
-  ownerId: { type: mongoose.Schema.Types.ObjectId, ref: "Owner", required: true, index: true },
+  // Strict reference to the Owner (Company)
+  companyId: { type: mongoose.Schema.Types.ObjectId, ref: "Owner", required: true, index: true },
+  ownerId: { type: mongoose.Schema.Types.ObjectId, ref: "Owner", index: true },
 
   // Production Link: Access Control
   roleInCompany: { 
@@ -20,5 +21,13 @@ const EmployeeSchema = new mongoose.Schema({
   // Production Link: Security & Termination
   isActive: { type: Boolean, default: true }
 }, { timestamps: true });
+
+EmployeeSchema.pre("validate", function () {
+  if (this.companyId && !this.ownerId) {
+    this.ownerId = this.companyId;
+  } else if (this.ownerId && !this.companyId) {
+    this.companyId = this.ownerId;
+  }
+});
 
 export default mongoose.models.Employee || mongoose.model("Employee", EmployeeSchema);

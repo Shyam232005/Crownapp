@@ -6,7 +6,7 @@ import {
     LayoutDashboard, IndianRupee, Clock, Users,
     ArrowRight, ShieldCheck, Building, Receipt,
     ChevronRight, CheckCircle2, Coffee, Sparkles,
-    TrendingUp, ArrowUpRight, FolderCheck, Copy, Check
+    TrendingUp, ArrowUpRight, FolderCheck, Copy
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -25,7 +25,7 @@ const itemVariants = {
     hidden: { opacity: 0, y: 16 },
     show: { 
         opacity: 1, 
-        y: 0,
+        y: 0, 
         transition: { duration: 0.45, ease: [0.22, 1, 0.36, 1] } 
     }
 };
@@ -37,26 +37,10 @@ export default function OwnerDashboardUI() {
         cashBalance: 0, // Total Sales (Income)
         pendingDues: 0  // Total Purchases + Expenses
     });
-    const [profile, setProfile] = useState({
-        inviteCode: "",
-        companyName: "",
-        name: ""
-    });
-    const [copied, setCopied] = useState(false);
     
     const [recentApprovals, setRecentApprovals] = useState([]);
-
-    const handleCopyInviteCode = async () => {
-        if (!profile.inviteCode) return;
-        try {
-            await navigator.clipboard.writeText(profile.inviteCode);
-            setCopied(true);
-            toast.success("Team Invite Code copied to clipboard!");
-            setTimeout(() => setCopied(false), 2000);
-        } catch {
-            toast.error("Failed to copy invite code.");
-        }
-    };
+    const [inviteCode, setInviteCode] = useState("");
+    const [copiedCode, setCopiedCode] = useState(false);
 
     useEffect(() => {
         const fetchDashboardData = async () => {
@@ -66,33 +50,35 @@ export default function OwnerDashboardUI() {
                 if (statsRes.ok) {
                     const statsJson = await statsRes.json();
                     setStats({
-                        pendingApprovals: statsJson.data.pendingApprovals || 0,
-                        cashBalance: statsJson.data.totalIncome || 0,
-                        pendingDues: statsJson.data.totalExpense || 0
+                        pendingApprovals: statsJson.data?.pendingApprovals || 0,
+                        cashBalance: statsJson.data?.totalIncome || 0,
+                        pendingDues: statsJson.data?.totalExpense || 0
                     });
                 }
 
-                // 2. Fetch Pending Review Queue
-                const queueRes = await fetch("/api/owner/pending-transactions");
+                // 2. Fetch Live Pending Approvals Queue
+                const queueRes = await fetch("/api/owner/transactions/pending");
                 if (queueRes.ok) {
                     const queueJson = await queueRes.json();
-                    setRecentApprovals(queueJson.data || []);
+                    const pendingList = Array.isArray(queueJson) ? queueJson : (queueJson.transactions || queueJson.data || []);
+                    setRecentApprovals(pendingList);
+                    setStats(prev => ({ ...prev, pendingApprovals: pendingList.length }));
+                } else {
+                    const errJson = await queueRes.json().catch(() => ({}));
+                    toast.error(errJson.error || "Failed to load pending approvals");
                 }
 
-                // 3. Fetch Owner Profile & Invite Code
-                const profileRes = await fetch("/api/owner/profile");
-                if (profileRes.ok) {
-                    const profileJson = await profileRes.json();
-                    if (profileJson.success) {
-                        setProfile({
-                            inviteCode: profileJson.inviteCode || "",
-                            companyName: profileJson.companyName || "",
-                            name: profileJson.name || ""
-                        });
+                // 3. Fetch Owner Profile for Invite Code
+                const settingsRes = await fetch("/api/owner/settings");
+                if (settingsRes.ok) {
+                    const sJson = await settingsRes.json();
+                    if (sJson.data?.inviteCode) {
+                        setInviteCode(sJson.data.inviteCode);
                     }
                 }
             } catch (error) {
                 console.error("Failed to fetch owner dashboard data:", error);
+                toast.error("Failed to load dashboard data. Please check your connection.");
             } finally {
                 setIsLoading(false);
             }
@@ -103,6 +89,14 @@ export default function OwnerDashboardUI() {
         return () => clearInterval(interval);
     }, []);
 
+    const handleCopyCode = () => {
+        if (!inviteCode) return;
+        navigator.clipboard.writeText(inviteCode);
+        setCopiedCode(true);
+        toast.success("Staff invite code copied!");
+        setTimeout(() => setCopiedCode(false), 2000);
+    };
+
     return (
         <motion.div 
             variants={containerVariants}
@@ -111,72 +105,41 @@ export default function OwnerDashboardUI() {
             className="p-4 sm:p-8 max-w-7xl mx-auto w-full pb-24"
         >
             {/* Header Section */}
-            <motion.div variants={itemVariants} className="mb-6">
-                <div className="flex items-center gap-2.5 mb-1">
-                    <div className="w-8 h-8 rounded-xl bg-indigo-600/10 text-indigo-600 flex items-center justify-center font-black">
-                        <LayoutDashboard className="w-5 h-5" />
-                    </div>
-                    <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
-                        Business Executive Overview
-                    </h1>
-                </div>
-                <p className="text-xs sm:text-sm font-semibold text-slate-400 pl-10.5">
-                    Real-time cash flow metrics, verification pipeline, and double-entry health.
-                </p>
-            </motion.div>
-
-            {/* Team Onboarding & Invite Code Banner */}
-            <motion.div 
-                variants={itemVariants}
-                className="mb-8 p-5 sm:p-6 rounded-3xl bg-gradient-to-r from-indigo-500/10 via-purple-500/5 to-slate-50/50 border border-indigo-100 shadow-sm relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-4"
-            >
-                <div className="flex items-start sm:items-center gap-3.5 relative z-10">
-                    <div className="w-12 h-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-md shadow-indigo-600/20">
-                        <Sparkles className="w-6 h-6" />
-                    </div>
-                    <div>
-                        <div className="flex items-center gap-2">
-                            <h3 className="text-sm sm:text-base font-black text-slate-900 tracking-tight">
-                                Team Onboarding Passcode
-                            </h3>
-                            <span className="bg-indigo-100 text-indigo-700 text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full">
-                                Staff Access
-                            </span>
+            <motion.div variants={itemVariants} className="mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                    <div className="flex items-center gap-2.5 mb-1">
+                        <div className="w-8 h-8 rounded-xl bg-indigo-600/10 text-indigo-600 flex items-center justify-center font-black">
+                            <LayoutDashboard className="w-5 h-5" />
                         </div>
-                        <p className="text-xs font-medium text-slate-500 mt-0.5">
-                            Share this unique invite code with your employees so they link directly to{" "}
-                            <span className="font-bold text-slate-700">{profile.companyName || "your business"}</span> during registration.
-                        </p>
+                        <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+                            Business Executive Overview
+                        </h1>
                     </div>
+                    <p className="text-xs sm:text-sm font-semibold text-slate-400 pl-10.5">
+                        Real-time cash flow metrics, verification pipeline, and double-entry health.
+                    </p>
                 </div>
 
-                <div className="flex items-center gap-3 relative z-10 shrink-0">
-                    {isLoading || !profile.inviteCode ? (
-                        <div className="h-11 w-44 bg-slate-200/70 rounded-xl animate-pulse" />
-                    ) : (
-                        <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-xl border border-indigo-200/80 shadow-sm">
-                            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Code:</span>
-                            <code className="text-base font-black text-indigo-700 tracking-wider font-mono select-all">
-                                {profile.inviteCode}
-                            </code>
-                            <motion.button
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
-                                type="button"
-                                onClick={handleCopyInviteCode}
-                                className="ml-2 p-1.5 rounded-lg text-indigo-600 hover:bg-indigo-50 transition-colors flex items-center justify-center cursor-pointer"
-                                title="Copy Invite Code"
-                                aria-label="Copy Invite Code"
-                            >
-                                {copied ? (
-                                    <Check className="w-4 h-4 text-emerald-600" />
-                                ) : (
-                                    <Copy className="w-4 h-4 text-indigo-600" />
-                                )}
-                            </motion.button>
-                        </div>
-                    )}
-                </div>
+                {inviteCode && (
+                    <motion.div 
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className="flex items-center gap-2.5 bg-indigo-50/80 border border-indigo-100 rounded-2xl px-4 py-2 self-start sm:self-auto shadow-xs"
+                    >
+                        <span className="text-[11px] font-black text-slate-500 uppercase tracking-wider">Staff Invite:</span>
+                        <code className="text-xs font-black text-indigo-700 font-mono tracking-wider">{inviteCode}</code>
+                        <motion.button
+                            whileHover={{ scale: 1.1 }}
+                            whileTap={{ scale: 0.9 }}
+                            onClick={handleCopyCode}
+                            type="button"
+                            className="p-1 rounded-lg hover:bg-indigo-100 text-indigo-600 transition-colors cursor-pointer"
+                            title="Copy Invite Code for Staff Onboarding"
+                        >
+                            {copiedCode ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                        </motion.button>
+                    </motion.div>
+                )}
             </motion.div>
 
             {/* Main Metric Cards Grid (Staggered Entrance) */}
@@ -334,7 +297,7 @@ export default function OwnerDashboardUI() {
                                             </div>
                                             <div>
                                                 <h4 className="text-sm font-black text-slate-900">
-                                                    {item.metadata?.vendorName || item.metadata?.customerName || "Internal Expense"}
+                                                    {item.metadata?.vendorName || item.metadata?.customerName || item.metadata?.payeeName || "Internal Voucher"}
                                                 </h4>
                                                 <div className="flex items-center gap-2 mt-1">
                                                     <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${
@@ -352,13 +315,13 @@ export default function OwnerDashboardUI() {
                                         </div>
                                         <p className="text-sm font-black text-slate-900 flex items-center font-mono">
                                             <IndianRupee className="w-3.5 h-3.5 mr-0.5 text-slate-500" /> 
-                                            {item.totalAmount?.toLocaleString("en-IN")}
+                                            {Number(item.amount ?? item.totalAmount ?? 0).toLocaleString("en-IN")}
                                         </p>
                                     </motion.div>
                                 ))}
                             </AnimatePresence>
                         ) : (
-                            /* Organic Zero State (Phase 2 requirement) */
+                            /* Organic Zero State */
                             <div className="flex-1 flex flex-col items-center justify-center py-16 px-6 text-center bg-gradient-to-br from-slate-50/60 via-indigo-50/30 to-slate-50/60">
                                 <motion.div 
                                     animate={{ y: [0, -6, 0] }}
@@ -367,7 +330,7 @@ export default function OwnerDashboardUI() {
                                 >
                                     <Coffee className="w-7 h-7 text-indigo-500 animate-pulse" />
                                 </motion.div>
-                                <h4 className="text-base font-black text-slate-800 tracking-tight">Queue is Clear & Balanced</h4>
+                                <h4 className="text-base font-black text-slate-800 tracking-tight">All caught up! Zero pending approvals.</h4>
                                 <p className="text-xs font-semibold text-slate-400 max-w-sm mt-1 leading-relaxed">
                                     All staff-submitted vouchers have been approved or processed. New entries logged by your team will appear here in real-time.
                                 </p>

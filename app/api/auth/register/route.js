@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import crypto from "crypto";
 import { cookies } from "next/headers";
 import Owner from "@/models/Owner";
 import Employee from "@/models/Employee";
@@ -25,17 +24,15 @@ export async function POST(request) {
       firmName, icaiNumber, inviteCode, planName, joinedViaCode 
     } = body;
 
-    console.log("Registration attempt:", { role, email, phoneNumber });
-
     if (!name || !phoneNumber || !email || !password || !role) {
-      return NextResponse.json({ success: false, error: "Missing required fields." }, { status: 400 });
+      return NextResponse.json({ error: "Missing required fields." }, { status: 400 });
     }
 
     // Security Directive: Strictly reject Super-Admin reserved credentials
     const adminEmail = (process.env.ADMIN_EMAIL || "shyamsangani23@gmail.com").toLowerCase().trim();
     const adminPhone = (process.env.ADMIN_PHONE || "9723386344").trim();
     if (email.toLowerCase().trim() === adminEmail || phoneNumber.trim() === adminPhone) {
-      return NextResponse.json({ success: false, error: "Credentials reserved. Invalid entry." }, { status: 400 });
+      return NextResponse.json({ error: "Credentials reserved. Invalid entry." }, { status: 400 });
     }
 
     const salt = await bcrypt.genSalt(10);
@@ -48,7 +45,7 @@ export async function POST(request) {
     // 1. REGISTER OWNER
     if (role === "Owner") {
       const existingOwner = await Owner.findOne({ $or: [{ email }, { phoneNumber }] });
-      if (existingOwner) return NextResponse.json({ success: false, error: "Owner already exists." }, { status: 400 });
+      if (existingOwner) return NextResponse.json({ error: "Owner already exists." }, { status: 400 });
 
       let rawPlan = planName ? planName.trim() : "Free Trial";
       let actualPlan = "Free Trial";
@@ -67,15 +64,13 @@ export async function POST(request) {
         subStatus = "active";
       }
 
-      // Generate a unique staff invite code for this business owner
-      const rawString = `${companyName}-${phoneNumber}-${Date.now()}-${Math.random()}`;
-      const hash = crypto.createHash("md5").update(rawString).digest("hex").substring(0, 6).toUpperCase();
-      const generatedInviteCode = `BIZ-${hash}`;
+      // Auto-generate unique inviteCode for the Owner
+      const generatedCode = `BIZ-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
 
       newUser = new Owner({
         name, phoneNumber, email, password: hashedPassword,
         companyName, gstin, location, Category,
-        inviteCode: generatedInviteCode,
+        inviteCode: generatedCode,
         subscriptionExpiry: calculatedEndDate,
         subscription: {
           planName: actualPlan,
@@ -88,25 +83,27 @@ export async function POST(request) {
       await newUser.save();
       companyId = newUser._id;
       successMessage = "Workspace created successfully!";
-      console.log("Owner created with inviteCode:", generatedInviteCode);
     }
 
-    // 2. REGISTER EMPLOYEE
+    // 2. REGISTER EMPLOYEE (LINK TO OWNER VIA INVITE CODE)
     else if (role === "Employee") {
-      if (!inviteCode) return NextResponse.json({ success: false, error: "Invite code is required." }, { status: 400 });
+      const codeToQuery = inviteCode ? inviteCode.trim() : "";
+      if (!codeToQuery) return NextResponse.json({ error: "Invalid Invite Code" }, { status: 400 });
       
-      const owner = await Owner.findOne({ inviteCode: inviteCode.trim().toUpperCase() });
-      if (!owner) return NextResponse.json({ success: false, error: "Invalid Company Invite Code." }, { status: 400 });
+      const owner = await Owner.findOne({ inviteCode: codeToQuery });
+      if (!owner) return NextResponse.json({ error: "Invalid Invite Code" }, { status: 400 });
 
       const existingEmp = await Employee.findOne({ $or: [{ email }, { phoneNumber }] });
-      if (existingEmp) return NextResponse.json({ success: false, error: "Employee already exists." }, { status: 400 });
+      if (existingEmp) return NextResponse.json({ error: "Employee already exists." }, { status: 400 });
 
       newUser = new Employee({
         name, phoneNumber, email, password: hashedPassword,
+        companyId: owner._id,
         ownerId: owner._id
       });
       await newUser.save();
 
+      if (!owner.employees) owner.employees = [];
       owner.employees.push(newUser._id);
       await owner.save();
       companyId = owner._id;
@@ -116,27 +113,19 @@ export async function POST(request) {
     // 3. REGISTER CA FIRM
     else if (role === "CA") {
       const existingCA = await CA.findOne({ $or: [{ email }, { phoneNumber }, { icaiNumber }] });
-      if (existingCA) return NextResponse.json({ success: false, error: "CA Firm already exists." }, { status: 400 });
+      if (existingCA) return NextResponse.json({ error: "CA Firm already exists." }, { status: 400 });
 
       const codeToLink = joinedViaCode || inviteCode;
-      if (!codeToLink) return NextResponse.json({ success: false, error: "Invite code is required to register CA." }, { status: 400 });
-
-      // Generate a unique staff invite code for this CA firm
-      const rawString = `${firmName}-${icaiNumber}-${Date.now()}-${Math.random()}`;
-      const hash = crypto.createHash("md5").update(rawString).digest("hex").substring(0, 6).toUpperCase();
-      const generatedCaCode = `CA-${hash}`;
+      if (!codeToLink) return NextResponse.json({ error: "Invite code is required to register CA." }, { status: 400 });
 
       newUser = new CA({
         name, phoneNumber, email, password: hashedPassword,
-        firmName, icaiNumber, 
-        joinedViaCode: codeToLink.trim().toUpperCase(),
-        inviteCode: generatedCaCode
+        firmName, icaiNumber, joinedViaCode: codeToLink 
       });
       await newUser.save();
       
-      const owner = await Owner.findOne({ inviteCode: codeToLink.trim().toUpperCase() });
-      if (owner) {
-         owner.linkedCAs = owner.linkedCAs || [];
+      const owner = await Owner.findOne({ inviteCode: codeToLink });
+      if(owner) {
          owner.linkedCAs.push(newUser._id);
          await owner.save();
          newUser.clients.push(owner._id);
@@ -144,18 +133,17 @@ export async function POST(request) {
       }
       companyId = newUser._id;
       successMessage = "CA Firm registered successfully!";
-      console.log("CA Firm created with inviteCode:", generatedCaCode);
     }
 
     // 4. REGISTER CA-EMPLOYEE (Staff)
     else if (role === "CA-Employee") {
-      if (!inviteCode) return NextResponse.json({ success: false, error: "Invite code is required." }, { status: 400 });
+      if (!inviteCode) return NextResponse.json({ error: "Invite code is required." }, { status: 400 });
       
-      const caFirm = await CA.findOne({ inviteCode: inviteCode.trim().toUpperCase() });
-      if (!caFirm) return NextResponse.json({ success: false, error: "Invalid Firm Invite Code." }, { status: 400 });
+      const caFirm = await CA.findOne({ inviteCode });
+      if (!caFirm) return NextResponse.json({ error: "Invalid Firm Invite Code." }, { status: 400 });
 
       const existingStaff = await CAStaff.findOne({ $or: [{ email }, { phoneNumber }] });
-      if (existingStaff) return NextResponse.json({ success: false, error: "Staff already exists." }, { status: 400 });
+      if (existingStaff) return NextResponse.json({ error: "Staff already exists." }, { status: 400 });
 
       newUser = new CAStaff({
         name, phoneNumber, email, password: hashedPassword,
@@ -170,14 +158,14 @@ export async function POST(request) {
     }
 
     else {
-      return NextResponse.json({ success: false, error: "Invalid role specified." }, { status: 400 });
+      return NextResponse.json({ error: "Invalid role specified." }, { status: 400 });
     }
 
     // 5. Generate Secure Session Token (Auto-Login on Registration)
     const payload = {
       userId: newUser._id.toString(),
       role: role,
-      companyId: companyId ? companyId.toString() : null
+      companyId: (companyId || newUser._id).toString()
     };
 
     const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '7d' });
@@ -192,16 +180,13 @@ export async function POST(request) {
       path: '/',
     });
 
-    console.log("Registration successful for user:", newUser._id);
-
     return NextResponse.json({ 
-      success: true,
-      message: successMessage || "Registration successful",
+      message: successMessage,
       user: { id: newUser._id, name: newUser.name, email: newUser.email, role }
     }, { status: 201 });
 
   } catch (error) {
     console.error("Registration Error:", error);
-    return NextResponse.json({ success: false, error: error.message || "Internal Server Error" }, { status: 500 });
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }

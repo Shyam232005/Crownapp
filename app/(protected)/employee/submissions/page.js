@@ -3,8 +3,6 @@ import React, { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { motion, AnimatePresence } from "framer-motion";
 import { Send, Loader2, CheckCircle2, Receipt, ScanLine } from "lucide-react";
-import Tesseract from "tesseract.js";
-import * as pdfjsLib from "pdfjs-dist";
 import { toast } from "sonner";
 import confetti from "canvas-confetti";
 
@@ -25,11 +23,6 @@ export default function EmployeeSubmissionForm() {
     }
   });
 
-  useEffect(() => {
-    // Initialize PDF.js worker securely for Next.js client-side execution
-    pdfjsLib.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
-  }, []);
-
   // UNIVERSAL OFFLINE AI SCANNER (PDF & IMAGE)
   const handleFileUpload = async (e) => {
     const file = e.target.files[0];
@@ -41,6 +34,9 @@ export default function EmployeeSubmissionForm() {
 
     try {
       if (file.type === "application/pdf") {
+        const pdfjsLib = await import("pdfjs-dist");
+        pdfjsLib.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
+
         const arrayBuffer = await file.arrayBuffer();
         const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
         const page = await pdf.getPage(1);
@@ -57,6 +53,7 @@ export default function EmployeeSubmissionForm() {
         imageToScan = canvas.toDataURL("image/png"); 
       }
 
+      const Tesseract = (await import("tesseract.js")).default;
       const result = await Tesseract.recognize(imageToScan, 'eng');
       const text = result.data.text;
 

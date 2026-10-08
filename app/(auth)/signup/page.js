@@ -9,7 +9,6 @@ import {
     Crown, ShieldCheck, CheckCircle2, Sparkles, ShieldAlert, Check
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { toast } from "sonner";
 import LiveComplianceTicker from "@/components/dynamic/LiveComplianceTicker";
 
 // Custom Input Component - Styled for Premium SaaS Feel
@@ -112,34 +111,26 @@ function SignupFormContent() {
         setApiError("");
         try {
             if (data.role === "CA") data.joinedViaCode = data.inviteCode;
-            
-            console.log("Submitting registration for:", { role: data.role, email: data.email });
-
             const res = await fetch("/api/auth/register", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(data)
             });
-
-            let result;
-            try {
-                result = await res.json();
-            } catch (jsonErr) {
-                console.error("Failed to parse JSON response:", jsonErr);
-                setApiError("Server returned an invalid response format.");
-                return;
-            }
-
+            const result = await res.json();
             if (res.ok) {
-                toast.success("Account created successfully!");
-                // Crucial Routing Update: Redirect to /login for ALL roles
-                router.push("/login");
+                const userRole = data.role;
+                const redirectPath = 
+                    userRole === "Owner" ? "/owner/dashboard" :
+                    userRole === "Employee" ? "/employee/dashboard" :
+                    userRole === "CA" ? "/ca/dashboard" : "/ca-staff/dashboard";
+                
+                toast.success("Account created successfully! Welcome to FineOps.");
+                window.location.href = redirectPath;
             } else {
-                setApiError(result?.error || result?.message || "Registration failed.");
+                setApiError(result.error || "Registration failed.");
             }
         } catch (err) {
-            console.error("Registration request error:", err);
-            setApiError(err?.message || "Network error. Please check your connection.");
+            setApiError("Network error. Please check your connection.");
         }
     };
 

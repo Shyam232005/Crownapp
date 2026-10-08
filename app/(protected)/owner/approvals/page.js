@@ -207,7 +207,7 @@ export default function ApprovalsQueueUI() {
                     </div>
                     <div>
                       <h4 className="text-sm sm:text-base font-black text-slate-900 tracking-tight mb-1">
-                        {item.metadata?.vendorName || item.metadata?.customerName || "Internal Entry"}
+                        {item.metadata?.vendorName || item.metadata?.customerName || item.metadata?.payeeName || "Internal Entry"}
                       </h4>
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="text-[10px] font-black uppercase tracking-wider text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md">
@@ -224,7 +224,7 @@ export default function ApprovalsQueueUI() {
                     <div className="text-left md:text-right">
                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-0.5">Value</p>
                       <p className="text-lg font-black text-slate-900 flex items-center font-mono">
-                        <IndianRupee className="w-4 h-4 mr-0.5 text-slate-500" /> {item.totalAmount?.toLocaleString("en-IN")}
+                        <IndianRupee className="w-4 h-4 mr-0.5 text-slate-500" /> {Number(item.amount ?? item.totalAmount ?? 0).toLocaleString("en-IN")}
                       </p>
                     </div>
 

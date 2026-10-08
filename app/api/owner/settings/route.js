@@ -23,10 +23,16 @@ export async function GET(request) {
 
     await connectDB();
     
-    const owner = await Owner.findById(decoded.userId).select("-password");
+    let owner = await Owner.findById(decoded.userId).select("-password");
     
     if (!owner) {
       return NextResponse.json({ error: "Owner not found" }, { status: 404 });
+    }
+
+    if (!owner.inviteCode) {
+      const crypto = await import("crypto");
+      owner.inviteCode = `BIZ-${crypto.randomBytes(3).toString("hex").toUpperCase()}`;
+      await owner.save();
     }
 
     return NextResponse.json({ success: true, data: owner }, { status: 200 });

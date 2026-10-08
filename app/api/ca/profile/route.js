@@ -1,8 +1,5 @@
 import { NextResponse } from "next/server";
 import mongoose from "mongoose";
-import jwt from "jsonwebtoken";
-import crypto from "crypto";
-import { cookies } from "next/headers";
 import CA from "@/models/CA";
 
 const connectDB = async () => {
@@ -14,50 +11,37 @@ export async function GET(request) {
   try {
     await connectDB();
 
-    const cookieStore = await cookies();
-    const token = cookieStore.get("crown_session")?.value;
-
-    if (!token) {
-      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
-    }
-
-    let decoded;
-    try {
-      decoded = jwt.verify(token, process.env.JWT_SECRET);
-    } catch (jwtErr) {
-      return NextResponse.json({ success: false, error: "Invalid session token" }, { status: 401 });
-    }
-
-    const caId = decoded.userId || decoded.companyId;
-    if (!caId) {
-      return NextResponse.json({ success: false, error: "User ID missing from session" }, { status: 401 });
-    }
-
-    let caProfile = await CA.findById(caId).select("inviteCode firmName phoneNumber icaiNumber");
+    // 1. Get cookies to identify the logged-in user
+    const userIdCookie = request.cookies.get("fineops_user_id");
+    const roleCookie = request.cookies.get("fineops_role");
     
-    if (!caProfile && decoded.companyId) {
-      caProfile = await CA.findById(decoded.companyId).select("inviteCode firmName phoneNumber icaiNumber");
+    if (!userIdCookie || !roleCookie) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const userId = userIdCookie.value;
+    const role = roleCookie.value;
+
+    // 2. Security Check: Make sure only a Firm Admin (CA) is accessing this
+    if (role !== "CA") {
+         return NextResponse.json({ error: "Access denied. Not a CA Firm Admin." }, { status: 403 });
+    }
+
+    // 3. Fetch CA details from Database
+    const caProfile = await CA.findById(userId).select("inviteCode firmName");
+    
     if (!caProfile) {
-      return NextResponse.json({ success: false, error: "CA Profile not found" }, { status: 404 });
+        return NextResponse.json({ error: "CA Profile not found" }, { status: 404 });
     }
 
-    if (!caProfile.inviteCode) {
-      const rawString = `${caProfile.firmName || 'CA'}-${caProfile.icaiNumber || '000'}-${Date.now()}-${Math.random()}`;
-      const hash = crypto.createHash("md5").update(rawString).digest("hex").substring(0, 6).toUpperCase();
-      caProfile.inviteCode = `CA-${hash}`;
-      await caProfile.save();
-    }
-
+    // 4. Send the invite code to the frontend sidebar
     return NextResponse.json({ 
-      success: true,
-      inviteCode: caProfile.inviteCode,
-      firmName: caProfile.firmName 
+        inviteCode: caProfile.inviteCode,
+        firmName: caProfile.firmName 
     }, { status: 200 });
 
   } catch (error) {
     console.error("CA Profile API Error:", error);
-    return NextResponse.json({ success: false, error: "Internal Server Error" }, { status: 500 });
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }

@@ -53,14 +53,20 @@ const OwnerSchema = new mongoose.Schema({
   }
 }, { timestamps: true });
 
+OwnerSchema.pre("validate", function () {
+  if (!this.inviteCode) {
+    const randomHex = Math.random().toString(36).substring(2, 8).toUpperCase();
+    this.inviteCode = `BIZ-${randomHex}`;
+  }
+});
+
 OwnerSchema.pre("save", function () {
-  if (this.isNew && !this.inviteCode) {
-    const rawString = `${this.companyName}-${this.phoneNumber}-${Date.now()}`;
-    const hash = crypto.createHash("md5").update(rawString).digest("hex").substring(0, 6).toUpperCase();
-    this.inviteCode = `BIZ-${hash}`;
+  if (!this.inviteCode) {
+    const randomHex = Math.random().toString(36).substring(2, 8).toUpperCase();
+    this.inviteCode = `BIZ-${randomHex}`;
   }
 
-  if (this.isModified('subscription.status') && this.subscription.status === 'trialing') {
+  if (this.isModified('subscription.status') && this.subscription?.status === 'trialing') {
     this.subscription.hasUsedTrial = true;
   }
 });

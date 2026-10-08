@@ -29,10 +29,10 @@ export async function GET(request) {
     await connectDB();
     const objectId = new mongoose.Types.ObjectId(companyId);
 
-    // 2. Count pending approvals waiting for Owner specifically for this company
+    // 2. Count pending owner approvals specifically for this company
     const pendingApprovals = await Transaction.countDocuments({ 
       companyId: objectId,
-      status: { $in: ["PENDING_OWNER_APPROVAL", "PENDING"] } 
+      status: { $in: ["PENDING_OWNER_APPROVAL", "PENDING"] }
     });
 
     // 3. Instantly Aggregate Totals at the Database Layer

@@ -88,19 +88,15 @@ function SidebarContent({ pathname, inviteCode, copied, handleCopy, onSignOutCli
               Staff Invite Code
             </span>
 
-            <div className="flex items-center justify-between bg-white px-3 py-2 rounded-lg border border-indigo-100 shadow-sm min-h-[38px]">
-              {inviteCode === "Loading..." || !inviteCode ? (
-                <div className="h-5 w-24 bg-slate-200/70 rounded-md animate-pulse my-0.5" />
-              ) : (
-                <code className="text-sm font-black tracking-widest text-slate-800 select-all truncate mr-2">
-                  {inviteCode}
-                </code>
-              )}
+            <div className="flex items-center justify-between bg-white px-3 py-2 rounded-lg border border-indigo-100 shadow-sm">
+              <code className="text-sm font-black tracking-widest text-slate-800 select-all truncate mr-2">
+                {inviteCode}
+              </code>
               <button
                 type="button"
                 onClick={handleCopy}
-                disabled={inviteCode === "Loading..." || !inviteCode}
-                className="min-h-[32px] min-w-[32px] p-1.5 rounded-md text-indigo-600 hover:bg-indigo-50 transition-colors flex items-center justify-center cursor-pointer shrink-0 disabled:opacity-40"
+                disabled={inviteCode === "Loading..."}
+                className="min-h-[32px] min-w-[32px] p-1.5 rounded-md text-indigo-600 hover:bg-indigo-50 transition-colors flex items-center justify-center cursor-pointer shrink-0"
                 title="Copy Code"
                 aria-label="Copy Invite Code"
               >
@@ -153,27 +149,22 @@ export default function Sidebar() {
 
   // Fetch Invite Code from Backend
   useEffect(() => {
-    let isMounted = true;
     const fetchInviteCode = async () => {
       try {
         const res = await fetch("/api/owner/profile");
         if (res.ok) {
           const data = await res.json();
-          if (isMounted && data.inviteCode) {
-            setInviteCode(data.inviteCode);
-          }
+          setInviteCode(data.inviteCode);
         } else {
-          console.warn("Owner profile returned status:", res.status);
-          if (isMounted) setInviteCode("BIZ-HQ01");
+          setInviteCode("Error Fetching");
         }
       } catch (error) {
-        console.error("Failed to fetch invite code:", error);
-        if (isMounted) setInviteCode("BIZ-HQ01");
+        console.error("Failed to fetch invite code", error);
+        setInviteCode("Network Error");
       }
     };
 
     fetchInviteCode();
-    return () => { isMounted = false; };
   }, []);
 
   // Listen to GlobalHeader hamburger toggle

@@ -29,21 +29,20 @@ export async function GET(request) {
     await connectDB();
     const objectId = new mongoose.Types.ObjectId(companyId);
 
-    // 2. Map status queries to match owner workflow
+    // 2. Map old status queries to the new strict schema
     const { searchParams } = new URL(request.url);
     const rawStatus = searchParams.get("status");
     
-    // Default to PENDING_OWNER_APPROVAL and PENDING (matching Owner Stats pending count)
-    let statusFilter = { $in: ["PENDING_OWNER_APPROVAL", "PENDING"] };
-    if (rawStatus === "Approved") statusFilter = "APPROVED";
-    else if (rawStatus === "Exported") statusFilter = "EXPORTED";
-    else if (rawStatus === "PENDING_CA_REVIEW") statusFilter = "PENDING_CA_REVIEW";
-    else if (rawStatus) statusFilter = rawStatus;
+    // Default to PENDING_CA_REVIEW if no status is passed, or match rawStatus
+    let queryStatus = "PENDING_CA_REVIEW"; 
+    if (rawStatus === "Approved") queryStatus = "APPROVED";
+    else if (rawStatus === "Exported") queryStatus = "EXPORTED";
+    else if (rawStatus === "PENDING_OWNER_APPROVAL" || rawStatus === "PENDING" || rawStatus === "Pending") queryStatus = "PENDING_OWNER_APPROVAL";
 
     // 3. Fetch Transactions securely isolated to THIS specific company
     const transactions = await Transaction.find({
       companyId: objectId,
-      status: statusFilter
+      status: queryStatus
     })
     .sort({ transactionDate: -1 })
     .limit(15); // Limit to 15 to keep the dashboard snappy

@@ -118,17 +118,17 @@ export async function POST(request) {
       return NextResponse.json({ error: "Galat password! Kripya sahi password daalein." }, { status: 401 });
     }
 
-   // 5. Generate Secure Session Token (JWT)
+    // 5. Generate Secure Session Token (JWT)
     let companyId = null;
     if (role === "Owner") companyId = user._id;
-    else if (role === "Employee") companyId = user.ownerId;
+    else if (role === "Employee") companyId = user.companyId || user.ownerId;
     else if (role === "CA") companyId = user._id;
     else if (role === "CA-Employee") companyId = user.caId;
 
     const payload = {
       userId: user._id.toString(),
       role: role,
-      companyId: companyId ? companyId.toString() : null 
+      companyId: (companyId || user.companyId || user._id).toString()
     };
 
     const token = jwt.sign(payload, process.env.JWT_SECRET, {
