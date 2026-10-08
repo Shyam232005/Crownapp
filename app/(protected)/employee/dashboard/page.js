@@ -71,7 +71,7 @@ export default function EmployeeDashboardUI() {
         }
 
         // 2. Fetch Submitted Vouchers from /api/employee/transactions
-        const txRes = await fetch("/api/employee/transactions");
+        const txRes = await fetch("/api/employee/transactions", { cache: "no-store" });
         if (txRes.ok) {
           const txData = await txRes.json();
           setVouchers(Array.isArray(txData) ? txData : (txData.transactions || txData.data || []));
@@ -130,7 +130,7 @@ export default function EmployeeDashboardUI() {
   ];
 
   const getStatusBadge = (status) => {
-    if (status === "APPROVED") {
+    if (status === "APPROVED" || status === "PENDING_CA_REVIEW" || status === "EXPORTED") {
       return (
         <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/60">
           <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Approved

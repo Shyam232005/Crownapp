@@ -47,7 +47,7 @@ export async function PATCH(request) {
     // Determine new status based on Owner's action
     let newStatus = "";
     if (action === "APPROVE") {
-      newStatus = "PENDING_CA_REVIEW"; // Pushes to CA Scrutiny queue
+      newStatus = "APPROVED";
     } else if (action === "REJECT") {
       newStatus = "REJECTED"; // Flags and disables the transaction
     } else {

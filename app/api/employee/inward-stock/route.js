@@ -59,7 +59,7 @@ export async function POST(request) {
     await connectDB();
     const body = await request.json().catch(() => ({}));
     
-    const { itemName, quantity, unit, supplierName, challanNumber, remarks } = body;
+    const { itemName, quantity, unit, supplierName, challanNumber, remarks, sku, category, invoiceNumber } = body;
 
     // Strict manual validation
     if (!itemName || String(itemName).trim() === "") {
@@ -82,9 +82,12 @@ export async function POST(request) {
       employeeId: decoded.userId.toString(),
       type: "INWARD",
       itemName: String(itemName).trim(),
+      sku: sku ? String(sku).trim() : "",
+      category: category ? String(category).trim() : "General",
       quantity: qtyNum,
       unit: unit || "Pieces (Pcs)",
       supplierName: supplierName ? String(supplierName).trim() : "General Supplier",
+      invoiceNumber: invoiceNumber ? String(invoiceNumber).trim() : "",
       challanNumber: challanNumber ? String(challanNumber).trim() : "",
       remarks: remarks ? String(remarks).trim() : "",
       date: new Date()

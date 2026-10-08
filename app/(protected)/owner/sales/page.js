@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -70,6 +71,12 @@ export default function SalesAndCustomers() {
                         Track revenue, collections, and pending dues in real-time.
                     </motion.p>
                 </div>
+                <Link
+                    href="/owner/khata"
+                    className="w-full sm:w-auto bg-indigo-50 text-indigo-700 hover:bg-indigo-100 px-4 py-2.5 rounded-xl text-sm font-bold border border-indigo-200 transition-colors flex items-center justify-center gap-2"
+                >
+                    <Users className="w-4 h-4" /> Open Customer Khata
+                </Link>
             </div>
 
             {/* Analytics Dashboard */}

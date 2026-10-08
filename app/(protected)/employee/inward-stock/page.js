@@ -30,9 +30,12 @@ export default function StockInwardUI() {
   } = useForm({
     defaultValues: {
       itemName: "",
+      sku: "",
+      category: "General",
       quantity: "",
       unit: "Pieces (Pcs)",
       supplierName: "",
+      invoiceNumber: "",
       challanNumber: "",
       remarks: ""
     }
@@ -47,7 +50,7 @@ export default function StockInwardUI() {
   const fetchRecentEntries = async () => {
     try {
       // Fetch securely using the new employee-scoped API
-      const res = await fetch("/api/employee/inventory");
+      const res = await fetch("/api/employee/inventory", { cache: "no-store" });
       if (res.ok) {
         const json = await res.json();
         setRecentEntries(json.data || []);
@@ -62,11 +65,16 @@ export default function StockInwardUI() {
   const onSubmit = async (data) => {
     const loadingToast = toast.loading("Logging inward stock...");
     try {
-      // Removed vulnerable localStorage. Backend strictly uses the secure cookie.
+      const payload = {
+        ...data,
+        quantity: Number(data.quantity),
+        invoiceNumber: data.invoiceNumber || data.challanNumber || ""
+      };
+
       const res = await fetch("/api/employee/inventory", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data)
+        body: JSON.stringify(payload)
       });
 
       if (!res.ok) {
@@ -114,14 +122,26 @@ export default function StockInwardUI() {
       const result = await Tesseract.recognize(imageToScan, 'eng');
       const text = result.data.text;
 
-      // Extract basic details via Regex
-      const challanMatch = text.match(/(?:Challan|Bill|Inv)[\s\w]*No[\.\s:]*([A-Za-z0-9\-_/]+)/i);
-      if (challanMatch) setValue("challanNumber", challanMatch[1]);
+      // Extract details via Regex
+      const invMatch = text.match(/(?:Inv|Invoice|Bill)[\s\w]*No[\.\s:]*([A-Za-z0-9\-_/]+)/i);
+      if (invMatch) {
+        setValue("invoiceNumber", invMatch[1]);
+        setValue("challanNumber", invMatch[1]);
+      } else {
+        const challanMatch = text.match(/(?:Challan)[\s\w]*No[\.\s:]*([A-Za-z0-9\-_/]+)/i);
+        if (challanMatch) setValue("challanNumber", challanMatch[1]);
+      }
+
+      const skuMatch = text.match(/(?:SKU|Code|Item Code|HSN)[\s:]*([A-Za-z0-9\-_]+)/i);
+      if (skuMatch) setValue("sku", skuMatch[1]);
+
+      const catMatch = text.match(/(?:Category|Cat)[\s:]*([A-Za-z0-9\-_ ]+)/i);
+      if (catMatch) setValue("category", catMatch[1].trim());
 
       const quantityMatch = text.match(/(?:Qty|Quantity)[\s:]*([\d]+)/i);
       if (quantityMatch) setValue("quantity", quantityMatch[1]);
 
-      // Simple heuristic for Supplier Name (first line/caps)
+      // Heuristic for Supplier Name
       const lines = text.split('\n').filter(l => l.trim().length > 3);
       if (lines.length > 0) setValue("supplierName", lines[0].trim());
 
@@ -212,9 +232,9 @@ export default function StockInwardUI() {
         </div>
 
         <form onSubmit={handleSubmit(onSubmit)} className="p-6 sm:p-8 space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Item Name / SKU</label>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Item Name</label>
               <div className="relative">
                 <Box className="w-5 h-5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input 
@@ -225,8 +245,30 @@ export default function StockInwardUI() {
                 />
               </div>
             </div>
-            
-            <div className="grid grid-cols-2 gap-4">
+
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">SKU / Code</label>
+              <input 
+                type="text" 
+                {...register("sku")} 
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-600 transition-all uppercase" 
+                placeholder="e.g. SKU-COP-01" 
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Category</label>
+              <input 
+                type="text" 
+                {...register("category")} 
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-600 transition-all" 
+                placeholder="e.g. Raw Material, Hardware" 
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Quantity</label>
                 <input 
@@ -247,14 +289,13 @@ export default function StockInwardUI() {
                   <option value="Kilograms (Kg)">Kilograms (Kg)</option>
                   <option value="Meters (M)">Meters (M)</option>
                   <option value="Boxes">Boxes</option>
+                  <option value="Litres (L)">Litres (L)</option>
                 </select>
               </div>
             </div>
-          </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Supplier / Vendor Name</label>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Supplier / Vendor</label>
               <div className="relative">
                 <Building2 className="w-5 h-5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input 
@@ -265,15 +306,24 @@ export default function StockInwardUI() {
                 />
               </div>
             </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Challan / Bill Number</label>
-              <div className="relative">
-                <FileText className="w-5 h-5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Invoice #</label>
+                <input 
+                  type="text" 
+                  {...register("invoiceNumber")} 
+                  className="w-full px-3 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-600 transition-all uppercase" 
+                  placeholder="INV-001" 
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Challan #</label>
                 <input 
                   type="text" 
                   {...register("challanNumber")} 
-                  className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-600 transition-all uppercase" 
-                  placeholder="e.g. CH-2026/01" 
+                  className="w-full px-3 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-600 transition-all uppercase" 
+                  placeholder="CH-001" 
                 />
               </div>
             </div>

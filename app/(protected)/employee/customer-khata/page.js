@@ -58,7 +58,12 @@ export default function EmployeeKhata() {
               if (!custMap[name]) custMap[name] = { name, balance: 0 };
               
               if (entry.status === "APPROVED" || entry.status === "EXPORTED") {
-                if (entry.type === "SALES") custMap[name].balance += (entry.totalAmount || 0);
+                const amt = Number(entry.totalAmount || entry.amount || 0);
+                if (entry.type === "SALES") {
+                  custMap[name].balance += amt;
+                } else if (["ADVANCE_RECEIVED", "COLLECTION", "PAYMENT_IN"].includes(entry.type)) {
+                  custMap[name].balance -= amt;
+                }
               }
             }
           });
@@ -120,23 +125,38 @@ export default function EmployeeKhata() {
         return;
       }
 
-      // Map frontend fields to double-entry API
+      const isAdvance = data.type === "Customer Received";
+      const txnType = isAdvance ? "ADVANCE_RECEIVED" : "SALES";
+
+      // Map frontend fields to double-entry khata API
       const payload = {
+        type: txnType,
         customerName: data.partyName.trim(),
         partyName: data.partyName.trim(),
         invoiceNumber: `INV-AUTO-${Math.floor(Math.random() * 10000)}`,
+        receiptNumber: `REC-AUTO-${Math.floor(Math.random() * 10000)}`,
         hsnCode: "0000",
         baseAmount: amountNum,
         totalAmount: amountNum,
+        amount: amountNum,
         description: data.description,
         paymentMode: data.paymentMode || "UPI"
       };
 
-      const res = await fetch('/api/transactions/sales', { 
+      let res = await fetch('/api/khata', { 
         method: 'POST', 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload) 
       });
+
+      if (!res.ok) {
+        // Fallback to /api/transactions
+        res = await fetch('/api/transactions', {
+          method: 'POST',
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+      }
 
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
@@ -147,19 +167,21 @@ export default function EmployeeKhata() {
       
       // Update local transaction state instantly
       setKhataEntries(prev => [{
-        _id: savedEntry.transactionId || String(Date.now()),
-        type: 'SALES',
+        _id: savedEntry.transaction?._id || savedEntry.transactionId || String(Date.now()),
+        type: txnType,
         status: 'PENDING_OWNER_APPROVAL',
         totalAmount: payload.totalAmount,
         metadata: { customerName: payload.customerName, vendorName: payload.customerName, description: data.description }
       }, ...prev]);
 
-      // Update customers balance in UI
+      // Update customers balance in UI:
+      // Advance reduces outstanding due (-delta)
+      // Sales increases outstanding due (+delta)
       setCustomers(prev => {
         const existingIdx = prev.findIndex(c => c.name.toLowerCase() === payload.customerName.toLowerCase());
+        const delta = isAdvance ? -amountNum : amountNum;
         if (existingIdx >= 0) {
           const updated = [...prev];
-          const delta = data.type === "Sales Invoice" ? amountNum : -amountNum;
           updated[existingIdx] = {
             ...updated[existingIdx],
             balance: (updated[existingIdx].balance || 0) + delta
@@ -168,7 +190,7 @@ export default function EmployeeKhata() {
         } else {
           return [{
             name: payload.customerName,
-            balance: data.type === "Sales Invoice" ? amountNum : -amountNum
+            balance: delta
           }, ...prev];
         }
       });

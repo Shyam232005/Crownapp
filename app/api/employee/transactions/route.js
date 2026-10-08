@@ -4,6 +4,8 @@ import jwt from 'jsonwebtoken';
 import { cookies } from 'next/headers';
 import Transaction from '@/models/Transaction';
 
+export const dynamic = 'force-dynamic';
+
 const connectDB = async () => {
   if (mongoose.connection.readyState >= 1) return;
   await mongoose.connect(process.env.MONGODB_URI);
@@ -39,11 +41,14 @@ export async function POST(request) {
     if (transactionType === "Sales Invoice" || transactionType === "Sales") transactionType = "SALES";
     else if (transactionType === "Vendor Payment" || transactionType === "Purchase") transactionType = "PURCHASE";
     else if (transactionType === "General Expense" || transactionType === "Expense") transactionType = "EXPENSE";
-    else if (transactionType === "Customer Received" || transactionType === "Collection") transactionType = "COLLECTION";
+    else if (transactionType === "Customer Received" || transactionType === "Advance Received" || transactionType === "Collection") transactionType = "ADVANCE_RECEIVED";
 
     // Force companyId and createdBy to match the JWT payload strictly
     const companyId = decoded.companyId || decoded.userId;
     const createdBy = decoded.userId;
+
+    const receiptNumber = body.receiptNumber || body.invoiceNumber || body.billNumber || "";
+    const paymentMethod = body.paymentMethod || body.paymentMode || "Cash";
 
     const newTransaction = await Transaction.create({
       companyId: new mongoose.Types.ObjectId(companyId),
@@ -51,15 +56,19 @@ export async function POST(request) {
       type: transactionType,
       amount: amountNum,
       totalAmount: amountNum,
+      receiptNumber,
+      paymentMethod,
       status: 'PENDING_OWNER_APPROVAL',
       transactionDate: body.transactionDate ? new Date(body.transactionDate) : (body.billDate ? new Date(body.billDate) : new Date()),
       metadata: {
         vendorName: body.vendorName || body.partyName || body.payeeName || "General",
         customerName: body.customerName || body.partyName || "",
         payeeName: body.payeeName || body.partyName || "",
-        paymentMode: body.paymentMode || "Cash",
+        paymentMode: paymentMethod,
+        paymentMethod,
+        receiptNumber,
         description: body.description || "",
-        invoiceNumber: body.invoiceNumber || body.billNumber || "",
+        invoiceNumber: body.invoiceNumber || body.billNumber || receiptNumber,
         gstin: body.gstin || "",
         category: body.category || transactionType
       }
@@ -95,11 +104,21 @@ export async function GET(request) {
 
     await connectDB();
 
-    // Query strictly for own vouchers createdBy this user
-    const data = await Transaction.find({ createdBy: decoded.userId })
-      .sort({ createdAt: -1 });
+    const { searchParams } = new URL(request.url);
+    const type = searchParams.get('type');
 
-    return NextResponse.json(data);
+    // Query strictly for own vouchers createdBy this user
+    const query = { createdBy: decoded.userId.toString() };
+    if (type) query.type = type;
+
+    const data = await Transaction.find(query).sort({ createdAt: -1 });
+
+    return NextResponse.json(data, {
+      status: 200,
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate'
+      }
+    });
 
   } catch (error) {
     console.error('Employee GET Transactions Error:', error);

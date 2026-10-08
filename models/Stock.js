@@ -5,11 +5,14 @@ const stockSchema = new mongoose.Schema({
   createdBy: { type: String, index: true },
   employeeId: { type: String, index: true },
   itemName: { type: String, required: true, trim: true, index: true },
+  sku: { type: String, trim: true, default: "" },
+  category: { type: String, trim: true, default: "General" },
   quantity: { type: Number, required: true },
   unit: { type: String, default: "Pieces (Pcs)" },
   supplierName: { type: String, trim: true, default: "General Supplier" },
-  challanNumber: { type: String },
-  remarks: { type: String },
+  invoiceNumber: { type: String, trim: true, default: "" },
+  challanNumber: { type: String, trim: true, default: "" },
+  remarks: { type: String, default: "" },
   type: { type: String, default: "INWARD" },
   date: { type: Date, default: Date.now }
 }, { timestamps: true });

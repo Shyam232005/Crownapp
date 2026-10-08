@@ -17,10 +17,14 @@ export default function EmployeeSubmissionForm() {
       partyName: "",
       amount: "",
       paymentMode: "Cash",
-      description: "",
+      paymentMethod: "Cash",
+      category: "Operating",
+      receiptNumber: "",
+      invoiceNumber: "",
       billNumber: "",
       billDate: "",
-      gstin: ""
+      gstin: "",
+      description: ""
     }
   });
 
@@ -78,9 +82,20 @@ export default function EmployeeSubmissionForm() {
         }
       }
 
-      const billMatch = text.match(/(?:Inv|Invoice|Bill|Challan)[\s\w]*No[\.\s:]*([A-Za-z0-9\-_]+)/i);
+      const billMatch = text.match(/(?:Inv|Invoice|Bill|Challan)[\s\w]*No[\.\s:]*([A-Za-z0-9\-_/]+)/i);
       if (billMatch) {
+        setValue("invoiceNumber", billMatch[1], { shouldValidate: true, shouldDirty: true, shouldTouch: true });
         setValue("billNumber", billMatch[1], { shouldValidate: true, shouldDirty: true, shouldTouch: true });
+      }
+
+      const receiptMatch = text.match(/(?:Receipt|Rec|Voucher|Ref)[\s\w]*No[\.\s:]*([A-Za-z0-9\-_/]+)/i);
+      if (receiptMatch) {
+        setValue("receiptNumber", receiptMatch[1], { shouldValidate: true, shouldDirty: true, shouldTouch: true });
+      }
+
+      const catMatch = text.match(/(?:Category|Cat)[\s:]*([A-Za-z0-9\-_ ]+)/i);
+      if (catMatch) {
+        setValue("category", catMatch[1].trim(), { shouldValidate: true, shouldDirty: true, shouldTouch: true });
       }
 
       // Extract vendor name from top header line
@@ -112,10 +127,14 @@ export default function EmployeeSubmissionForm() {
   const onSubmit = async (data) => {
     const toastId = toast.loading("Submitting entry...");
     try {
-      // Removed vulnerable localStorage. The JWT handles identity securely.
       const payload = {
         ...data,
-        amount: Number(data.amount)
+        amount: Number(data.amount),
+        totalAmount: Number(data.amount),
+        receiptNumber: data.receiptNumber || "",
+        invoiceNumber: data.invoiceNumber || data.billNumber || "",
+        paymentMethod: data.paymentMethod || data.paymentMode || "Cash",
+        category: data.category || "General"
       };
 
       const res = await fetch("/api/employee/submissions", {
@@ -238,33 +257,42 @@ export default function EmployeeSubmissionForm() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
           <div>
             <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Party / Vendor Name</label>
             <input type="text" {...register("partyName")} placeholder="e.g. Sharma Traders" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-600" />
           </div>
           <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Payment Mode</label>
-            <select {...register("paymentMode")} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-600">
+            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Category</label>
+            <input type="text" {...register("category")} placeholder="e.g. Operating, Travel, Office" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-600" />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Payment Method</label>
+            <select {...register("paymentMethod")} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-600">
               <option value="Cash">Cash</option>
               <option value="UPI">UPI</option>
               <option value="Bank Transfer">Bank Transfer</option>
               <option value="Cheque">Cheque</option>
+              <option value="Credit Card">Credit Card</option>
             </select>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 p-4 bg-slate-50 border border-slate-100 rounded-2xl">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 p-4 bg-slate-50 border border-slate-100 rounded-2xl">
           <div>
-            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Bill Number</label>
-            <input type="text" {...register("billNumber")} placeholder="#INV-001" className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-600" />
+            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Invoice / Bill #</label>
+            <input type="text" {...register("invoiceNumber")} placeholder="#INV-001" className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-600" />
           </div>
           <div>
-            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Bill Date</label>
+            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Receipt #</label>
+            <input type="text" {...register("receiptNumber")} placeholder="#REC-001" className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-600" />
+          </div>
+          <div>
+            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Bill Date</label>
             <input type="date" {...register("billDate")} className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-600" />
           </div>
           <div>
-            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">GSTIN</label>
+            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">GSTIN</label>
             <input type="text" {...register("gstin")} placeholder="Optional" className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-600 uppercase" />
           </div>
         </div>

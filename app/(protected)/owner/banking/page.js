@@ -13,16 +13,24 @@ export default function CashAndBanking() {
     useEffect(() => {
         const fetchFinances = async () => {
             try {
-                // Fetch from our secure, JWT-backed Owner Transactions API
-                const res = await fetch("/api/owner/transactions");
+                // Fetch from our secure, aggregated Banking API
+                const res = await fetch("/api/banking", { cache: "no-store" });
                 if (res.ok) {
                     const json = await res.json();
-                    
-                    // Filter for only finalized entries that affect cash flow
-                    const financialData = (json.data || []).filter(
-                        item => (item.status === "APPROVED" || item.status === "EXPORTED") && item.totalAmount > 0
+                    const financialData = (json.transactions || json.data || []).filter(
+                        item => (item.status === "APPROVED" || item.status === "EXPORTED") && (item.totalAmount > 0 || item.amount > 0)
                     );
                     setTransactions(financialData);
+                } else {
+                    // Fallback to owner transactions
+                    const fallbackRes = await fetch("/api/owner/transactions", { cache: "no-store" });
+                    if (fallbackRes.ok) {
+                        const fallbackJson = await fallbackRes.json();
+                        const financialData = (fallbackJson.data || []).filter(
+                            item => (item.status === "APPROVED" || item.status === "EXPORTED") && (item.totalAmount > 0 || item.amount > 0)
+                        );
+                        setTransactions(financialData);
+                    }
                 }
             } catch (error) {
                 console.error("Failed to fetch finances:", error);
@@ -34,24 +42,25 @@ export default function CashAndBanking() {
         fetchFinances();
     }, []);
 
-    // Galla (Cash) & Bank Logic mapped to our Double-Entry Types
+    // Galla (Cash) & Bank Logic mapped to GAAP types
     let cashBalance = 0;
     let bankBalance = 0;
 
     transactions.forEach((txn) => {
-        const isMoneyIn = txn.type === "SALES" || txn.type === "COLLECTION";
-        const isMoneyOut = txn.type === "PURCHASE" || txn.type === "EXPENSE";
+        const isMoneyIn = ["SALES", "COLLECTION", "ADVANCE_RECEIVED", "INCOME", "PAYMENT_IN"].includes(txn.type);
+        const isMoneyOut = ["PURCHASE", "EXPENSE", "PAYMENT_OUT"].includes(txn.type);
+        const amount = Number(txn.totalAmount || txn.amount || 0);
         
-        // Safely extract payment mode, defaulting to Bank/UPI if unstated
-        const mode = txn.metadata?.paymentMode || "UPI";
-        const isCash = mode.toLowerCase().includes("cash");
+        // Safely extract payment mode
+        const mode = (txn.paymentMethod || txn.metadata?.paymentMode || "UPI").toLowerCase();
+        const isCash = mode.includes("cash");
 
         if (isMoneyIn) {
-            if (isCash) cashBalance += txn.totalAmount;
-            else bankBalance += txn.totalAmount;
+            if (isCash) cashBalance += amount;
+            else bankBalance += amount;
         } else if (isMoneyOut) {
-            if (isCash) cashBalance -= txn.totalAmount;
-            else bankBalance -= txn.totalAmount;
+            if (isCash) cashBalance -= amount;
+            else bankBalance -= amount;
         }
     });
 

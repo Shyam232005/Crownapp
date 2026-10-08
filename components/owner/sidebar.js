@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard, Activity, CheckSquare, Landmark, Users,
   ShoppingCart, FileText, PieChart, Settings, LogOut, ShieldAlert,
-  Copy, Check, Sparkles, X
+  Copy, Check, Sparkles, X, ReceiptText
 } from "lucide-react";
 import SignOutModal from "@/components/global/SignOutModal";
 
@@ -28,7 +28,8 @@ const navConfig = [
   {
     category: "Network & Supply",
     items: [
-      { name: "Sales & Customers", icon: Users, pathname: "/owner/sales" },
+      { name: "Sales & Invoices", icon: ReceiptText, pathname: "/owner/sales" },
+      { name: "Customer Khata", icon: Users, pathname: "/owner/khata" },
       { name: "Purchases & Vendors", icon: ShoppingCart, pathname: "/owner/purchases" }
     ]
   },

@@ -68,7 +68,17 @@ export async function POST(request) {
 
     const companyId = decoded.companyId || decoded.userId;
     const body = await request.json();
-    const { name, phone, email, balance = 0, address, gstin } = body;
+    const {
+      name,
+      phone,
+      email,
+      balance,
+      openingBalance = 0,
+      creditLimit = 0,
+      address,
+      billingAddress,
+      gstin,
+    } = body;
 
     if (!name || !name.trim()) {
       return NextResponse.json(
@@ -77,13 +87,21 @@ export async function POST(request) {
       );
     }
 
+    const initialBalance =
+      balance !== undefined && balance !== null && balance !== ""
+        ? Number(balance)
+        : Number(openingBalance) || 0;
+
     const customerData = {
       companyId: new mongoose.Types.ObjectId(companyId),
       name: name.trim(),
       phone: phone ? phone.trim() : undefined,
       email: email ? email.trim().toLowerCase() : undefined,
-      balance: Number(balance) || 0,
-      address: address ? address.trim() : "",
+      balance: isNaN(initialBalance) ? 0 : initialBalance,
+      openingBalance: Number(openingBalance) || 0,
+      creditLimit: Number(creditLimit) || 0,
+      billingAddress: (billingAddress || address || "").trim(),
+      address: (address || billingAddress || "").trim(),
       gstin: gstin ? gstin.trim().toUpperCase() : "",
     };
 

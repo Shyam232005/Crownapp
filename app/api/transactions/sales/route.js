@@ -45,18 +45,29 @@ export async function POST(request) {
     const isEmployee = decoded.role === 'Employee';
     const status = isEmployee ? 'PENDING_OWNER_APPROVAL' : 'PENDING_CA_REVIEW';
 
+    const rawType = (body.type || "SALES").toString().trim();
+    const isAdvance = ["ADVANCE_RECEIVED", "COLLECTION", "Customer Received", "PAYMENT_IN"].includes(rawType);
+    const txnType = isAdvance ? "ADVANCE_RECEIVED" : "SALES";
+    const paymentMode = body.paymentMode || body.paymentMethod || "UPI";
+
     // 1. Create Transaction Record
     const txDoc = await Transaction.create({
       companyId: targetCompanyId,
       createdBy: new mongoose.Types.ObjectId(decoded.userId),
-      type: 'SALES',
+      type: txnType,
       status,
+      amount: totalAmount,
       totalAmount,
       taxAmount: totalTax, 
+      paymentMethod: paymentMode,
+      receiptNumber: body.receiptNumber || invoiceNumber,
       metadata: { 
         invoiceNumber, 
+        receiptNumber: body.receiptNumber || invoiceNumber,
         customerName: customerName.trim(), 
         vendorName: customerName.trim(), 
+        paymentMode,
+        paymentMethod: paymentMode,
         hsnCode,
         description: body.description || '' 
       } 
@@ -65,12 +76,15 @@ export async function POST(request) {
     const transactionId = txDoc._id;
 
     // 2. Upsert customer in Customer Khata
+    // If advance: subtract from balance (-totalAmount)
+    // If sales: add to balance (+totalAmount)
     try {
+      const balanceDelta = isAdvance ? -totalAmount : totalAmount;
       await Customer.findOneAndUpdate(
         { companyId: targetCompanyId, name: customerName.trim() },
         { 
           $setOnInsert: { companyId: targetCompanyId, name: customerName.trim() },
-          $inc: { balance: totalAmount }
+          $inc: { balance: balanceDelta }
         },
         { upsert: true, new: true }
       );
@@ -79,9 +93,11 @@ export async function POST(request) {
     }
 
     // 3. If entered directly by Owner, immediately generate double-entry ledger rows
-    // (If entered by Employee, it remains in PENDING_OWNER_APPROVAL until Owner approves)
     if (!isEmployee) {
-      const ledgerEntries = [
+      const ledgerEntries = isAdvance ? [
+        { transactionId, companyId: targetCompanyId, accountName: `${paymentMode} A/C`, type: 'DEBIT', amount: totalAmount },
+        { transactionId, companyId: targetCompanyId, accountName: `${customerName.trim()} Advances A/C`, type: 'CREDIT', amount: totalAmount }
+      ] : [
         { transactionId, companyId: targetCompanyId, accountName: `${customerName.trim()} (Debtor) A/C`, type: 'DEBIT', amount: totalAmount },
         { transactionId, companyId: targetCompanyId, accountName: 'Sales Revenue A/C', type: 'CREDIT', amount: totalAmount }
       ];

@@ -126,10 +126,10 @@ export async function PATCH(request) {
       }, { status: 200 });
     }
 
-    // 2. Otherwise update Transaction
-    const newStatus = action === 'APPROVE' ? 'PENDING_CA_REVIEW' : 'REJECTED';
-    const updatedTx = await Transaction.findOneAndUpdate(
-      { _id: new mongoose.Types.ObjectId(targetId), companyId },
+    // 2. Otherwise update Transaction explicitly to APPROVED or REJECTED
+    const newStatus = action === 'APPROVE' ? 'APPROVED' : 'REJECTED';
+    const updatedTx = await Transaction.findByIdAndUpdate(
+      targetId,
       { $set: { status: newStatus } },
       { new: true }
     );
@@ -138,12 +138,39 @@ export async function PATCH(request) {
       return NextResponse.json({ error: "Approval item not found." }, { status: 404 });
     }
 
-    if (action === 'APPROVE' && updatedTx.type === 'EXPENSE') {
+    if (action === 'APPROVE') {
       const amount = updatedTx.totalAmount || updatedTx.amount || 0;
-      await LedgerEntry.insertMany([
-        { transactionId: updatedTx._id, companyId, accountName: "Operational Expense A/C", type: "DEBIT", amount },
-        { transactionId: updatedTx._id, companyId, accountName: "Cash / Bank A/C", type: "CREDIT", amount }
-      ]).catch(e => console.error("Ledger creation error:", e));
+      const meta = updatedTx.metadata || {};
+      const mode = updatedTx.paymentMethod || meta.paymentMode || 'Cash';
+      const party = meta.vendorName || meta.customerName || meta.payeeName || 'General';
+
+      const ledgerEntries = [];
+      if (updatedTx.type === 'EXPENSE') {
+        ledgerEntries.push(
+          { transactionId: updatedTx._id, companyId, accountName: `${meta.category || 'Operational'} Expense A/C`, type: 'DEBIT', amount },
+          { transactionId: updatedTx._id, companyId, accountName: `${mode} A/C`, type: 'CREDIT', amount }
+        );
+      } else if (updatedTx.type === 'PURCHASE') {
+        ledgerEntries.push(
+          { transactionId: updatedTx._id, companyId, accountName: "Purchases / Inventory A/C", type: 'DEBIT', amount },
+          { transactionId: updatedTx._id, companyId, accountName: `${party} (Creditor) A/C`, type: 'CREDIT', amount }
+        );
+      } else if (updatedTx.type === 'SALES') {
+        ledgerEntries.push(
+          { transactionId: updatedTx._id, companyId, accountName: `${party} (Debtor) A/C`, type: 'DEBIT', amount },
+          { transactionId: updatedTx._id, companyId, accountName: "Sales Revenue A/C", type: 'CREDIT', amount }
+        );
+      } else if (updatedTx.type === 'ADVANCE_RECEIVED' || updatedTx.type === 'COLLECTION') {
+        ledgerEntries.push(
+          { transactionId: updatedTx._id, companyId, accountName: `${mode} A/C`, type: 'DEBIT', amount },
+          { transactionId: updatedTx._id, companyId, accountName: `${party} Advances A/C`, type: 'CREDIT', amount }
+        );
+      }
+
+      if (ledgerEntries.length > 0) {
+        await LedgerEntry.deleteMany({ transactionId: updatedTx._id });
+        await LedgerEntry.insertMany(ledgerEntries).catch(e => console.error("Ledger creation error:", e));
+      }
     }
 
     return NextResponse.json({ 
