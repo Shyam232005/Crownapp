@@ -94,7 +94,8 @@ export default function ProfessionalLogin() {
                     })
                 });
 
-                const result = await res.json();
+                let result;
+                try { result = await res.json(); } catch(e) { result = { error: "Invalid server response." }; }
 
                 if (res.ok) {
                     document.cookie = `fineops_user_id=${result.user?.id || result.userId}; path=/; max-age=86400`;
@@ -127,7 +128,8 @@ export default function ProfessionalLogin() {
                 })
             });
 
-            const result = await res.json();
+            let result;
+            try { result = await res.json(); } catch(e) { result = { error: "Invalid server response." }; }
 
             if (res.ok) {
                 if (result.redirectUrl) {

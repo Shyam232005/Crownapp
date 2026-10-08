@@ -125,9 +125,13 @@ export async function POST(request) {
       await newUser.save();
       
       const owner = await Owner.findOne({ inviteCode: codeToLink });
-      if(owner) {
+      if (owner) {
+         if (!owner.linkedCAs) owner.linkedCAs = [];
+         if (!owner.linkedCaFirm) owner.linkedCaFirm = [];
          owner.linkedCAs.push(newUser._id);
+         owner.linkedCaFirm.push(newUser._id);
          await owner.save();
+         if (!newUser.clients) newUser.clients = [];
          newUser.clients.push(owner._id);
          await newUser.save();
       }
@@ -181,12 +185,12 @@ export async function POST(request) {
     });
 
     return NextResponse.json({ 
-      message: successMessage,
-      user: { id: newUser._id, name: newUser.name, email: newUser.email, role }
+      success: true, 
+      message: "Account created." 
     }, { status: 201 });
 
   } catch (error) {
     console.error("Registration Error:", error);
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    return NextResponse.json({ error: error.message || "Server Error" }, { status: 500 });
   }
 }

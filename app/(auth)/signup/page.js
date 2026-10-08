@@ -9,6 +9,7 @@ import {
     Crown, ShieldCheck, CheckCircle2, Sparkles, ShieldAlert, Check
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { toast } from "sonner";
 import LiveComplianceTicker from "@/components/dynamic/LiveComplianceTicker";
 
 // Custom Input Component - Styled for Premium SaaS Feel
@@ -116,7 +117,14 @@ function SignupFormContent() {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(data)
             });
-            const result = await res.json();
+
+            let result;
+            try { 
+                result = await res.json(); 
+            } catch (e) { 
+                result = { error: "Invalid server response." }; 
+            }
+
             if (res.ok) {
                 const userRole = data.role;
                 const redirectPath = 
@@ -124,13 +132,18 @@ function SignupFormContent() {
                     userRole === "Employee" ? "/employee/dashboard" :
                     userRole === "CA" ? "/ca/dashboard" : "/ca-staff/dashboard";
                 
-                toast.success("Account created successfully! Welcome to FineOps.");
+                toast.success(result.message || "Account created successfully! Welcome to FineOps.");
                 window.location.href = redirectPath;
             } else {
-                setApiError(result.error || "Registration failed.");
+                const msg = result.error || "Registration failed.";
+                setApiError(msg);
+                toast.error(msg);
             }
         } catch (err) {
-            setApiError("Network error. Please check your connection.");
+            console.error("Signup network error:", err);
+            const msg = "Network error. Please check your connection.";
+            setApiError(msg);
+            toast.error(msg);
         }
     };
 
