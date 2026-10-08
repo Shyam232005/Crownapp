@@ -9,6 +9,8 @@ const connectDB = async () => {
   await mongoose.connect(process.env.MONGODB_URI);
 };
 
+export const dynamic = "force-dynamic";
+
 // Owner GET: View Pending Approvals for their company
 export async function GET(request) {
   try {
@@ -35,7 +37,10 @@ export async function GET(request) {
       status: 'PENDING_OWNER_APPROVAL'
     }).sort({ createdAt: -1 });
 
-    return NextResponse.json(data);
+    return NextResponse.json(data, {
+      status: 200,
+      headers: { "Cache-Control": "no-store, no-cache, must-revalidate" }
+    });
 
   } catch (error) {
     console.error('Owner GET Pending Transactions Error:', error);

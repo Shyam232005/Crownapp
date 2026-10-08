@@ -9,6 +9,8 @@ const connectDB = async () => {
   await mongoose.connect(process.env.MONGODB_URI);
 };
 
+export const dynamic = "force-dynamic";
+
 export async function GET(request) {
   try {
     const cookieStore = await cookies();
@@ -17,10 +19,11 @@ export async function GET(request) {
     if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    if (!decoded.companyId) return NextResponse.json({ error: "Company not linked" }, { status: 403 });
+    const companyId = decoded.companyId || decoded.userId;
+    if (!companyId) return NextResponse.json({ error: "Company not linked" }, { status: 403 });
 
     await connectDB();
-    const objectId = new mongoose.Types.ObjectId(decoded.companyId);
+    const objectId = new mongoose.Types.ObjectId(companyId);
 
     // Extract the transaction type (e.g., PURCHASE or SALES) from the URL query
     const { searchParams } = new URL(request.url);

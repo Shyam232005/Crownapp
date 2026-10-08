@@ -11,6 +11,8 @@ const connectDB = async () => {
   await mongoose.connect(process.env.MONGODB_URI);
 };
 
+export const dynamic = "force-dynamic";
+
 export async function PATCH(request) {
   try {
     const cookieStore = await cookies();
@@ -25,6 +27,11 @@ export async function PATCH(request) {
       return NextResponse.json({ error: "Forbidden: Only Owners can approve transactions." }, { status: 403 });
     }
 
+    const companyId = decoded.companyId || decoded.userId;
+    if (!companyId) {
+      return NextResponse.json({ error: "Company not linked" }, { status: 403 });
+    }
+
     await connectDB();
     
     const body = await request.json();
@@ -35,6 +42,7 @@ export async function PATCH(request) {
     }
 
     const objectId = new mongoose.Types.ObjectId(transactionId);
+    const targetCompanyId = new mongoose.Types.ObjectId(companyId);
     
     // Determine new status based on Owner's action
     let newStatus = "";
@@ -48,7 +56,7 @@ export async function PATCH(request) {
 
     // Update the transaction
     const updatedTx = await Transaction.findOneAndUpdate(
-      { _id: objectId, companyId: decoded.companyId },
+      { _id: objectId, companyId: targetCompanyId },
       { $set: { status: newStatus } },
       { new: true }
     );
@@ -68,28 +76,28 @@ export async function PATCH(request) {
       if (updatedTx.type === "SALES") {
         const customerName = meta.customerName || meta.vendorName || "Customer";
         ledgerEntries.push(
-          { transactionId: updatedTx._id, companyId: decoded.companyId, accountName: `${customerName} (Debtor) A/C`, type: "DEBIT", amount },
-          { transactionId: updatedTx._id, companyId: decoded.companyId, accountName: "Sales Revenue A/C", type: "CREDIT", amount }
+          { transactionId: updatedTx._id, companyId: targetCompanyId, accountName: `${customerName} (Debtor) A/C`, type: "DEBIT", amount },
+          { transactionId: updatedTx._id, companyId: targetCompanyId, accountName: "Sales Revenue A/C", type: "CREDIT", amount }
         );
       } else if (updatedTx.type === "PURCHASE") {
         const vendorName = meta.vendorName || meta.payeeName || "Vendor";
         ledgerEntries.push(
-          { transactionId: updatedTx._id, companyId: decoded.companyId, accountName: "Purchases / Inventory A/C", type: "DEBIT", amount },
-          { transactionId: updatedTx._id, companyId: decoded.companyId, accountName: `${vendorName} (Creditor) A/C`, type: "CREDIT", amount }
+          { transactionId: updatedTx._id, companyId: targetCompanyId, accountName: "Purchases / Inventory A/C", type: "DEBIT", amount },
+          { transactionId: updatedTx._id, companyId: targetCompanyId, accountName: `${vendorName} (Creditor) A/C`, type: "CREDIT", amount }
         );
       } else if (updatedTx.type === "EXPENSE") {
         const expCategory = meta.category || "Operating";
         const paymentMode = meta.paymentMode || "Cash/Bank";
         ledgerEntries.push(
-          { transactionId: updatedTx._id, companyId: decoded.companyId, accountName: `${expCategory} Expense A/C`, type: "DEBIT", amount },
-          { transactionId: updatedTx._id, companyId: decoded.companyId, accountName: `${paymentMode} A/C`, type: "CREDIT", amount }
+          { transactionId: updatedTx._id, companyId: targetCompanyId, accountName: `${expCategory} Expense A/C`, type: "DEBIT", amount },
+          { transactionId: updatedTx._id, companyId: targetCompanyId, accountName: `${paymentMode} A/C`, type: "CREDIT", amount }
         );
       } else if (updatedTx.type === "COLLECTION") {
         const customerName = meta.customerName || "Customer";
         const paymentMode = meta.paymentMode || "Bank/Cash";
         ledgerEntries.push(
-          { transactionId: updatedTx._id, companyId: decoded.companyId, accountName: `${paymentMode} A/C`, type: "DEBIT", amount },
-          { transactionId: updatedTx._id, companyId: decoded.companyId, accountName: `${customerName} (Debtor) A/C`, type: "CREDIT", amount }
+          { transactionId: updatedTx._id, companyId: targetCompanyId, accountName: `${paymentMode} A/C`, type: "DEBIT", amount },
+          { transactionId: updatedTx._id, companyId: targetCompanyId, accountName: `${customerName} (Debtor) A/C`, type: "CREDIT", amount }
         );
       }
 

@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import Tesseract from "tesseract.js";
 import { motion, AnimatePresence } from "framer-motion";
+import { toast } from "sonner";
 import { 
   Users, Plus, Loader2, IndianRupee, ArrowDownToLine, 
   ReceiptText, X, Sparkles
@@ -26,28 +27,44 @@ export default function EmployeeKhata() {
   useEffect(() => {
     const fetchKhata = async () => {
       try {
-        // Securely fetch this employee's specific entries
-        const res = await fetch("/api/employee/transactions?type=SALES");
-        if (res.ok) {
-          const json = await res.json();
+        const [txRes, custRes] = await Promise.allSettled([
+          fetch("/api/employee/transactions?type=SALES"),
+          fetch("/api/khata/customer")
+        ]);
+
+        const custMap = {};
+
+        // 1. Seed with registered customers from DB
+        if (custRes.status === "fulfilled" && custRes.value.ok) {
+          const custJson = await custRes.value.json();
+          const dbCustomers = custJson.customers || custJson.data || [];
+          dbCustomers.forEach((c) => {
+            if (c.name) {
+              custMap[c.name.trim()] = { name: c.name.trim(), balance: c.balance || 0 };
+            }
+          });
+        }
+
+        // 2. Overlay transaction entries
+        if (txRes.status === "fulfilled" && txRes.value.ok) {
+          const json = await txRes.value.json();
           const customerData = json.data || [];
-          
           setKhataEntries(customerData);
 
-          const custMap = {};
           customerData.forEach((entry) => {
-            if (entry.status !== "REJECTED" && entry.metadata?.vendorName) {
-              const name = entry.metadata.vendorName.trim();
+            const party = entry.metadata?.customerName || entry.metadata?.vendorName;
+            if (entry.status !== "REJECTED" && party) {
+              const name = party.trim();
               if (!custMap[name]) custMap[name] = { name, balance: 0 };
               
               if (entry.status === "APPROVED" || entry.status === "EXPORTED") {
-                if (entry.type === "SALES") custMap[name].balance += entry.totalAmount;
-                // Note: Customer Received would subtract from balance, mapped to COLLECTIONS later
+                if (entry.type === "SALES") custMap[name].balance += (entry.totalAmount || 0);
               }
             }
           });
-          setCustomers(Object.values(custMap).sort((a, b) => b.balance - a.balance));
         }
+
+        setCustomers(Object.values(custMap).sort((a, b) => b.balance - a.balance));
       } catch (error) {
         console.error("Fetch error:", error);
       } finally {
@@ -84,10 +101,11 @@ export default function EmployeeKhata() {
       if (extParty) setValue("partyName", extParty);
       if (extAmount) setValue("amount", extAmount);
       setValue("description", "Auto-scanned Sales Entry");
+      toast.success("Document scanned & fields auto-filled!");
 
     } catch (error) {
       console.error("Local Scan Error:", error);
-      alert("Scanning failed. Please enter details manually.");
+      toast.error("Scanning failed. Please enter details manually.");
     } finally {
       setIsScanning(false);
       if (fileInputRef.current) fileInputRef.current.value = ""; 
@@ -96,43 +114,71 @@ export default function EmployeeKhata() {
 
   const onSubmit = async (data) => {
     try {
-      // Map frontend fields to our new Double-Entry API
+      const amountNum = Number(data.amount);
+      if (!amountNum || isNaN(amountNum) || amountNum <= 0) {
+        toast.error("Please enter a valid positive amount.");
+        return;
+      }
+
+      // Map frontend fields to double-entry API
       const payload = {
-        companyId: null, // JWT token handles this securely on the backend
-        customerName: data.partyName,
+        customerName: data.partyName.trim(),
+        partyName: data.partyName.trim(),
         invoiceNumber: `INV-AUTO-${Math.floor(Math.random() * 10000)}`,
         hsnCode: "0000",
-        baseAmount: Number(data.amount),
-        cgst: 0, 
-        sgst: 0,
-        igst: 0 
+        baseAmount: amountNum,
+        totalAmount: amountNum,
+        description: data.description,
+        paymentMode: data.paymentMode || "UPI"
       };
 
-      // Since employee khata currently logs generic sales, route to our robust sales engine
       const res = await fetch('/api/transactions/sales', { 
         method: 'POST', 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload) 
       });
 
-      if (!res.ok) throw new Error("Failed to save");
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || "Failed to save khata entry");
+      }
 
       const savedEntry = await res.json();
       
-      // Update local state instantly for a snappy UI
-      setKhataEntries([{
-        _id: savedEntry.transactionId,
+      // Update local transaction state instantly
+      setKhataEntries(prev => [{
+        _id: savedEntry.transactionId || String(Date.now()),
         type: 'SALES',
         status: 'PENDING_OWNER_APPROVAL',
-        totalAmount: payload.baseAmount,
-        metadata: { vendorName: payload.customerName, description: data.description }
-      }, ...khataEntries]);
+        totalAmount: payload.totalAmount,
+        metadata: { customerName: payload.customerName, vendorName: payload.customerName, description: data.description }
+      }, ...prev]);
+
+      // Update customers balance in UI
+      setCustomers(prev => {
+        const existingIdx = prev.findIndex(c => c.name.toLowerCase() === payload.customerName.toLowerCase());
+        if (existingIdx >= 0) {
+          const updated = [...prev];
+          const delta = data.type === "Sales Invoice" ? amountNum : -amountNum;
+          updated[existingIdx] = {
+            ...updated[existingIdx],
+            balance: (updated[existingIdx].balance || 0) + delta
+          };
+          return updated;
+        } else {
+          return [{
+            name: payload.customerName,
+            balance: data.type === "Sales Invoice" ? amountNum : -amountNum
+          }, ...prev];
+        }
+      });
       
+      toast.success("Entry submitted for approval!");
       reset(); 
       setIsModalOpen(false);
 
     } catch (error) {
-      alert("Something went wrong. Please try again.");
+      toast.error(error.message || "Something went wrong. Please try again.");
     }
   };
 

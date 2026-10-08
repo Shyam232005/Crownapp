@@ -2,13 +2,14 @@
 import React, { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, Loader2, CheckCircle2, Receipt, ScanLine } from "lucide-react";
+import { Send, Loader2, CheckCircle2, Receipt, ScanLine, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import confetti from "canvas-confetti";
 
 export default function EmployeeSubmissionForm() {
   const [showSuccess, setShowSuccess] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
+  const [isAutoFilled, setIsAutoFilled] = useState(false);
 
   const { register, handleSubmit, reset, setValue, formState: { isSubmitting } } = useForm({
     defaultValues: {
@@ -57,18 +58,47 @@ export default function EmployeeSubmissionForm() {
       const result = await Tesseract.recognize(imageToScan, 'eng');
       const text = result.data.text;
 
-      // Regex Extraction Engine
+      // High-precision Regex Extraction Engine
       const gstinMatch = text.match(/\d{2}[A-Z]{5}\d{4}[A-Z]{1}[A-Z\d]{1}[Z]{1}[A-Z\d]{1}/i);
-      if (gstinMatch) setValue("gstin", gstinMatch[0].toUpperCase());
+      if (gstinMatch) {
+        setValue("gstin", gstinMatch[0].toUpperCase(), { shouldValidate: true, shouldDirty: true, shouldTouch: true });
+      }
 
-      const amountMatch = text.match(/(?:Rs\.?|INR|₹|Total|Amount)[\s:]*([\d,]+\.?\d*)/i);
-      if (amountMatch) setValue("amount", amountMatch[1].replace(/,/g, ''));
+      const amountMatch = text.match(/(?:Rs\.?|INR|₹|Total|Grand Total|Net Amount|Amount)[\s:]*([\d,]+\.?\d*)/i);
+      if (amountMatch) {
+        setValue("amount", amountMatch[1].replace(/,/g, ''), { shouldValidate: true, shouldDirty: true, shouldTouch: true });
+      } else {
+        // Fallback: look for largest number that resembles a currency total
+        const allNums = text.match(/\b\d+(\.\d{1,2})?\b/g);
+        if (allNums) {
+          const numbers = allNums.map(Number).filter(n => n >= 10 && n <= 10000000);
+          if (numbers.length > 0) {
+            setValue("amount", Math.max(...numbers).toString(), { shouldValidate: true, shouldDirty: true, shouldTouch: true });
+          }
+        }
+      }
 
-      const billMatch = text.match(/(?:Inv|Invoice|Bill)[\s\w]*No[\.\s:]*([A-Za-z0-9\-_]+)/i);
-      if (billMatch) setValue("billNumber", billMatch[1]);
+      const billMatch = text.match(/(?:Inv|Invoice|Bill|Challan)[\s\w]*No[\.\s:]*([A-Za-z0-9\-_]+)/i);
+      if (billMatch) {
+        setValue("billNumber", billMatch[1], { shouldValidate: true, shouldDirty: true, shouldTouch: true });
+      }
 
-      setValue("description", "Auto-extracted from uploaded document.");
-      toast.success("Document scanned successfully!", { id: toastId });
+      // Extract vendor name from top header line
+      const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 2);
+      if (lines.length > 0) {
+        const topParty = lines[0].replace(/[^a-zA-Z0-9\s\&\.\-]/g, '').trim();
+        if (topParty && topParty.length > 2) {
+          setValue("partyName", topParty, { shouldValidate: true, shouldDirty: true, shouldTouch: true });
+        }
+      }
+
+      setValue("description", "Auto-extracted from uploaded bill/document.", { shouldValidate: true, shouldDirty: true, shouldTouch: true });
+      
+      // Trigger visual Framer Motion green highlight flash
+      setIsAutoFilled(true);
+      setTimeout(() => setIsAutoFilled(false), 3000);
+
+      toast.success("Document scanned & fields auto-filled!", { id: toastId });
 
     } catch (error) {
       console.error("AI Scan failed:", error);
@@ -167,7 +197,31 @@ export default function EmployeeSubmissionForm() {
         )}
       </AnimatePresence>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+      <AnimatePresence>
+        {isAutoFilled && (
+          <motion.div
+            initial={{ opacity: 0, y: -8, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            className="flex items-center gap-2 p-3.5 mb-6 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold shadow-xs"
+          >
+            <Sparkles className="w-4 h-4 text-emerald-600 animate-pulse" />
+            <span>Document details successfully extracted & auto-filled into form below!</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <motion.form 
+        animate={{
+          borderColor: isAutoFilled ? "#10b981" : "#e2e8f0",
+          boxShadow: isAutoFilled ? "0 0 0 4px rgba(16, 185, 129, 0.2)" : "0 0 0 0 rgba(0, 0, 0, 0)"
+        }}
+        transition={{ duration: 0.4 }}
+        onSubmit={handleSubmit(onSubmit)} 
+        className={`space-y-5 rounded-3xl p-6 bg-white border border-slate-200 transition-colors duration-500 ${
+          isAutoFilled ? "bg-emerald-50/10" : ""
+        }`}
+      >
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
           <div>
             <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Entry Type</label>
@@ -240,7 +294,7 @@ export default function EmployeeSubmissionForm() {
             {isSubmitting ? <><Loader2 className="w-5 h-5 animate-spin" /> Processing...</> : <><Send className="w-5 h-5" /> Submit Entry</>}
           </motion.button>
         </div>
-      </form>
+      </motion.form>
     </div>
   );
 }

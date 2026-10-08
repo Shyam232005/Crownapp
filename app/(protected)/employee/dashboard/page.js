@@ -42,16 +42,19 @@ export default function EmployeeDashboardUI() {
       try {
         // 1. Fetch Attendance Status from dedicated endpoint
         let punched = false;
+        let isCompleted = false;
         try {
-          const statusRes = await fetch("/api/employee/attendance/status");
+          const statusRes = await fetch("/api/employee/attendance/status", { cache: "no-store" });
           if (statusRes.ok) {
             const statusData = await statusRes.json();
-            punched = !!statusData.isPunchedIn;
+            punched = statusData.isPunchedIn === true;
+            isCompleted = statusData.status === "completed" || statusData.isCompleted === true;
           } else {
-            const altRes = await fetch("/api/attendance");
+            const altRes = await fetch("/api/attendance", { cache: "no-store" });
             if (altRes.ok) {
               const altData = await altRes.json();
-              punched = altData.isPunchedIn || altData.status === "punched-in" || altData.status === "completed";
+              punched = altData.isPunchedIn === true;
+              isCompleted = altData.status === "completed";
             }
           }
         } catch (e) {
@@ -59,7 +62,13 @@ export default function EmployeeDashboardUI() {
         }
 
         setIsPunchedIn(punched);
-        setAttendanceStatus(punched ? "Punched In" : "Not Punched In");
+        if (isCompleted) {
+          setAttendanceStatus("Shift Completed");
+        } else if (punched) {
+          setAttendanceStatus("Punched In");
+        } else {
+          setAttendanceStatus("Not Punched In");
+        }
 
         // 2. Fetch Submitted Vouchers from /api/employee/transactions
         const txRes = await fetch("/api/employee/transactions");
@@ -148,7 +157,7 @@ export default function EmployeeDashboardUI() {
       {/* GATEKEEPER LOCK OVERLAY (Rendered when shift has not been started today) */}
       {/* ========================================================================= */}
       <AnimatePresence>
-        {!isLoading && isPunchedIn === false && (
+        {!isLoading && isPunchedIn === false && attendanceStatus !== "Shift Completed" && (
           <motion.div
             key="gatekeeper-lock"
             initial={{ opacity: 0 }}
@@ -223,7 +232,7 @@ export default function EmployeeDashboardUI() {
         initial="hidden"
         animate="show"
         className={`p-4 sm:p-8 max-w-6xl mx-auto w-full pb-24 transition-all duration-300 ${
-          isPunchedIn === false ? "filter blur-sm pointer-events-none select-none opacity-40" : ""
+          isPunchedIn === false && attendanceStatus !== "Shift Completed" ? "filter blur-sm pointer-events-none select-none opacity-40" : ""
         }`}
       >
         {/* Header */}
@@ -260,6 +269,10 @@ export default function EmployeeDashboardUI() {
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
                     <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500" />
                   </span>
+                ) : attendanceStatus === "Shift Completed" ? (
+                  <span className="relative flex h-3 w-3">
+                    <span className="relative inline-flex rounded-full h-3 w-3 bg-indigo-500" />
+                  </span>
                 ) : (
                   <span className="relative flex h-3 w-3">
                     <span className="relative inline-flex rounded-full h-3 w-3 bg-slate-400" />
@@ -267,7 +280,8 @@ export default function EmployeeDashboardUI() {
                 )}
                 <p className={`text-xs font-black uppercase tracking-wider ${
                     isLoading ? 'text-slate-400' : 
-                    attendanceStatus === "Punched In" ? 'text-emerald-700' : 'text-slate-500'
+                    attendanceStatus === "Punched In" ? 'text-emerald-700' :
+                    attendanceStatus === "Shift Completed" ? 'text-indigo-700' : 'text-slate-500'
                 }`}>
                   {attendanceStatus}
                 </p>

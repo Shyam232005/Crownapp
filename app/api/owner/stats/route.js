@@ -3,6 +3,9 @@ import mongoose from "mongoose";
 import jwt from "jsonwebtoken";
 import { cookies } from "next/headers";
 import Transaction from "@/models/Transaction";
+import Leave from "@/models/Leave";
+
+export const dynamic = "force-dynamic";
 
 const connectDB = async () => {
   if (mongoose.connection.readyState >= 1) return;
@@ -20,7 +23,7 @@ export async function GET(request) {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const companyId = decoded.companyId;
+    const companyId = decoded.companyId || decoded.userId;
 
     if (!companyId) {
       return NextResponse.json({ error: "Company profile not linked" }, { status: 403 });
@@ -29,20 +32,25 @@ export async function GET(request) {
     await connectDB();
     const objectId = new mongoose.Types.ObjectId(companyId);
 
-    // 2. Count pending owner approvals specifically for this company
-    const pendingApprovals = await Transaction.countDocuments({ 
-      companyId: objectId,
-      status: { $in: ["PENDING_OWNER_APPROVAL", "PENDING"] }
-    });
+    // 2. Count pending owner approvals (Transactions + Leaves)
+    const [pendingVouchers, pendingLeaves] = await Promise.all([
+      Transaction.countDocuments({ 
+        companyId: objectId,
+        status: { $in: ["PENDING_OWNER_APPROVAL", "PENDING"] }
+      }),
+      Leave.countDocuments({
+        companyId: objectId,
+        status: "PENDING"
+      })
+    ]);
+
+    const pendingApprovals = (pendingVouchers || 0) + (pendingLeaves || 0);
 
     // 3. Instantly Aggregate Totals at the Database Layer
     const aggregation = await Transaction.aggregate([
       { 
         $match: { 
           companyId: objectId,
-          // Assuming you want to calculate actual financial turnover regardless of CA audit status. 
-          // If you only want approved stats, uncomment the line below:
-          // status: { $in: ["APPROVED", "EXPORTED"] }
         } 
       },
       { 
@@ -56,7 +64,7 @@ export async function GET(request) {
     let totalIncome = 0;
     let totalExpense = 0;
 
-    // 4. Map the MongoDB grouping to your UI properties
+    // 4. Map the MongoDB grouping to UI properties
     aggregation.forEach((group) => {
       if (group._id === "SALES") totalIncome += group.total;
       if (group._id === "PURCHASE" || group._id === "EXPENSE") totalExpense += group.total;
@@ -69,10 +77,16 @@ export async function GET(request) {
         totalIncome,
         totalExpense
       }
-    }, { status: 200 });
+    }, {
+      status: 200,
+      headers: { "Cache-Control": "no-store, no-cache, must-revalidate" }
+    });
 
   } catch (error) {
-    console.error("Owner Stats API Error:", error);
-    return NextResponse.json({ success: false, error: "Failed to fetch dashboard stats" }, { status: 500 });
+    console.error("GET Owner Stats Error:", error);
+    return NextResponse.json(
+      { success: false, error: "Failed to aggregate statistics" },
+      { status: 500 }
+    );
   }
 }

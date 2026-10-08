@@ -6,6 +6,9 @@ import CA from "@/models/CA";
 import CAStaff from "@/models/CAStaff";
 import Transaction from "@/models/Transaction";
 import AuditLog from "@/models/AuditLog";
+import Owner from "@/models/Owner";
+
+export const dynamic = "force-dynamic";
 
 const connectDB = async () => {
   if (mongoose.connection.readyState >= 1) return;

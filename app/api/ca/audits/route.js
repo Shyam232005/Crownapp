@@ -3,7 +3,10 @@ import mongoose from "mongoose";
 import jwt from "jsonwebtoken";
 import { cookies } from "next/headers";
 import CA from "@/models/CA";
-import Report from "@/models/Report"; // Ensure you have a Report model
+import Report from "@/models/Report";
+import Owner from "@/models/Owner";
+
+export const dynamic = "force-dynamic";
 
 const connectDB = async () => {
   if (mongoose.connection.readyState >= 1) return;

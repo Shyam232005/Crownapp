@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { 
   CheckCircle2, XCircle, Clock, Receipt, 
   Loader2, IndianRupee, ShieldCheck, CheckSquare, X,
-  Sparkles, CheckCheck, Inbox
+  Sparkles, CheckCheck, Inbox, CalendarDays
 } from "lucide-react";
 import { toast } from "sonner";
 import confetti from "canvas-confetti";
@@ -17,10 +17,17 @@ export default function ApprovalsQueueUI() {
   useEffect(() => {
     const fetchQueue = async () => {
       try {
-        const res = await fetch('/api/owner/transactions');
+        const res = await fetch('/api/owner/approvals');
         if (res.ok) {
           const json = await res.json();
           setTransactions(json.data || []);
+        } else {
+          // Fallback to legacy transactions route
+          const altRes = await fetch('/api/owner/transactions');
+          if (altRes.ok) {
+            const altJson = await altRes.json();
+            setTransactions(altJson.data || []);
+          }
         }
       } catch (error) {
         console.error("Failed to fetch approval queue:", error);
@@ -45,17 +52,19 @@ export default function ApprovalsQueueUI() {
   const displayList = activeTab === "PENDING" ? pendingQueue : reviewedQueue;
 
   const handleAction = async (id, actionType) => {
-    const toastId = toast.loading(`${actionType === 'APPROVE' ? 'Approving' : 'Rejecting'} voucher...`);
+    const targetItem = transactions.find(t => t._id === id);
+    const itemLabel = targetItem?.type === 'LEAVE' ? 'leave request' : 'voucher';
+    const toastId = toast.loading(`${actionType === 'APPROVE' ? 'Approving' : 'Rejecting'} ${itemLabel}...`);
     
     try {
-      const res = await fetch('/api/owner/transactions/action', {
+      const res = await fetch('/api/owner/approvals', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ transactionId: id, action: actionType })
+        body: JSON.stringify({ transactionId: id, id, action: actionType })
       });
 
       if (res.ok) {
-        toast.success(`Transaction ${actionType === 'APPROVE' ? 'Approved & Sent to CA Vault!' : 'Rejected'}`, { id: toastId });
+        toast.success(`${itemLabel.charAt(0).toUpperCase() + itemLabel.slice(1)} ${actionType === 'APPROVE' ? 'Approved!' : 'Rejected'}`, { id: toastId });
         if (actionType === 'APPROVE') {
           try {
             confetti({ particleCount: 45, spread: 65, origin: { y: 0.6 } });
@@ -199,33 +208,49 @@ export default function ApprovalsQueueUI() {
                 >
                   <div className="flex items-center gap-4">
                     <div className={`w-12 h-12 shrink-0 rounded-2xl flex items-center justify-center border transition-transform group-hover:scale-105 ${
+                      item.type === 'LEAVE' ? 'bg-purple-50 border-purple-200/60 text-purple-600' :
                       item.type === 'SALES' ? 'bg-emerald-50 border-emerald-200/60 text-emerald-600' :
                       item.type === 'PURCHASE' ? 'bg-indigo-50 border-indigo-200/60 text-indigo-600' :
                       'bg-amber-50 border-amber-200/60 text-amber-600'
                     }`}>
-                      <Receipt className="w-6 h-6" />
+                      {item.type === 'LEAVE' ? <CalendarDays className="w-6 h-6" /> : <Receipt className="w-6 h-6" />}
                     </div>
                     <div>
                       <h4 className="text-sm sm:text-base font-black text-slate-900 tracking-tight mb-1">
                         {item.metadata?.vendorName || item.metadata?.customerName || item.metadata?.payeeName || "Internal Entry"}
                       </h4>
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md">
-                          {item.type}
+                        <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md ${
+                          item.type === 'LEAVE' ? 'bg-purple-100 text-purple-700' : 'bg-slate-100 text-slate-600'
+                        }`}>
+                          {item.type === 'LEAVE' ? (item.leaveType || 'LEAVE REQUEST') : item.type}
                         </span>
                         <span className="text-[11px] font-semibold text-slate-400 flex items-center gap-1">
                           <Clock className="w-3.5 h-3.5" /> {new Date(item.transactionDate || item.createdAt).toLocaleDateString()}
                         </span>
                       </div>
+                      {item.metadata?.description && (
+                        <p className="text-[11px] text-slate-500 mt-1 line-clamp-1">
+                          {item.metadata.description}
+                        </p>
+                      )}
                     </div>
                   </div>
 
                   <div className="flex items-center justify-between md:justify-end gap-6 border-t md:border-0 border-slate-100 pt-4 md:pt-0">
                     <div className="text-left md:text-right">
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-0.5">Value</p>
-                      <p className="text-lg font-black text-slate-900 flex items-center font-mono">
-                        <IndianRupee className="w-4 h-4 mr-0.5 text-slate-500" /> {Number(item.amount ?? item.totalAmount ?? 0).toLocaleString("en-IN")}
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-0.5">
+                        {item.type === 'LEAVE' ? 'Type' : 'Value'}
                       </p>
+                      {item.type === 'LEAVE' ? (
+                        <p className="text-sm font-black text-purple-700">
+                          {item.leaveType || 'Time Off'}
+                        </p>
+                      ) : (
+                        <p className="text-lg font-black text-slate-900 flex items-center font-mono">
+                          <IndianRupee className="w-4 h-4 mr-0.5 text-slate-500" /> {Number(item.amount ?? item.totalAmount ?? 0).toLocaleString("en-IN")}
+                        </p>
+                      )}
                     </div>
 
                     {/* Magnetic Tactile Actions */}

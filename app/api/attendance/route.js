@@ -2,7 +2,9 @@ import { NextResponse } from "next/server";
 import mongoose from "mongoose";
 import jwt from "jsonwebtoken";
 import { cookies } from "next/headers";
-import Attendance from "@/models/Attendance"; // Assuming this model exists
+import Attendance from "@/models/Attendance";
+
+export const dynamic = "force-dynamic";
 
 const connectDB = async () => {
   if (mongoose.connection.readyState >= 1) return;
@@ -14,13 +16,19 @@ export async function GET(request) {
     const cookieStore = await cookies();
     const token = cookieStore.get("crown_session")?.value;
     
-    if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!token) return NextResponse.json({ error: "Unauthorized" }, { 
+      status: 401,
+      headers: { "Cache-Control": "no-store, no-cache, must-revalidate" }
+    });
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     
     // Ensure the requester is an employee
     if (decoded.role !== "Employee") {
-        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      return NextResponse.json({ error: "Forbidden" }, { 
+        status: 403,
+        headers: { "Cache-Control": "no-store, no-cache, must-revalidate" }
+      });
     }
 
     await connectDB();
@@ -32,21 +40,30 @@ export async function GET(request) {
 
     // Fetch the attendance record securely using the JWT userId
     const attendanceRecord = await Attendance.findOne({
-      employeeId: decoded.userId,
-      createdAt: { $gte: startOfDay, $lte: endOfDay }
+      employeeId: decoded.userId.toString(),
+      $or: [
+        { date: { $gte: startOfDay, $lte: endOfDay } },
+        { createdAt: { $gte: startOfDay, $lte: endOfDay } }
+      ]
     });
 
-    const isPunchedIn = !!attendanceRecord && (attendanceRecord.status === "punched-in" || attendanceRecord.status === "completed");
+    const isPunchedIn = !!attendanceRecord && attendanceRecord.status === "punched-in";
+    const status = attendanceRecord ? attendanceRecord.status : "punched-out";
 
-    if (!attendanceRecord) {
-      return NextResponse.json({ status: "punched-out", isPunchedIn: false }, { status: 200 });
-    }
-
-    return NextResponse.json({ status: attendanceRecord.status, isPunchedIn, record: attendanceRecord }, { status: 200 });
+    return NextResponse.json(
+      { status, isPunchedIn, record: attendanceRecord || null },
+      { 
+        status: 200,
+        headers: { "Cache-Control": "no-store, no-cache, must-revalidate" }
+      }
+    );
 
   } catch (error) {
     console.error("GET Attendance Error:", error);
-    return NextResponse.json({ error: "Internal Server Error", isPunchedIn: false }, { status: 500 });
+    return NextResponse.json({ error: "Internal Server Error", isPunchedIn: false }, { 
+      status: 500,
+      headers: { "Cache-Control": "no-store, no-cache, must-revalidate" }
+    });
   }
 }
 
@@ -61,7 +78,8 @@ export async function POST(request) {
     if (decoded.role !== "Employee") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
     await connectDB();
-    const { actionType } = await request.json();
+    const body = await request.json().catch(() => ({}));
+    const actionType = body.actionType || "Punch In";
 
     const today = new Date();
     const startOfDay = new Date(today);
@@ -72,7 +90,7 @@ export async function POST(request) {
     if (actionType === "Punch In") {
       // Check existing record for today
       const existing = await Attendance.findOne({
-        employeeId: decoded.userId,
+        employeeId: decoded.userId.toString(),
         $or: [
           { date: { $gte: startOfDay, $lte: endOfDay } },
           { createdAt: { $gte: startOfDay, $lte: endOfDay } }
@@ -80,25 +98,38 @@ export async function POST(request) {
       });
 
       if (existing) {
-        return NextResponse.json({ success: true, isPunchedIn: true, data: existing }, { status: 200 });
+        return NextResponse.json({ 
+          success: true, 
+          isPunchedIn: existing.status === "punched-in", 
+          status: existing.status,
+          data: existing 
+        }, { status: 200 });
       }
 
       // Create new record for today with server-side dates
       const newRecord = await Attendance.create({
-        employeeId: decoded.userId,
-        companyId: decoded.companyId,
+        employeeId: decoded.userId.toString(),
+        companyId: decoded.companyId ? new mongoose.Types.ObjectId(decoded.companyId) : undefined,
         date: today,
         punchInTime: today,
         status: "punched-in"
       });
-      return NextResponse.json({ success: true, isPunchedIn: true, data: newRecord }, { status: 201 });
+      return NextResponse.json({ 
+        success: true, 
+        isPunchedIn: true, 
+        status: "punched-in",
+        data: newRecord 
+      }, { status: 201 });
       
     } else if (actionType === "Punch Out") {
       // Update today's record to completed
       const updatedRecord = await Attendance.findOneAndUpdate(
         { 
-          employeeId: decoded.userId,
-          createdAt: { $gte: startOfDay, $lte: endOfDay }
+          employeeId: decoded.userId.toString(),
+          $or: [
+            { date: { $gte: startOfDay, $lte: endOfDay } },
+            { createdAt: { $gte: startOfDay, $lte: endOfDay } }
+          ]
         },
         { 
           $set: { 
@@ -113,13 +144,18 @@ export async function POST(request) {
         return NextResponse.json({ error: "No active punch-in found for today." }, { status: 400 });
       }
       
-      return NextResponse.json({ success: true, data: updatedRecord }, { status: 200 });
+      return NextResponse.json({ 
+        success: true, 
+        isPunchedIn: false, 
+        status: "completed",
+        data: updatedRecord 
+      }, { status: 200 });
     }
 
     return NextResponse.json({ error: "Invalid action type" }, { status: 400 });
 
   } catch (error) {
     console.error("POST Attendance Error:", error);
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    return NextResponse.json({ error: error.message || "Failed to process attendance" }, { status: 500 });
   }
 }

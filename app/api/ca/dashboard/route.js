@@ -6,6 +6,8 @@ import CA from "@/models/CA";
 import Transaction from "@/models/Transaction";
 import Owner from "@/models/Owner"; // Ensures the ref works properly
 
+export const dynamic = "force-dynamic";
+
 const connectDB = async () => {
   if (mongoose.connection.readyState >= 1) return;
   await mongoose.connect(process.env.MONGODB_URI);

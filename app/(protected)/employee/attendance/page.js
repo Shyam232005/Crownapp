@@ -16,7 +16,7 @@ export default function EmployeeAttendance() {
         const checkStatus = async () => {
             try {
                 // Secure API call: Identity is inferred from the HTTP-only JWT cookie
-                const res = await fetch(`/api/attendance`);
+                const res = await fetch(`/api/attendance`, { cache: 'no-store' });
                 
                 if (res.ok) {
                     const data = await res.json();

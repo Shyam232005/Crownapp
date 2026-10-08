@@ -9,6 +9,8 @@ const connectDB = async () => {
   await mongoose.connect(process.env.MONGODB_URI);
 };
 
+export const dynamic = "force-dynamic";
+
 export async function GET(request) {
   try {
     // 1. Authenticate Session & Extract Company ID
@@ -20,7 +22,7 @@ export async function GET(request) {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const companyId = decoded.companyId;
+    const companyId = decoded.companyId || decoded.userId;
 
     if (!companyId) {
       return NextResponse.json({ error: "Company profile not linked" }, { status: 403 });
@@ -47,7 +49,10 @@ export async function GET(request) {
     .sort({ transactionDate: -1 })
     .limit(15); // Limit to 15 to keep the dashboard snappy
 
-    return NextResponse.json({ success: true, data: transactions }, { status: 200 });
+    return NextResponse.json({ success: true, data: transactions }, { 
+      status: 200,
+      headers: { "Cache-Control": "no-store, no-cache, must-revalidate" }
+    });
   } catch (error) {
     console.error("GET Pending Transactions Error:", error);
     return NextResponse.json(

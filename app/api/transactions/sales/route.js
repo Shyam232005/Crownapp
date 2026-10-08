@@ -4,6 +4,9 @@ import jwt from 'jsonwebtoken';
 import { cookies } from 'next/headers';
 import Transaction from '@/models/Transaction';
 import LedgerEntry from '@/models/LedgerEntry';
+import Customer from '@/models/Customer';
+
+export const dynamic = 'force-dynamic';
 
 const connectDB = async () => {
   if (mongoose.connection.readyState >= 1) return;
@@ -18,36 +21,69 @@ export async function POST(request) {
     if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
+    if (!decoded || !decoded.userId) {
+      return NextResponse.json({ error: "Invalid session" }, { status: 401 });
+    }
+
     await connectDB();
     const body = await request.json();
-    const { totalAmount, totalTax = 0, customerName, invoiceNumber, hsnCode } = body;
+    
+    const amountVal = body.totalAmount ?? body.baseAmount ?? body.amount;
+    const customerName = body.customerName || body.partyName;
+    const invoiceNumber = body.invoiceNumber || `INV-${Date.now()}`;
+    const hsnCode = body.hsnCode || '0000';
+    const totalTax = Number(body.totalTax || body.taxAmount || 0);
 
-    if (!totalAmount || !customerName) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+    if (!amountVal || !customerName) {
+      return NextResponse.json({ error: 'Missing required fields: customerName and amount' }, { status: 400 });
     }
+
+    const totalAmount = Number(amountVal);
+    const companyId = decoded.companyId || decoded.userId;
+    const targetCompanyId = new mongoose.Types.ObjectId(companyId);
 
     const isEmployee = decoded.role === 'Employee';
     const status = isEmployee ? 'PENDING_OWNER_APPROVAL' : 'PENDING_CA_REVIEW';
 
     // 1. Create Transaction Record
     const txDoc = await Transaction.create({
-      companyId: decoded.companyId,
-      createdBy: decoded.userId,
+      companyId: targetCompanyId,
+      createdBy: new mongoose.Types.ObjectId(decoded.userId),
       type: 'SALES',
       status,
       totalAmount,
       taxAmount: totalTax, 
-      metadata: { invoiceNumber, customerName, vendorName: customerName, hsnCode } 
+      metadata: { 
+        invoiceNumber, 
+        customerName: customerName.trim(), 
+        vendorName: customerName.trim(), 
+        hsnCode,
+        description: body.description || '' 
+      } 
     });
 
     const transactionId = txDoc._id;
 
-    // 2. If entered directly by Owner, immediately generate double-entry ledger rows
+    // 2. Upsert customer in Customer Khata
+    try {
+      await Customer.findOneAndUpdate(
+        { companyId: targetCompanyId, name: customerName.trim() },
+        { 
+          $setOnInsert: { companyId: targetCompanyId, name: customerName.trim() },
+          $inc: { balance: totalAmount }
+        },
+        { upsert: true, new: true }
+      );
+    } catch (custErr) {
+      console.warn("Non-fatal: could not update customer khata balance:", custErr.message);
+    }
+
+    // 3. If entered directly by Owner, immediately generate double-entry ledger rows
     // (If entered by Employee, it remains in PENDING_OWNER_APPROVAL until Owner approves)
     if (!isEmployee) {
       const ledgerEntries = [
-        { transactionId, companyId: decoded.companyId, accountName: `${customerName} (Debtor) A/C`, type: 'DEBIT', amount: totalAmount },
-        { transactionId, companyId: decoded.companyId, accountName: 'Sales Revenue A/C', type: 'CREDIT', amount: totalAmount }
+        { transactionId, companyId: targetCompanyId, accountName: `${customerName.trim()} (Debtor) A/C`, type: 'DEBIT', amount: totalAmount },
+        { transactionId, companyId: targetCompanyId, accountName: 'Sales Revenue A/C', type: 'CREDIT', amount: totalAmount }
       ];
       await LedgerEntry.insertMany(ledgerEntries);
     }
@@ -56,11 +92,12 @@ export async function POST(request) {
       success: true, 
       transactionId,
       status,
+      data: txDoc,
       message: isEmployee ? "Sale logged and sent to Owner Approval Queue" : "Sale recorded and posted to ledger"
     }, { status: 201 });
 
   } catch (error) {
     console.error('Sales Entry Error:', error);
-    return NextResponse.json({ error: 'Failed to process sale' }, { status: 500 });
+    return NextResponse.json({ error: error.message || 'Failed to process sale' }, { status: 500 });
   }
 }
