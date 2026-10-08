@@ -1,35 +1,75 @@
-// app/api/ca/clients/route.js
 import { NextResponse } from "next/server";
-import { jwtVerify } from "jose";
-import connectDB from "@/lib/mongodb";
+import mongoose from "mongoose";
+import jwt from "jsonwebtoken";
+import { cookies } from "next/headers";
+import CA from "@/models/CA";
 import Owner from "@/models/Owner";
+import Transaction from "@/models/Transaction";
+
+const connectDB = async () => {
+  if (mongoose.connection.readyState >= 1) return;
+  await mongoose.connect(process.env.MONGODB_URI);
+};
 
 export async function GET(request) {
   try {
-    await connectDB();
+    const cookieStore = await cookies();
+    const token = cookieStore.get("crown_session")?.value;
     
-    const token = request.cookies.get("fineops_auth_token")?.value;
-    if (!token) {
-      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    if (decoded.role !== "CA" && decoded.role !== "CA-Employee") {
+      return NextResponse.json({ error: "Forbidden: CA Firm access only" }, { status: 403 });
     }
 
-    const secret = new TextEncoder().encode(process.env.JWT_SECRET);
-    const { payload } = await jwtVerify(token, secret);
+    await connectDB();
+    
+    // 1. Fetch the CA Firm and ensure we populate the SME Owner data
+    const caFirmId = decoded.companyId || decoded.userId;
+    const caFirm = await CA.findById(caFirmId).populate({
+      path: 'clients',
+      model: Owner,
+      select: 'name companyName email phoneNumber'
+    });
+    
+    if (!caFirm) {
+      return NextResponse.json({ error: "CA Firm not found" }, { status: 404 });
+    }
 
-    // Find all owners linked to this CA firm
-    const owners = await Owner.find({ linkedCaFirm: payload.userId });
+    // 2. Resolve pending transaction counts per client concurrently
+    const populatedClients = caFirm.clients || [];
+    
+    const clientDataPromises = populatedClients.map(async (client) => {
+      const [pendingCount, readyCount] = await Promise.all([
+        Transaction.countDocuments({ companyId: client._id, status: "PENDING_CA_REVIEW" }),
+        Transaction.countDocuments({ companyId: client._id, status: "APPROVED" })
+      ]);
 
-    const formattedClients = owners.map(owner => ({
-      id: owner._id,
-      name: owner.companyName,
-      gstin: owner.gstin,
-      staff: owner.assignedStaff || "Assigned Firm",
-      status: owner.vaultStatus === "Unlocked" ? "Data Unlocked" : "Locked"
-    }));
+      return {
+        id: client._id,
+        companyName: client.companyName,
+        ownerName: client.name,
+        email: client.email,
+        phone: client.phoneNumber,
+        pendingAudits: pendingCount,
+        readyForSync: readyCount
+      };
+    });
 
-    return NextResponse.json({ success: true, data: formattedClients }, { status: 200 });
+    const clientsArray = await Promise.all(clientDataPromises);
+
+    // 3. Return the array alongside the Firm's unique invite code
+    return NextResponse.json({
+      success: true,
+      data: {
+        inviteCode: caFirm.inviteCode || "PENDING",
+        clients: clientsArray
+      }
+    }, { status: 200 });
+
   } catch (error) {
-    console.error("Fetch CA Clients Error:", error);
-    return NextResponse.json({ success: false, error: "Failed to fetch clients" }, { status: 500 });
+    console.error("GET CA Clients Error:", error);
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }

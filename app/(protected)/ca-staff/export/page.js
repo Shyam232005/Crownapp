@@ -25,14 +25,16 @@ export default function ExportDataUI() {
   useEffect(() => {
     const fetchClients = async () => {
       try {
-        // We can reuse the CA dashboard API or a specific clients API you have
         const res = await fetch('/api/ca-staff/clients');
         if (res.ok) {
           const json = await res.json();
           setAssignedClients(json.data || []);
+        } else {
+            throw new Error("Failed to load clients");
         }
       } catch (error) {
         console.error("Failed to fetch assigned clients:", error);
+        toast.error("Could not load your assigned clients.");
       } finally {
         setIsLoading(false);
       }
@@ -45,34 +47,35 @@ export default function ExportDataUI() {
     const loadingToast = toast.loading("Compiling ledger data...");
     
     try {
-      const res = await fetch('/api/ca-staff/export', { 
+      const res = await fetch('/api/ca-staff/export-data', { 
         method: 'POST', 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data) 
       });
 
-      if (res.ok) {
-        const json = await res.json();
-        
-        // Trigger browser download securely
-        const blob = new Blob([json.fileData], { type: 'text/csv' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = url;
-        link.setAttribute("download", json.filename);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-
-        toast.success("Export Downloaded!", { id: loadingToast });
-        setShowSuccess(true);
-        setTimeout(() => setShowSuccess(false), 3000);
-      } else {
+      if (!res.ok) {
         const err = await res.json();
-        toast.error(err.error || "Failed to generate export.", { id: loadingToast });
+        throw new Error(err.error || "Failed to generate export.");
       }
+
+      const json = await res.json();
+      
+      // Trigger browser download securely[cite: 19]
+      const blob = new Blob([json.fileData], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", json.filename);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      toast.success("Export Downloaded!", { id: loadingToast });
+      setShowSuccess(true);
+      setTimeout(() => setShowSuccess(false), 3000);
+      
     } catch (error) {
-      toast.error("Network error during export.", { id: loadingToast });
+      toast.error(error.message, { id: loadingToast });
     } finally {
       setIsExporting(false);
     }
@@ -84,7 +87,7 @@ export default function ExportDataUI() {
         <motion.h1 initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
           <DownloadCloud className="w-6 h-6 text-indigo-600" /> Export Data
         </motion.h1>
-        <p className="text-xs sm:text-sm font-medium text-slate-500 mt-1">Download clean, scrutinized client data for offline processing.</p>
+        <p className="text-xs sm:text-sm font-medium text-slate-500 mt-1">Download clean, scrutinized client data for offline processing[cite: 19].</p>
       </div>
 
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden min-h-[400px] flex flex-col">
@@ -105,8 +108,9 @@ export default function ExportDataUI() {
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Select Client</label>
                 <select 
                   {...register("clientId", { required: true })}
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-600 transition-all"
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-600 transition-all outline-none"
                 >
+                  <option value="">-- Choose Client --</option>
                   {assignedClients.map(client => (
                     <option key={client._id || client.id} value={client._id || client.id}>
                       {client.companyName || client.name}
@@ -118,7 +122,7 @@ export default function ExportDataUI() {
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Data Period</label>
                 <select 
                   {...register("period", { required: true })}
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-600 transition-all"
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-600 transition-all outline-none"
                 >
                   <option value="Current Month">Current Month</option>
                   <option value="Previous Month">Previous Month</option>
@@ -186,7 +190,7 @@ export default function ExportDataUI() {
             </div>
             <h4 className="text-base font-black text-slate-800 mb-1">No Clients Assigned</h4>
             <p className="text-sm font-medium text-slate-500 max-w-sm">
-              You haven't been assigned any clients yet. You need at least one active client to generate data exports.
+              You haven't been assigned any clients yet. You need at least one active client to generate data exports[cite: 19].
             </p>
           </div>
         )}

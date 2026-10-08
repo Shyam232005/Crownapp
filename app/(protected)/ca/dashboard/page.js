@@ -19,18 +19,19 @@ export default function CADashboardUI() {
 
   useEffect(() => {
     const fetchDashboardData = async () => {
-        try {
-            const res = await fetch('/api/ca/dashboard');
-            if (res.ok) {
-                const json = await res.json();
-                setStats(json.stats);
-                setClientAlerts(json.alerts || []);
-            }
-        } catch (error) {
-            console.error("Failed to fetch CA dashboard data:", error);
-        } finally {
-            setIsLoading(false);
+      try {
+        const res = await fetch('/api/ca/dashboard');
+        if (res.ok) {
+          const json = await res.json();
+          // Updated to match your specific JSON structure
+          setStats(json.data.stats);
+          setClientAlerts(json.data.clientAlerts || []);
         }
+      } catch (error) {
+        console.error("Failed to fetch CA dashboard data:", error);
+      } finally {
+        setIsLoading(false);
+      }
     };
     fetchDashboardData();
   }, []);
@@ -47,9 +48,9 @@ export default function CADashboardUI() {
             Overview of your client portfolio and pending compliance tasks.
           </motion.p>
         </div>
-        <button className="bg-slate-900 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-md shadow-slate-200 hover:bg-slate-800 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+        <Link href="/ca-staff/export" className="bg-slate-900 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-md shadow-slate-200 hover:bg-slate-800 transition-colors flex items-center gap-2">
           <DownloadCloud className="w-4 h-4" /> Bulk ERP Sync
-        </button>
+        </Link>
       </div>
 
       {/* Main Metric Cards */}
@@ -77,7 +78,7 @@ export default function CADashboardUI() {
             {isLoading ? <Loader2 className="w-7 h-7 animate-spin text-slate-400" /> : stats.pendingAudits} 
             {!isLoading && <span className="text-sm font-bold text-slate-500 ml-2">tasks</span>}
           </h2>
-          <Link href="/ca/staff" className="text-amber-600 text-sm font-bold hover:text-amber-700 flex items-center gap-1 w-max">
+          <Link href="/ca-staff/voucher-scrutiny" className="text-amber-600 text-sm font-bold hover:text-amber-700 flex items-center gap-1 w-max">
             Check Staff Queue <ArrowRight className="w-4 h-4" />
           </Link>
         </motion.div>
@@ -91,7 +92,7 @@ export default function CADashboardUI() {
             {isLoading ? <Loader2 className="w-7 h-7 animate-spin text-emerald-100" /> : stats.readyForSync} 
             {!isLoading && <span className="text-sm font-bold text-emerald-200 ml-2">clients</span>}
           </h2>
-          <Link href="/ca/tally-sync" className="text-white text-sm font-bold hover:text-emerald-100 flex items-center gap-1 w-max bg-white/10 px-3 py-1.5 rounded-lg">
+          <Link href="/ca-staff/export" className="text-white text-sm font-bold hover:text-emerald-100 flex items-center gap-1 w-max bg-white/10 px-3 py-1.5 rounded-lg">
             Start Export <ArrowRight className="w-4 h-4" />
           </Link>
         </motion.div>
@@ -101,7 +102,7 @@ export default function CADashboardUI() {
       <div className="bg-white border border-slate-100 rounded-3xl shadow-sm overflow-hidden flex flex-col min-h-[300px]">
         <div className="px-6 py-5 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
           <h3 className="text-sm font-black text-slate-800 flex items-center gap-2">
-            <Clock className="w-5 h-5 text-slate-400" /> Recent Client Activity
+            <Clock className="w-5 h-5 text-slate-400" /> Recent Client Alerts
           </h3>
         </div>
         
@@ -116,8 +117,7 @@ export default function CADashboardUI() {
               <div key={alert.id} className="p-5 flex flex-col sm:flex-row sm:items-center justify-between hover:bg-slate-50 transition-colors gap-4">
                 <div className="flex items-center gap-4">
                   <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-                    alert.status === 'APPROVED' ? 'bg-emerald-50 text-emerald-500' :
-                    alert.status === 'PENDING_CA_REVIEW' ? 'bg-amber-50 text-amber-500' : 'bg-slate-50 text-slate-500'
+                    alert.status === 'APPROVED' ? 'bg-emerald-50 text-emerald-500' : 'bg-amber-50 text-amber-500'
                   }`}>
                     <Building2 className="w-5 h-5" />
                   </div>
@@ -131,8 +131,7 @@ export default function CADashboardUI() {
                     {alert.type}
                   </span>
                   <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-md ${
-                    alert.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-700' :
-                    alert.status === 'PENDING_CA_REVIEW' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-700'
+                    alert.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
                   }`}>
                     {alert.status.replace(/_/g, ' ')}
                   </span>
@@ -144,9 +143,9 @@ export default function CADashboardUI() {
                 <div className="w-16 h-16 bg-slate-50 border border-slate-100 rounded-full flex items-center justify-center mb-4">
                     <Inbox className="w-8 h-8 text-slate-400" />
                 </div>
-                <h4 className="text-base font-black text-slate-800 mb-1">Your Portfolio is Caught Up</h4>
+                <h4 className="text-base font-black text-slate-800 mb-1">Your Portfolio is Empty</h4>
                 <p className="text-sm font-medium text-slate-500 max-w-sm">
-                    There are no pending audits or alerts across your linked clients right now.
+                    You don't have any linked clients yet. Share your Firm Invite Link with business owners to start managing their audits.
                 </p>
             </div>
           )}

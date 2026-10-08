@@ -2,21 +2,31 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { FileText, Download, CheckCircle2, Clock, Loader2, Inbox } from "lucide-react";
+import toast from "react-hot-toast";
 
 export default function GSTSummaryUI() {
   const [isLoading, setIsLoading] = useState(true);
   const [clientsGST, setClientsGST] = useState([]);
+  const [currentMonth, setCurrentMonth] = useState("");
+  const [currentMonthFile, setCurrentMonthFile] = useState("");
 
   useEffect(() => {
+    const date = new Date();
+    setCurrentMonth(date.toLocaleString('default', { month: 'long', year: 'numeric' }));
+    setCurrentMonthFile(date.toLocaleString('default', { month: 'short', year: 'numeric' }));
+
     const fetchGSTData = async () => {
       try {
         const res = await fetch('/api/ca/gst-summary');
         if (res.ok) {
           const json = await res.json();
           setClientsGST(json.data || []);
+        } else {
+          throw new Error("Failed to load GST data");
         }
       } catch (error) {
         console.error("Failed to fetch GST data:", error);
+        toast.error("Failed to load GST Summary.");
       } finally {
         setIsLoading(false);
       }
@@ -26,24 +36,32 @@ export default function GSTSummaryUI() {
 
   const handleDownloadMaster = () => {
     if (clientsGST.length === 0) {
-      alert("No GST data available to download.");
+      toast.error("No GST data available to download.");
       return;
     }
 
-    const headers = ["Client Name", "Est. Turnover", "GSTR-1 Status", "GSTR-3B Status"];
-    const csvRows = [
-      headers.join(","),
-      ...clientsGST.map(c => `"${c.name}","${c.turnover}","${c.gstr1}","${c.gstr3b}"`)
-    ].join("\n");
+    const loadingToast = toast.loading("Generating CSV report...");
 
-    const blob = new Blob([csvRows], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.setAttribute("download", "FineOps_GST_Master_Summary_Sept_2026.csv");
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    try {
+      const headers = ["Client Name", "Est. Turnover", "GSTR-1 Status", "GSTR-3B Status"];
+      const csvRows = [
+        headers.join(","),
+        ...clientsGST.map(c => `"${c.name}","${c.turnover.replace(/,/g, '')}","${c.gstr1}","${c.gstr3b}"`)
+      ].join("\n");
+
+      const blob = new Blob([csvRows], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `FineOps_GST_Master_Summary_${currentMonthFile}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      toast.success("Report downloaded!", { id: loadingToast });
+    } catch (error) {
+      toast.error("Failed to generate report", { id: loadingToast });
+    }
   };
 
   return (
@@ -51,13 +69,14 @@ export default function GSTSummaryUI() {
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-4 mb-8">
         <div>
           <motion.h1 initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-            <FileText className="w-6 h-6 text-indigo-600" /> GST Summary (Sept 2026)
+            <FileText className="w-6 h-6 text-indigo-600" /> GST Summary ({currentMonth})
           </motion.h1>
           <p className="text-xs sm:text-sm font-medium text-slate-500 mt-1">Track return filing status for all active clients.</p>
         </div>
         <button 
           onClick={handleDownloadMaster}
-          className="bg-indigo-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-md flex items-center gap-2 hover:bg-indigo-700 transition-colors"
+          disabled={isLoading || clientsGST.length === 0}
+          className="bg-indigo-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-md flex items-center gap-2 hover:bg-indigo-700 transition-colors disabled:opacity-50"
         >
           <Download className="w-4 h-4" /> Download Master Report
         </button>
@@ -69,7 +88,7 @@ export default function GSTSummaryUI() {
             <thead>
               <tr className="bg-slate-50 border-b border-slate-100">
                 <th className="p-5 text-xs font-bold text-slate-400 uppercase">Client Name</th>
-                <th className="p-5 text-xs font-bold text-slate-400 uppercase">Est. Turnover</th>
+                <th className="p-5 text-xs font-bold text-slate-400 uppercase">Est. Turnover (₹)</th>
                 <th className="p-5 text-xs font-bold text-slate-400 uppercase">GSTR-1 Status</th>
                 <th className="p-5 text-xs font-bold text-slate-400 uppercase">GSTR-3B Status</th>
               </tr>

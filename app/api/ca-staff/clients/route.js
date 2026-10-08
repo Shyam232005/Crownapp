@@ -1,49 +1,77 @@
-// app/api/ca-staff/clients/route.js
 import { NextResponse } from "next/server";
-import { jwtVerify } from "jose";
-import connectDB from "@/lib/mongodb";
+import mongoose from "mongoose";
+import jwt from "jsonwebtoken";
+import { cookies } from "next/headers";
+import CA from "@/models/CA";
+import CAStaff from "@/models/CAStaff";
 import Owner from "@/models/Owner";
-import Submission from "@/models/Submission";
+import Transaction from "@/models/Transaction";
+
+const connectDB = async () => {
+  if (mongoose.connection.readyState >= 1) return;
+  await mongoose.connect(process.env.MONGODB_URI);
+};
 
 export async function GET(request) {
   try {
-    await connectDB();
+    const cookieStore = await cookies();
+    const token = cookieStore.get("crown_session")?.value;
     
-    const token = request.cookies.get("fineops_auth_token")?.value;
-    if (!token) {
-      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    
+    // Ensure only CA or CA-Staff can access this
+    const allowedRoles = ["CA", "CAStaff", "CA-Employee"];
+    if (!allowedRoles.includes(decoded.role)) {
+      return NextResponse.json({ error: "Forbidden: CA staff access only" }, { status: 403 });
     }
 
-    const secret = new TextEncoder().encode(process.env.JWT_SECRET);
-    const { payload } = await jwtVerify(token, secret);
+    await connectDB();
 
-    // Find owners assigned to this staff member or firm
-    const owners = await Owner.find({ 
-      $or: [
-        { assignedStaffId: payload.userId },
-        { linkedCaFirm: payload.firmId || payload.userId }
-      ]
+    // 1. Determine the parent CA Firm ID based on the user's role
+    let caFirmId = decoded.companyId || decoded.userId;
+
+    if (decoded.role === "CAStaff" || decoded.role === "CA-Employee") {
+      const staffMember = await CAStaff.findById(decoded.userId);
+      if (staffMember) {
+        caFirmId = staffMember.caFirmId;
+      }
+    }
+
+    // 2. Fetch the CA Firm to retrieve their connected clients array
+    const caFirm = await CA.findById(caFirmId).populate({
+      path: 'clients',
+      model: Owner,
+      select: 'companyName gstin'
     });
 
-    const assignedClients = await Promise.all(owners.map(async (owner) => {
-      // Count pending submissions for this client
-      const pendingVouchers = await Submission.countDocuments({ 
-        employeeId: { $regex: owner._id.toString() }, 
-        status: "Pending" 
+    if (!caFirm || !caFirm.clients || caFirm.clients.length === 0) {
+      return NextResponse.json({ success: true, data: [] }, { status: 200 });
+    }
+
+    // 3. For each client, check the count of pending scrutiny vouchers
+    const clientPromises = caFirm.clients.map(async (client) => {
+      const pendingVouchersCount = await Transaction.countDocuments({
+        companyId: client._id,
+        status: "PENDING_CA_REVIEW"
       });
 
       return {
-        id: owner._id,
-        name: owner.companyName || owner.name,
-        gstin: owner.gstin || "N/A",
-        auditStatus: pendingVouchers === 0 ? "Clean (Verified)" : "In Progress",
-        pendingVouchers
+        id: client._id,
+        name: client.companyName,
+        gstin: client.gstin || "Not Provided",
+        auditStatus: pendingVouchersCount > 0 ? "In Progress" : "Clean (Verified)",
+        pendingVouchers: pendingVouchersCount
       };
-    }));
+    });
+
+    const assignedClients = await Promise.all(clientPromises);
 
     return NextResponse.json({ success: true, data: assignedClients }, { status: 200 });
+
   } catch (error) {
-    console.error("Fetch Staff Clients Error:", error);
-    return NextResponse.json({ success: false, error: "Failed to fetch assigned clients" }, { status: 500 });
+    console.error("GET CA Staff Clients Error:", error);
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }

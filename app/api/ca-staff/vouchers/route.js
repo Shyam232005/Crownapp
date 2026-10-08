@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import jwt from "jsonwebtoken";
 import { cookies } from "next/headers";
 import CA from "@/models/CA";
+import CAStaff from "@/models/CAStaff";
 import Transaction from "@/models/Transaction";
 import AuditLog from "@/models/AuditLog";
 
@@ -19,32 +20,35 @@ export async function GET(request) {
     if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    if (decoded.role !== "CA" && decoded.role !== "CA-Employee") {
-      return NextResponse.json({ error: "Forbidden: CA access only" }, { status: 403 });
+    if (!["CA", "CAStaff", "CA-Employee"].includes(decoded.role)) {
+      return NextResponse.json({ error: "Forbidden: CA staff access only" }, { status: 403 });
     }
 
     await connectDB();
-    
-    // CA Firm ID is stored in companyId for CAStaff, or userId for the CA Owner
-    const caFirmId = decoded.companyId || decoded.userId;
-    const caFirm = await CA.findById(caFirmId);
-    
-    if (!caFirm || !caFirm.clients || caFirm.clients.length === 0) {
-      return NextResponse.json({ data: [] }, { status: 200 });
+
+    let caFirmId = decoded.companyId || decoded.userId;
+    if (decoded.role === "CAStaff" || decoded.role === "CA-Employee") {
+      const staffMember = await CAStaff.findById(decoded.userId);
+      if (staffMember) caFirmId = staffMember.caFirmId;
     }
 
-    // Fetch transactions for all clients linked to this CA Firm
-    // Only pull items that have passed Owner Approval
-    const transactions = await Transaction.find({
+    const caFirm = await CA.findById(caFirmId);
+    if (!caFirm || !caFirm.clients || caFirm.clients.length === 0) {
+      return NextResponse.json({ success: true, data: [] }, { status: 200 });
+    }
+
+    // Fetch transactions across ALL connected clients
+    const vouchers = await Transaction.find({
       companyId: { $in: caFirm.clients },
       status: { $in: ["PENDING_CA_REVIEW", "QUERY_RAISED", "APPROVED", "EXPORTED"] }
     })
-    .populate("companyId", "companyName") // Get the business name for the UI table
-    .sort({ transactionDate: -1, createdAt: -1 });
+    .populate("companyId", "companyName")
+    .sort({ updatedAt: -1 });
 
-    return NextResponse.json({ success: true, data: transactions }, { status: 200 });
+    return NextResponse.json({ success: true, data: vouchers }, { status: 200 });
+
   } catch (error) {
-    console.error("GET CA Vouchers Error:", error);
+    console.error("GET Global Vouchers Error:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
@@ -57,46 +61,51 @@ export async function PATCH(request) {
     if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    if (decoded.role !== "CA" && decoded.role !== "CA-Employee") {
+    if (!["CA", "CAStaff", "CA-Employee"].includes(decoded.role)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     await connectDB();
-    
-    const body = await request.json();
-    const { transactionId, status } = body;
+    const { transactionId, status } = await request.json();
 
     if (!transactionId || !status) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+      return NextResponse.json({ error: "Transaction ID and status are required" }, { status: 400 });
     }
 
-    // Verify the CA firm is authorized for the transaction's company
-    const caFirmId = decoded.companyId || decoded.userId;
-    const caFirm = await CA.findById(caFirmId);
-    
+    // Find the transaction and verify it belongs to one of the CA's clients
     const transaction = await Transaction.findById(transactionId);
-    if (!transaction) return NextResponse.json({ error: "Transaction not found" }, { status: 404 });
-
-    if (!caFirm.clients.includes(transaction.companyId.toString())) {
-       return NextResponse.json({ error: "Unauthorized client modification" }, { status: 403 });
+    if (!transaction) {
+      return NextResponse.json({ error: "Transaction not found" }, { status: 404 });
     }
 
-    // Apply the audit decision
+    let caFirmId = decoded.companyId || decoded.userId;
+    if (decoded.role === "CAStaff" || decoded.role === "CA-Employee") {
+      const staffMember = await CAStaff.findById(decoded.userId);
+      if (staffMember) caFirmId = staffMember.caFirmId;
+    }
+
+    const caFirm = await CA.findById(caFirmId);
+    if (!caFirm.clients.includes(transaction.companyId.toString())) {
+      return NextResponse.json({ error: "Unauthorized access to client data" }, { status: 403 });
+    }
+
+    // Update the transaction status
     transaction.status = status;
     await transaction.save();
 
+    // Log the audit event so the Owner sees it in their CA-Hub
     await AuditLog.create({
-      entityId: transaction._id,
-      entityName: 'Transaction',
-      action: `CA_AUDIT_${status}`,
+      entityId: transaction.companyId,
+      entityName: "Transaction",
+      action: status === "APPROVED" ? "CA_AUDIT_APPROVED" : "QUERY_RAISED",
       performedBy: decoded.userId,
-      changes: { statusChangedTo: status }
+      changes: { transactionId, status }
     });
 
-    return NextResponse.json({ success: true }, { status: 200 });
+    return NextResponse.json({ success: true, data: transaction }, { status: 200 });
 
   } catch (error) {
-    console.error("PATCH CA Vouchers Error:", error);
+    console.error("PATCH Global Vouchers Error:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }

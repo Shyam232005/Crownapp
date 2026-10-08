@@ -23,19 +23,26 @@ export async function GET(request) {
 
     await connectDB();
 
-    // Get today's start and end times to show only today's entries
-    const startOfDay = new Date();
-    startOfDay.setHours(0, 0, 0, 0);
-    const endOfDay = new Date();
-    endOfDay.setHours(23, 59, 59, 999);
+    const { searchParams } = new URL(request.url);
+    const fetchAll = searchParams.get("all") === "true";
 
-    // Fetch entries logged by this specific employee today
-    const recentEntries = await Inventory.find({
+    let query = {
       companyId: decoded.companyId,
-      createdBy: decoded.userId,
-      createdAt: { $gte: startOfDay, $lte: endOfDay },
       type: "INWARD"
-    }).sort({ createdAt: -1 });
+    };
+
+    // If 'all' is not true, we only fetch today's entries for this specific employee
+    if (!fetchAll) {
+        const startOfDay = new Date();
+        startOfDay.setHours(0, 0, 0, 0);
+        const endOfDay = new Date();
+        endOfDay.setHours(23, 59, 59, 999);
+        
+        query.createdBy = decoded.userId;
+        query.createdAt = { $gte: startOfDay, $lte: endOfDay };
+    }
+
+    const recentEntries = await Inventory.find(query).sort({ createdAt: -1 });
 
     return NextResponse.json({ success: true, data: recentEntries }, { status: 200 });
 

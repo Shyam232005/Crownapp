@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import mongoose from "mongoose";
+import jwt from "jsonwebtoken";
+import { cookies } from "next/headers";
 import Owner from "@/models/Owner";
 import Employee from "@/models/Employee";
 import CA from "@/models/CA";
@@ -12,75 +14,61 @@ const connectDB = async () => {
 
 export async function GET(request) {
   try {
-    await connectDB();
+    const cookieStore = await cookies();
+    const token = cookieStore.get("crown_session")?.value;
 
-    const userIdCookie = request.cookies.get("fineops_user_id");
-    const roleCookie = request.cookies.get("fineops_role");
-    
-    if (!userIdCookie || !roleCookie) {
+    if (!token) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const userId = userIdCookie.value;
-    const role = roleCookie.value;
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    await connectDB();
 
-    // 1. OWNER
-    if (role === "Owner") {
-      const owner = await Owner.findById(userId).select("name subscription");
-      if (!owner) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    // Default payload structure
+    let userData = {
+      name: "User",
+      role: decoded.role,
+      planName: "FineOps Pro", 
+      daysLeft: 0
+    };
 
-      const endDate = new Date(owner.subscription.endDate);
-      const currentDate = new Date();
-      const timeDiff = endDate.getTime() - currentDate.getTime();
-      const daysLeft = Math.ceil(timeDiff / (1000 * 3600 * 24)); 
-
-      return NextResponse.json({ 
-        name: owner.name, 
-        role: "Owner",
-        planName: owner.subscription.planName,
-        daysLeft: daysLeft > 0 ? daysLeft : 0
-      }, { status: 200 });
+    // Route logic based on the strict role assigned during login
+    if (decoded.role === "Owner") {
+      const owner = await Owner.findById(decoded.userId);
+      if (owner) {
+        userData.name = owner.name;
+        // Mocking subscription logic - you can map these to real DB fields later
+        userData.planName = owner.planName || "Pro Workspace";
+        
+        // Calculate days left if you store subscription expiry, defaulting to 365
+        if (owner.subscriptionExpiry) {
+            const expiry = new Date(owner.subscriptionExpiry);
+            const today = new Date();
+            const diffTime = Math.abs(expiry - today);
+            userData.daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        } else {
+            userData.daysLeft = 365; 
+        }
+      }
     } 
-    
-    // 2. EMPLOYEE (Staff)
-    else if (role === "Employee") {
-      const employee = await Employee.findById(userId).select("name");
-      if (!employee) return NextResponse.json({ error: "Not found" }, { status: 404 });
-
-      return NextResponse.json({ 
-        name: employee.name, 
-        role: "Employee" 
-      }, { status: 200 });
+    else if (decoded.role === "Employee") {
+      const emp = await Employee.findById(decoded.userId);
+      if (emp) userData.name = emp.name;
     } 
-    
-    // 3. CA (Firm Owner)
-    else if (role === "CA") {
-      const ca = await CA.findById(userId).select("name");
-      if (!ca) return NextResponse.json({ error: "Not found" }, { status: 404 });
-
-      return NextResponse.json({ 
-        name: ca.name, 
-        role: "CA" 
-      }, { status: 200 });
+    else if (decoded.role === "CA") {
+      const ca = await CA.findById(decoded.userId);
+      if (ca) userData.name = ca.principalCa || ca.companyName || "Principal CA";
     } 
-    
-    // 4. CA STAFF (Audit Team)
-    else if (role === "CA-Employee" || role === "CA-Staff") {
-      const caStaff = await CAStaff.findById(userId).select("name");
-      if (!caStaff) return NextResponse.json({ error: "Not found" }, { status: 404 });
-
-      return NextResponse.json({ 
-        name: caStaff.name, 
-        role: "CA-Employee" 
-      }, { status: 200 });
-    } 
-    
-    else {
-      return NextResponse.json({ error: "Invalid role format" }, { status: 400 });
+    else if (decoded.role === "CAStaff" || decoded.role === "CA-Employee") {
+      const staff = await CAStaff.findById(decoded.userId);
+      if (staff) userData.name = staff.name;
     }
 
+    return NextResponse.json(userData, { status: 200 });
+
   } catch (error) {
-    console.error("Header API Error:", error);
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    console.error("GET Header Profile Error:", error);
+    // If JWT is expired or invalid, return 401 so the UI redirects to login
+    return NextResponse.json({ error: "Authentication Failed" }, { status: 401 });
   }
 }

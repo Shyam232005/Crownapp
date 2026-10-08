@@ -7,6 +7,7 @@ import {
     ArrowRight, Briefcase, FileText, IndianRupee, AlertCircle,
     Loader2, Coffee
 } from "lucide-react";
+import toast from "react-hot-toast";
 
 export default function CAStaffDashboardUI() {
     const [isLoading, setIsLoading] = useState(true);
@@ -25,9 +26,12 @@ export default function CAStaffDashboardUI() {
                     const json = await res.json();
                     setStats(json.data.stats);
                     setReviewQueue(json.data.reviewQueue || []);
+                } else {
+                    throw new Error("Failed to load staff dashboard");
                 }
             } catch (error) {
                 console.error("Failed to fetch staff dashboard data:", error);
+                toast.error("Could not fetch dashboard metrics");
             } finally {
                 setIsLoading(false);
             }
@@ -40,10 +44,10 @@ export default function CAStaffDashboardUI() {
             {/* Header */}
             <div className="mb-8">
                 <motion.h1 initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-                    <CheckSquare className="w-6 h-6 text-indigo-600" /> Review Queue & Dashboard[cite: 20]
+                    <CheckSquare className="w-6 h-6 text-indigo-600" /> Review Queue & Dashboard
                 </motion.h1>
                 <motion.p initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.1 }} className="text-xs sm:text-sm font-medium text-slate-500 mt-1">
-                    Welcome back. Here are your assigned tasks and pending scrutinies for today[cite: 20].
+                    Welcome back. Here are your assigned tasks and pending scrutinies for today.
                 </motion.p>
             </div>
 
@@ -53,13 +57,13 @@ export default function CAStaffDashboardUI() {
                     <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center mb-4 border border-blue-100">
                         <Search className="w-6 h-6 text-blue-600" />
                     </div>
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Pending Vouchers[cite: 20]</p>
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Pending Vouchers</p>
                     <h2 className="text-3xl font-black text-slate-900 mb-4 flex items-center">
-                        {isLoading ? <Loader2 className="w-7 h-7 animate-spin text-slate-400" /> : stats.pendingVouchers}[cite: 20]
-                        {!isLoading && <span className="text-sm font-bold text-slate-500 ml-2">entries[cite: 20]</span>}
+                        {isLoading ? <Loader2 className="w-7 h-7 animate-spin text-slate-400" /> : stats.pendingVouchers}
+                        {!isLoading && <span className="text-sm font-bold text-slate-500 ml-2">entries</span>}
                     </h2>
-                    <Link href="/ca-staff/scrutiny" className="text-blue-600 text-sm font-bold hover:text-blue-700 flex items-center gap-1 w-max">
-                        Start Scrutiny <ArrowRight className="w-4 h-4" />[cite: 20]
+                    <Link href="/ca-staff/voucher-scrutiny" className="text-blue-600 text-sm font-bold hover:text-blue-700 flex items-center gap-1 w-max">
+                        Start Scrutiny <ArrowRight className="w-4 h-4" />
                     </Link>
                 </motion.div>
 
@@ -67,13 +71,13 @@ export default function CAStaffDashboardUI() {
                     <div className="w-12 h-12 bg-amber-50 rounded-2xl flex items-center justify-center mb-4 border border-amber-100">
                         <MessageSquare className="w-6 h-6 text-amber-500" />
                     </div>
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Client Queries Raised[cite: 20]</p>
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Client Queries Raised</p>
                     <h2 className="text-3xl font-black text-slate-900 mb-4 flex items-center">
-                        {isLoading ? <Loader2 className="w-7 h-7 animate-spin text-slate-400" /> : stats.openQueries}[cite: 20]
-                        {!isLoading && <span className="text-sm font-bold text-slate-500 ml-2">open[cite: 20]</span>}
+                        {isLoading ? <Loader2 className="w-7 h-7 animate-spin text-slate-400" /> : stats.openQueries}
+                        {!isLoading && <span className="text-sm font-bold text-slate-500 ml-2">open</span>}
                     </h2>
-                    <Link href="/ca-staff/queries" className="text-amber-600 text-sm font-bold hover:text-amber-700 flex items-center gap-1 w-max">
-                        Manage Queries <ArrowRight className="w-4 h-4" />[cite: 20]
+                    <Link href="/ca-staff/voucher-scrutiny?filter=queries" className="text-amber-600 text-sm font-bold hover:text-amber-700 flex items-center gap-1 w-max">
+                        Manage Queries <ArrowRight className="w-4 h-4" />
                     </Link>
                 </motion.div>
 
@@ -81,13 +85,13 @@ export default function CAStaffDashboardUI() {
                     <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center mb-4 border border-indigo-100">
                         <Briefcase className="w-6 h-6 text-indigo-600" />
                     </div>
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Assigned Clients[cite: 20]</p>
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Assigned Clients</p>
                     <h2 className="text-3xl font-black text-slate-900 mb-4 flex items-center">
-                        {isLoading ? <Loader2 className="w-7 h-7 animate-spin text-slate-400" /> : stats.assignedClients}[cite: 20]
-                        {!isLoading && <span className="text-sm font-bold text-slate-500 ml-2">businesses[cite: 20]</span>}
+                        {isLoading ? <Loader2 className="w-7 h-7 animate-spin text-slate-400" /> : stats.assignedClients}
+                        {!isLoading && <span className="text-sm font-bold text-slate-500 ml-2">businesses</span>}
                     </h2>
-                    <Link href="/ca-staff/clients" className="text-indigo-600 text-sm font-bold hover:text-indigo-700 flex items-center gap-1 w-max">
-                        View Clients <ArrowRight className="w-4 h-4" />[cite: 20]
+                    <Link href="/ca/clients" className="text-indigo-600 text-sm font-bold hover:text-indigo-700 flex items-center gap-1 w-max">
+                        View Clients <ArrowRight className="w-4 h-4" />
                     </Link>
                 </motion.div>
             </div>
@@ -96,11 +100,11 @@ export default function CAStaffDashboardUI() {
             <div className="bg-white border border-slate-100 rounded-3xl shadow-sm overflow-hidden flex flex-col min-h-[300px]">
                 <div className="px-6 py-5 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
                     <h3 className="text-sm font-black text-slate-800 flex items-center gap-2">
-                        <AlertCircle className="w-5 h-5 text-amber-500" /> Priority Scrutiny Queue[cite: 20]
+                        <AlertCircle className="w-5 h-5 text-amber-500" /> Priority Scrutiny Queue
                     </h3>
                     {reviewQueue.length > 0 && (
-                        <Link href="/ca-staff/scrutiny" className="text-xs font-bold text-indigo-600 hover:text-indigo-700">
-                            View All[cite: 20]
+                        <Link href="/ca-staff/voucher-scrutiny" className="text-xs font-bold text-indigo-600 hover:text-indigo-700">
+                            View All
                         </Link>
                     )}
                 </div>
@@ -109,7 +113,7 @@ export default function CAStaffDashboardUI() {
                     {isLoading ? (
                         <div className="flex-1 flex flex-col items-center justify-center py-16 text-slate-400">
                             <Loader2 className="w-8 h-8 animate-spin mb-3 text-indigo-600" />
-                            <p className="text-sm font-bold">Loading tasks...[cite: 20]</p>
+                            <p className="text-sm font-bold">Loading tasks...</p>
                         </div>
                     ) : reviewQueue.length > 0 ? (
                         reviewQueue.map((item) => (
@@ -119,27 +123,33 @@ export default function CAStaffDashboardUI() {
                                         <FileText className="w-5 h-5 text-slate-500" />
                                     </div>
                                     <div>
-                                        <h4 className="text-sm font-black text-slate-900">{item.client}[cite: 20]</h4>
+                                        <h4 className="text-sm font-black text-slate-900">{item.client}</h4>
                                         <div className="flex items-center gap-2 mt-0.5">
                                             <span className="text-[10px] font-bold uppercase tracking-wider bg-slate-200 text-slate-600 px-2 py-0.5 rounded">
-                                                {item.type}[cite: 20]
+                                                {item.type}
                                             </span>
-                                            <span className="text-xs font-medium text-slate-400">{item.date}[cite: 20]</span>
+                                            <span className="text-xs font-medium text-slate-400">{item.date}</span>
                                         </div>
                                     </div>
                                 </div>
 
                                 <div className="flex items-center justify-between sm:justify-end gap-6 border-t sm:border-0 border-slate-100 pt-4 sm:pt-0">
                                     <p className="text-sm font-black text-slate-900 flex items-center">
-                                        <IndianRupee className="w-3.5 h-3.5 mr-0.5" /> {item.amount.toLocaleString("en-IN")}[cite: 20]
+                                        <IndianRupee className="w-3.5 h-3.5 mr-0.5" /> {Number(item.amount).toLocaleString("en-IN")}
                                     </p>
-                                    <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-md ${item.status === 'Missing GSTIN' ? 'bg-rose-50 text-rose-600' : 'bg-amber-50 text-amber-600'
-                                        }`}>
-                                        {item.status}[cite: 20]
+                                    <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-md ${
+                                        item.status === 'Missing GSTIN' ? 'bg-rose-50 text-rose-600 border border-rose-100' : 
+                                        item.status === 'Query Raised' ? 'bg-amber-50 text-amber-600 border border-amber-100' :
+                                        'bg-blue-50 text-blue-600 border border-blue-100'
+                                    }`}>
+                                        {item.status}
                                     </span>
-                                    <button className="bg-white border border-slate-200 text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 px-4 py-2 rounded-lg text-xs font-bold transition-all">
-                                        Review[cite: 20]
-                                    </button>
+                                    <Link 
+                                        href={`/ca-staff/voucher-scrutiny?client=${item.clientId || ''}`}
+                                        className="bg-white border border-slate-200 text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 px-4 py-2 rounded-lg text-xs font-bold transition-all text-center"
+                                    >
+                                        Review
+                                    </Link>
                                 </div>
                             </div>
                         ))
@@ -148,9 +158,9 @@ export default function CAStaffDashboardUI() {
                             <div className="w-16 h-16 bg-slate-50 border border-slate-100 rounded-full flex items-center justify-center mb-4">
                                 <Coffee className="w-8 h-8 text-slate-400" />
                             </div>
-                            <h4 className="text-base font-black text-slate-800 mb-1">Queue is Clear[cite: 20]</h4>
+                            <h4 className="text-base font-black text-slate-800 mb-1">Queue is Clear</h4>
                             <p className="text-sm font-medium text-slate-500 max-w-sm">
-                                You have no pending scrutinies or priority alerts right now. Enjoy the break![cite: 20]
+                                You have no pending scrutinies or priority alerts right now. Enjoy the break!
                             </p>
                         </div>
                     )}

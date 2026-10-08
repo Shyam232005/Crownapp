@@ -44,7 +44,7 @@ const OwnerSchema = new mongoose.Schema({
 
   // Relationships & Vault State (Updated for Vercel Serverless & 1-to-1 Mapping)
   employees: [{ type: mongoose.Schema.Types.ObjectId, ref: "Employee" }],
-  linkedCaFirm: { type: mongoose.Schema.Types.ObjectId, ref: "CA" },
+  linkedCaFirm: [{ type: mongoose.Schema.Types.ObjectId, ref: "CA" }],
   vaultStatus: { 
     type: String, 
     enum: ["Locked", "Requested", "Unlocked"], 

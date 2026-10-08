@@ -5,6 +5,7 @@ import {
   ClipboardCheck, Search, AlertCircle, Box, 
   Loader2, Inbox 
 } from "lucide-react";
+import toast from "react-hot-toast";
 
 export default function StockCheckUI() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -14,8 +15,8 @@ export default function StockCheckUI() {
   useEffect(() => {
     const fetchStock = async () => {
       try {
-        // Fetch ALL inventory entries
-        const res = await fetch("/api/inventory?all=true");
+        // We pass ?all=true so the backend knows we want total inventory, not just today's logs
+        const res = await fetch("/api/employee/inventory?all=true");
         if (res.ok) {
           const json = await res.json();
           const rawData = json.data || [];
@@ -28,7 +29,7 @@ export default function StockCheckUI() {
               inventoryMap[item.itemName].qty += item.quantity;
             } else {
               inventoryMap[item.itemName] = {
-                id: item.itemName, 
+                id: item._id || item.itemName, 
                 name: item.itemName,
                 qty: item.quantity,
                 unit: item.unit
@@ -43,9 +44,12 @@ export default function StockCheckUI() {
           }));
 
           setStockItems(aggregatedStock);
+        } else {
+            throw new Error("Failed to load inventory");
         }
       } catch (error) {
         console.error("Failed to fetch stock data:", error);
+        toast.error("Failed to load real-time stock.");
       } finally {
         setIsLoading(false);
       }

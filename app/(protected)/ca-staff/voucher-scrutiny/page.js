@@ -22,9 +22,12 @@ export default function VoucherScrutinyUI() {
       if (res.ok) {
         const json = await res.json();
         setVouchers(json.data || []);
+      } else {
+        throw new Error("Failed to load scrutiny queue");
       }
     } catch (error) {
       console.error("Failed to fetch vouchers:", error);
+      toast.error("Network error while fetching vouchers");
     } finally {
       setIsLoading(false);
     }
@@ -39,13 +42,14 @@ export default function VoucherScrutinyUI() {
         body: JSON.stringify({ transactionId: id, status: newStatus })
       });
 
-      if (res.ok) {
-        toast.success(newStatus === "APPROVED" ? "Verified & Ready for Tally" : "Query Sent to Owner", { id: loadingToast });
-        setVouchers(vouchers.map(v => v._id === id ? { ...v, status: newStatus } : v));
-      } else {
+      if (!res.ok) {
         const errData = await res.json();
         throw new Error(errData.error || "Failed to update status.");
       }
+      
+      toast.success(newStatus === "APPROVED" ? "Verified & Ready for Tally" : "Query Sent to Owner", { id: loadingToast });
+      setVouchers(vouchers.map(v => v._id === id ? { ...v, status: newStatus } : v));
+      
     } catch (error) {
       toast.error(error.message, { id: loadingToast });
     }
@@ -58,9 +62,9 @@ export default function VoucherScrutinyUI() {
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-4 mb-8">
         <div>
           <motion.h1 initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-            <Search className="w-6 h-6 text-indigo-600" /> Voucher Scrutiny
+            <Search className="w-6 h-6 text-indigo-600" /> Global Scrutiny Queue
           </motion.h1>
-          <p className="text-xs sm:text-sm font-medium text-slate-500 mt-1">Verify client entries before finalizing them for Tally export.</p>
+          <p className="text-xs sm:text-sm font-medium text-slate-500 mt-1">Verify client entries before finalizing them for Tally export[cite: 26].</p>
         </div>
         <button className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-50 shadow-sm transition-all">
           <Filter className="w-4 h-4" /> Filter Client
@@ -92,10 +96,10 @@ export default function VoucherScrutinyUI() {
           <table className="w-full text-left border-collapse min-w-[800px]">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-100">
-                <th className="p-5 text-xs font-bold text-slate-400 uppercase">Voucher Details</th>
-                <th className="p-5 text-xs font-bold text-slate-400 uppercase">Client</th>
-                <th className="p-5 text-xs font-bold text-slate-400 uppercase">Amount</th>
-                <th className="p-5 text-xs font-bold text-slate-400 uppercase text-center">Actions</th>
+                <th className="p-5 text-xs font-bold text-slate-400 uppercase">Voucher Details[cite: 26]</th>
+                <th className="p-5 text-xs font-bold text-slate-400 uppercase">Client[cite: 26]</th>
+                <th className="p-5 text-xs font-bold text-slate-400 uppercase">Amount[cite: 26]</th>
+                <th className="p-5 text-xs font-bold text-slate-400 uppercase text-center">Actions[cite: 26]</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
@@ -183,7 +187,7 @@ export default function VoucherScrutinyUI() {
                       <div className="w-16 h-16 bg-slate-50 border border-slate-100 rounded-full flex items-center justify-center mb-4">
                         <Inbox className="w-8 h-8 text-slate-400" />
                       </div>
-                      <h4 className="text-base font-black text-slate-800 mb-1">Queue is Clear</h4>
+                      <h4 className="text-base font-black text-slate-800 mb-1">Queue is Clear[cite: 26]</h4>
                       <p className="text-sm font-medium text-slate-500 max-w-sm">
                         {activeTab === "PENDING_CA_REVIEW" ? "No pending vouchers waiting for your scrutiny." :
                          activeTab === "QUERY_RAISED" ? "You haven't raised any queries on client vouchers." :

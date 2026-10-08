@@ -1,22 +1,30 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { CalendarDays, AlertCircle, Loader2, CalendarCheck } from "lucide-react";
+import toast from "react-hot-toast";
 
 export default function FilingCalendarUI() {
   const [isLoading, setIsLoading] = useState(true);
   const [deadlines, setDeadlines] = useState([]);
+  const [currentMonth, setCurrentMonth] = useState("");
 
   useEffect(() => {
+    // Set current month for the header dynamically
+    setCurrentMonth(new Date().toLocaleString('default', { month: 'long', year: 'numeric' }));
+
     const fetchDeadlines = async () => {
       try {
         const res = await fetch('/api/ca/filing-calendar');
         if (res.ok) {
           const json = await res.json();
           setDeadlines(json.data || []);
+        } else {
+            throw new Error("Failed to load calendar");
         }
       } catch (error) {
         console.error("Failed to fetch compliance deadlines:", error);
+        toast.error("Failed to load compliance deadlines.");
       } finally {
         setIsLoading(false);
       }
@@ -37,7 +45,7 @@ export default function FilingCalendarUI() {
       {/* Main Calendar Card */}
       <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden flex flex-col min-h-[350px]">
         <div className="px-6 py-5 border-b border-slate-100 bg-slate-50">
-          <h2 className="text-sm font-black text-slate-800">Upcoming Deadlines (October 2026)</h2>
+          <h2 className="text-sm font-black text-slate-800">Upcoming Deadlines ({currentMonth})</h2>
         </div>
         
         <div className="flex-1 flex flex-col">
@@ -48,35 +56,37 @@ export default function FilingCalendarUI() {
             </div>
           ) : deadlines.length > 0 ? (
             <div className="divide-y divide-slate-100">
-              {deadlines.map((item, idx) => (
-                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.1 }} key={idx} className="p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between hover:bg-slate-50 transition-colors gap-4">
-                  <div className="flex items-center gap-5">
-                    <div className="w-16 h-16 bg-indigo-50 rounded-2xl flex flex-col items-center justify-center border border-indigo-100 shrink-0">
-                      <span className="text-xs font-bold text-indigo-500 uppercase">{item.date.split(" ")[1]}</span>
-                      <span className="text-xl font-black text-indigo-700">{item.date.split(" ")[0]}</span>
-                    </div>
-                    <div>
-                      <h4 className="text-base font-black text-slate-900">{item.title}</h4>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className="text-[10px] font-bold bg-slate-100 text-slate-500 px-2 py-0.5 rounded">{item.type}</span>
-                        <span className="text-xs font-medium text-slate-400">{item.desc}</span>
+              <AnimatePresence>
+                {deadlines.map((item, idx) => (
+                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.1 }} key={idx} className="p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between hover:bg-slate-50 transition-colors gap-4">
+                    <div className="flex items-center gap-5">
+                      <div className="w-16 h-16 bg-indigo-50 rounded-2xl flex flex-col items-center justify-center border border-indigo-100 shrink-0">
+                        <span className="text-xs font-bold text-indigo-500 uppercase">{item.date.split(" ")[1]}</span>
+                        <span className="text-xl font-black text-indigo-700">{item.date.split(" ")[0]}</span>
+                      </div>
+                      <div>
+                        <h4 className="text-base font-black text-slate-900">{item.title}</h4>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-[10px] font-bold bg-slate-100 text-slate-500 px-2 py-0.5 rounded">{item.type}</span>
+                          <span className="text-xs font-medium text-slate-400">{item.desc}</span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  
-                  <div className="flex items-center justify-between sm:justify-end gap-6 border-t sm:border-0 border-slate-100 pt-4 sm:pt-0">
-                    <div className="text-left sm:text-right">
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Applicable Clients</p>
-                      <p className="text-sm font-black text-slate-900">{item.clients} Businesses</p>
+                    
+                    <div className="flex items-center justify-between sm:justify-end gap-6 border-t sm:border-0 border-slate-100 pt-4 sm:pt-0">
+                      <div className="text-left sm:text-right">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Applicable Clients</p>
+                        <p className="text-sm font-black text-slate-900">{item.clients} Businesses</p>
+                      </div>
+                      <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider ${
+                        item.status === 'Urgent' ? 'bg-rose-50 text-rose-600 border border-rose-100' : 'bg-amber-50 text-amber-600 border border-amber-100'
+                      }`}>
+                        <AlertCircle className="w-4 h-4" /> {item.status}
+                      </span>
                     </div>
-                    <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider ${
-                      item.status === 'Urgent' ? 'bg-rose-50 text-rose-600 border border-rose-100' : 'bg-amber-50 text-amber-600 border border-amber-100'
-                    }`}>
-                      <AlertCircle className="w-4 h-4" /> {item.status}
-                    </span>
-                  </div>
-                </motion.div>
-              ))}
+                  </motion.div>
+                ))}
+              </AnimatePresence>
             </div>
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center py-16 text-center px-4">

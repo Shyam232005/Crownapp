@@ -6,6 +6,7 @@ import {
   ClipboardCheck, Plus, User, Briefcase, 
   ChevronRight, Loader2, Users, X 
 } from "lucide-react";
+import toast from "react-hot-toast";
 
 export default function StaffAssignmentsUI() {
   const [isLoading, setIsLoading] = useState(true);
@@ -13,7 +14,7 @@ export default function StaffAssignmentsUI() {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const { register, handleSubmit, reset, formState: { isSubmitting } } = useForm({
-    defaultValues: { name: "", role: "Audit Assistant", clientsCount: 0 }
+    defaultValues: { name: "", email: "", role: "Audit Assistant", clientsCount: 0 }
   });
 
   useEffect(() => {
@@ -26,15 +27,19 @@ export default function StaffAssignmentsUI() {
       if (res.ok) {
         const json = await res.json();
         setStaffMembers(json.data || []);
+      } else {
+        throw new Error("Failed to load");
       }
     } catch (error) {
       console.error("Failed to fetch staff:", error);
+      toast.error("Failed to load staff members");
     } finally {
       setIsLoading(false);
     }
   };
 
   const onSubmit = async (data) => {
+    const loadingToast = toast.loading("Adding staff member...");
     try {
       const res = await fetch('/api/ca/staff', {
         method: 'POST',
@@ -42,16 +47,18 @@ export default function StaffAssignmentsUI() {
         body: JSON.stringify(data)
       });
 
-      if (res.ok) {
-        const json = await res.json();
-        setStaffMembers([json.data, ...staffMembers]);
-        reset();
-        setIsModalOpen(false);
-      } else {
-        alert("Failed to add staff member.");
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to add staff member.");
       }
+
+      const json = await res.json();
+      setStaffMembers([json.data, ...staffMembers]);
+      toast.success("Staff member added!", { id: loadingToast });
+      reset();
+      setIsModalOpen(false);
     } catch (error) {
-      alert("Network error while adding staff.");
+      toast.error(error.message, { id: loadingToast });
     }
   };
 
@@ -82,33 +89,35 @@ export default function StaffAssignmentsUI() {
           </div>
         ) : staffMembers.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {staffMembers.map((staff, idx) => (
-              <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: idx * 0.1 }} key={staff._id} className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm hover:shadow-md transition-shadow">
-                <div className="flex justify-between items-start mb-4">
-                  <div className="flex gap-4 items-center">
-                    <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center">
-                      <User className="w-6 h-6 text-slate-500" />
-                    </div>
-                    <div>
-                      <h3 className="text-base font-black text-slate-900">{staff.name}</h3>
-                      <p className="text-xs font-bold text-indigo-600">{staff.role}</p>
+            <AnimatePresence>
+              {staffMembers.map((staff, idx) => (
+                <motion.div layout initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: idx * 0.1 }} key={staff._id} className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm hover:shadow-md transition-shadow">
+                  <div className="flex justify-between items-start mb-4">
+                    <div className="flex gap-4 items-center">
+                      <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center">
+                        <User className="w-6 h-6 text-slate-500" />
+                      </div>
+                      <div>
+                        <h3 className="text-base font-black text-slate-900 line-clamp-1">{staff.name}</h3>
+                        <p className="text-xs font-bold text-indigo-600">{staff.role}</p>
+                      </div>
                     </div>
                   </div>
-                </div>
-                
-                <div className="bg-slate-50 rounded-xl p-4 flex justify-between items-center border border-slate-100 mb-4">
-                  <div className="flex items-center gap-2 text-slate-600">
-                    <Briefcase className="w-4 h-4 text-slate-400" />
-                    <span className="text-xs font-bold uppercase">Assigned Clients</span>
+                  
+                  <div className="bg-slate-50 rounded-xl p-4 flex justify-between items-center border border-slate-100 mb-4">
+                    <div className="flex items-center gap-2 text-slate-600">
+                      <Briefcase className="w-4 h-4 text-slate-400" />
+                      <span className="text-xs font-bold uppercase">Assigned Clients</span>
+                    </div>
+                    <span className="text-lg font-black text-slate-900">{staff.clientsCount || 0}</span>
                   </div>
-                  <span className="text-lg font-black text-slate-900">{staff.clientsCount}</span>
-                </div>
-                
-                <button className="w-full py-2.5 bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 rounded-xl text-sm font-bold transition-colors flex items-center justify-center gap-2">
-                  Manage Workload <ChevronRight className="w-4 h-4" />
-                </button>
-              </motion.div>
-            ))}
+                  
+                  <button className="w-full py-2.5 bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 rounded-xl text-sm font-bold transition-colors flex items-center justify-center gap-2">
+                    Manage Workload <ChevronRight className="w-4 h-4" />
+                  </button>
+                </motion.div>
+              ))}
+            </AnimatePresence>
           </div>
         ) : (
           <div className="bg-white rounded-3xl border border-slate-200 shadow-sm flex flex-col items-center justify-center py-20 text-center px-4">
@@ -155,22 +164,33 @@ export default function StaffAssignmentsUI() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Role / Designation</label>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Email Address</label>
                   <input 
-                    type="text" 
-                    {...register("role", { required: true })} 
-                    placeholder="e.g. Senior Auditor"
+                    type="email" 
+                    {...register("email", { required: true })} 
+                    placeholder="e.g. amit@cafirm.com"
                     className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-600" 
                   />
                 </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Initial Assigned Clients</label>
-                  <input 
-                    type="number" 
-                    {...register("clientsCount", { valueAsNumber: true })} 
-                    placeholder="0"
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-600" 
-                  />
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Role</label>
+                    <input 
+                      type="text" 
+                      {...register("role", { required: true })} 
+                      placeholder="e.g. Senior Auditor"
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-600" 
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Assigned Clients</label>
+                    <input 
+                      type="number" 
+                      {...register("clientsCount", { valueAsNumber: true })} 
+                      placeholder="0"
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-600" 
+                    />
+                  </div>
                 </div>
 
                 <motion.button 

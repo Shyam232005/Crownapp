@@ -1,55 +1,77 @@
-// app/api/ca/filing-calendar/route.js
 import { NextResponse } from "next/server";
-import { jwtVerify } from "jose";
-import connectDB from "@/lib/mongodb";
-import Owner from "@/models/Owner";
+import mongoose from "mongoose";
+import jwt from "jsonwebtoken";
+import { cookies } from "next/headers";
+import CA from "@/models/CA";
+
+const connectDB = async () => {
+  if (mongoose.connection.readyState >= 1) return;
+  await mongoose.connect(process.env.MONGODB_URI);
+};
 
 export async function GET(request) {
   try {
-    await connectDB();
+    const cookieStore = await cookies();
+    const token = cookieStore.get("crown_session")?.value;
     
-    const token = request.cookies.get("fineops_auth_token")?.value;
-    if (!token) {
-      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    if (decoded.role !== "CA" && decoded.role !== "CA-Employee") {
+      return NextResponse.json({ error: "Forbidden: CA Firm access only" }, { status: 403 });
     }
 
-    const secret = new TextEncoder().encode(process.env.JWT_SECRET);
-    const { payload } = await jwtVerify(token, secret);
+    await connectDB();
+    
+    // Fetch the CA to get their active client count
+    const caFirmId = decoded.companyId || decoded.userId;
+    const caFirm = await CA.findById(caFirmId);
+    
+    const clientCount = caFirm && caFirm.clients ? caFirm.clients.length : 0;
 
-    // Count active clients linked to this CA firm
-    const clientCount = await Owner.countDocuments({ linkedCaFirm: payload.userId });
+    // If no clients, return an empty array to trigger the empty state UI
+    if (clientCount === 0) {
+      return NextResponse.json({ success: true, data: [] }, { status: 200 });
+    }
 
-    // Standard compliance deadlines for October 2026
-    const deadlines = clientCount > 0 ? [
+    const currentMonth = new Date().toLocaleString('default', { month: 'short' });
+    const currentDay = new Date().getDate();
+
+    // Standard Indian Compliance Calendar
+    const standardDeadlines = [
       {
-        date: "11 Oct",
-        title: "GSTR-1 Filing (Outward Supplies)",
-        type: "GST Compliance",
-        desc: "Monthly return for taxable outward supplies",
+        date: `07 ${currentMonth}`,
+        title: "TDS / TCS Deposit",
+        type: "Tax Payment",
+        desc: "Deposit of Tax Deducted/Collected at Source.",
         clients: clientCount,
-        status: "Urgent"
+        status: currentDay > 7 ? "Overdue" : (currentDay >= 5 ? "Urgent" : "Upcoming")
       },
       {
-        date: "20 Oct",
-        title: "GSTR-3B Filing (Summary Return)",
-        type: "GST Compliance",
-        desc: "Monthly summary return and tax payment",
+        date: `11 ${currentMonth}`,
+        title: "GSTR-1",
+        type: "GST",
+        desc: "Details of outward supplies of goods and services.",
         clients: clientCount,
-        status: "Pending"
+        status: currentDay > 11 ? "Overdue" : (currentDay >= 9 ? "Urgent" : "Upcoming")
       },
       {
-        date: "30 Oct",
-        title: "TDS / TCS Return Payment",
-        type: "Income Tax",
-        desc: "Quarterly tax deducted at source deposition",
+        date: `20 ${currentMonth}`,
+        title: "GSTR-3B",
+        type: "GST",
+        desc: "Summary return of outward supplies and input tax credit.",
         clients: clientCount,
-        status: "Pending"
+        status: currentDay > 20 ? "Overdue" : (currentDay >= 17 ? "Urgent" : "Upcoming")
       }
-    ] : [];
+    ];
 
-    return NextResponse.json({ success: true, data: deadlines }, { status: 200 });
+    return NextResponse.json({
+      success: true,
+      data: standardDeadlines
+    }, { status: 200 });
+
   } catch (error) {
-    console.error("Filing Calendar API Error:", error);
-    return NextResponse.json({ success: false, error: "Failed to fetch deadlines" }, { status: 500 });
+    console.error("GET Filing Calendar Error:", error);
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }

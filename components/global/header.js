@@ -85,7 +85,9 @@ export default function GlobalHeader() {
           <div className="flex items-center gap-2 bg-slate-100 border border-slate-200 px-4 py-2 rounded-full">
             <UserIcon className="w-4 h-4 text-slate-500" />
             <span className="text-xs font-bold text-slate-700">
-              {userData?.role === "Employee" ? "Staff Member" : userData?.role}
+              {userData?.role === "Employee" ? "Staff Member" : 
+               userData?.role === "CA" ? "Principal CA" : 
+               userData?.role === "CAStaff" ? "Audit Staff" : userData?.role}
             </span>
           </div>
         )}

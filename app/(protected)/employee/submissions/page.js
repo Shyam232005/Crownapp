@@ -5,10 +5,10 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Send, Loader2, CheckCircle2, Receipt, ScanLine } from "lucide-react";
 import Tesseract from "tesseract.js";
 import * as pdfjsLib from "pdfjs-dist";
+import toast from "react-hot-toast";
 
 export default function EmployeeSubmissionForm() {
   const [showSuccess, setShowSuccess] = useState(false);
-  const [serverError, setServerError] = useState("");
   const [isScanning, setIsScanning] = useState(false);
 
   const { register, handleSubmit, reset, setValue, formState: { isSubmitting } } = useForm({
@@ -29,16 +29,16 @@ export default function EmployeeSubmissionForm() {
     pdfjsLib.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
   }, []);
 
-  // 🔴 UNIVERSAL OFFLINE AI SCANNER (PDF & IMAGE)
+  // UNIVERSAL OFFLINE AI SCANNER (PDF & IMAGE)
   const handleFileUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
     setIsScanning(true);
     let imageToScan = file;
+    const loadingToast = toast.loading("AI Scanning document locally...");
 
     try {
-      // If the file is a PDF, render its first page to an image format Tesseract can read
       if (file.type === "application/pdf") {
         const arrayBuffer = await file.arrayBuffer();
         const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
@@ -53,14 +53,11 @@ export default function EmployeeSubmissionForm() {
         canvas.width = viewport.width;
         
         await page.render({ canvasContext: ctx, viewport: viewport }).promise;
-        imageToScan = canvas.toDataURL("image/png"); // Convert PDF page to base64 image
+        imageToScan = canvas.toDataURL("image/png"); 
       }
 
-      // Run Tesseract offline OCR
       const result = await Tesseract.recognize(imageToScan, 'eng');
       const text = result.data.text;
-      
-      console.log("Raw Scanned Text:", text); // Keep for debugging
 
       // Regex Extraction Engine
       const gstinMatch = text.match(/\d{2}[A-Z]{5}\d{4}[A-Z]{1}[A-Z\d]{1}[Z]{1}[A-Z\d]{1}/i);
@@ -73,43 +70,44 @@ export default function EmployeeSubmissionForm() {
       if (billMatch) setValue("billNumber", billMatch[1]);
 
       setValue("description", "Auto-extracted from uploaded document.");
+      toast.success("Document scanned successfully!", { id: loadingToast });
 
     } catch (error) {
       console.error("AI Scan failed:", error);
-      alert("Failed to scan the document. Please enter details manually.");
+      toast.error("Failed to scan document. Please enter manually.", { id: loadingToast });
     } finally {
       setIsScanning(false);
+      e.target.value = ""; // Reset file input
     }
   };
 
   const onSubmit = async (data) => {
-    setServerError("");
+    const loadingToast = toast.loading("Submitting entry...");
     try {
-      // Get the verified user ID from wherever you store it after login (e.g., localStorage or Context)
-      const employeeId = typeof window !== "undefined" ? localStorage.getItem("fineOpsUserId") || "emp-temp-123" : "emp-temp-123";
-      
+      // Removed vulnerable localStorage. The JWT handles identity securely.
       const payload = {
         ...data,
-        employeeId,
-        amount: Number(data.amount),
-        status: "Pending" 
+        amount: Number(data.amount)
       };
 
-      const res = await fetch("/api/submissions", {
+      const res = await fetch("/api/employee/submissions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
 
-      const result = await res.json();
-      if (!res.ok) throw new Error(result.error || "Failed to submit data");
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to submit data");
+      }
 
+      toast.success("Sent to Owner for Approval!", { id: loadingToast });
       setShowSuccess(true);
       reset();
       setTimeout(() => setShowSuccess(false), 3000);
 
     } catch (error) {
-      setServerError(error.message);
+      toast.error(error.message, { id: loadingToast });
     }
   };
 
@@ -127,7 +125,6 @@ export default function EmployeeSubmissionForm() {
         </div>
 
         <div className="relative">
-          {/* Now accepts PDF in addition to images */}
           <input 
             type="file" 
             accept="image/*,application/pdf"
@@ -199,8 +196,6 @@ export default function EmployeeSubmissionForm() {
           <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Description / Notes</label>
           <textarea {...register("description", { required: true })} rows="2" placeholder="What was this for?" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-600 resize-none"></textarea>
         </div>
-
-        {serverError && <p className="text-sm font-bold text-rose-500">{serverError}</p>}
 
         <div className="pt-4 flex items-center justify-between">
           <AnimatePresence>

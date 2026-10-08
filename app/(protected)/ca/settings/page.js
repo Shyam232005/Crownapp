@@ -7,6 +7,7 @@ import {
   Save, ShieldCheck, FileText, MapPin,
   CheckCircle2, Loader2 
 } from "lucide-react";
+import toast from "react-hot-toast";
 
 export default function FirmSettingsUI() {
   const [isLoading, setIsLoading] = useState(true);
@@ -34,7 +35,7 @@ export default function FirmSettingsUI() {
           const ca = json.data;
           
           reset({
-            firmName: ca.firmName || "FineOps & Associates",
+            firmName: ca.companyName || "FineOps & Associates", // Mapped to the DB schema
             frn: ca.frn || "",
             gstin: ca.gstin || "",
             principalCa: ca.principalCa || "",
@@ -54,6 +55,8 @@ export default function FirmSettingsUI() {
 
   const onSubmit = async (data) => {
     setIsSaving(true);
+    const loadingToast = toast.loading("Saving firm details...");
+    
     try {
       const res = await fetch('/api/ca/settings', { 
         method: 'PATCH', 
@@ -61,14 +64,14 @@ export default function FirmSettingsUI() {
         body: JSON.stringify(data) 
       });
       
-      if (res.ok) {
-        setShowSuccess(true);
-        setTimeout(() => setShowSuccess(false), 3000);
-      } else {
-        alert("Failed to save settings.");
-      }
+      if (!res.ok) throw new Error("Failed to save settings");
+      
+      toast.success("Settings saved successfully!", { id: loadingToast });
+      setShowSuccess(true);
+      setTimeout(() => setShowSuccess(false), 3000);
+      
     } catch (error) {
-      alert("Network error while saving settings.");
+      toast.error("Network error while saving settings.", { id: loadingToast });
     } finally {
       setIsSaving(false);
     }
@@ -90,7 +93,7 @@ export default function FirmSettingsUI() {
           <Settings className="w-6 h-6 text-indigo-600" /> Firm Settings
         </motion.h1>
         <p className="text-xs sm:text-sm font-medium text-slate-500 mt-1">
-          Manage your CA firm's profile, registration details, and workspace preferences[cite: 20].
+          Manage your CA firm's profile, registration details, and workspace preferences.
         </p>
       </div>
 

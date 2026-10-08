@@ -4,18 +4,25 @@ import { motion, AnimatePresence } from "framer-motion";
 import { 
   ShieldAlert, Search, FileText, CheckCircle2, 
   AlertTriangle, Clock, Upload,
-  Loader2, Inbox
+  Loader2, Inbox, Building2
 } from "lucide-react";
+import toast from "react-hot-toast";
 
 export default function AuditReportsUI() {
   const [search, setSearch] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
   const [audits, setAudits] = useState([]);
+  
+  // Client selection for dynamic uploads
+  const [clients, setClients] = useState([]);
+  const [selectedClient, setSelectedClient] = useState("");
+  
   const fileInputRef = useRef(null);
 
   useEffect(() => {
     fetchAudits();
+    fetchClients();
   }, []);
 
   const fetchAudits = async () => {
@@ -25,11 +32,28 @@ export default function AuditReportsUI() {
       if (res.ok) {
         const json = await res.json();
         setAudits(json.data || []);
+      } else {
+        throw new Error("Failed to load");
       }
     } catch (error) {
       console.error("Failed to fetch audits", error);
+      toast.error("Failed to load audit reports");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const fetchClients = async () => {
+    try {
+      const res = await fetch("/api/ca/clients");
+      if (res.ok) {
+        const json = await res.json();
+        const clientList = json.data.clients || [];
+        setClients(clientList);
+        if (clientList.length > 0) setSelectedClient(clientList[0].id);
+      }
+    } catch (error) {
+      console.error("Failed to fetch clients", error);
     }
   };
 
@@ -37,23 +61,29 @@ export default function AuditReportsUI() {
     const file = e.target.files[0];
     if (!file) return;
 
+    if (!selectedClient) {
+      toast.error("Please select a client from the dropdown first.");
+      return;
+    }
+
+    const loadingToast = toast.loading("Uploading secure report...");
     setIsUploading(true);
 
     try {
-      // Convert file to Base64 for serverless storage
+      // Convert file to Base64 for serverless MongoDB storage
       const reader = new FileReader();
       reader.readAsDataURL(file);
       reader.onload = async () => {
         const base64Data = reader.result;
+        const clientObj = clients.find(c => c.id === selectedClient);
         
         const payload = {
-          clientId: "owner-temp-123", // In production, select from a client dropdown
-          clientName: "FineOps Technologies",
+          companyId: selectedClient,
+          clientName: clientObj?.companyName || "Unknown Client",
           period: new Date().toLocaleString('default', { month: 'long', year: 'numeric' }),
           reportType: file.type.includes("pdf") ? "Audit Report" : "Financial Chart",
           fileData: base64Data,
-          status: "Clean (Verified)",
-          issuesCount: 0
+          status: "Clean (Verified)"
         };
 
         const res = await fetch("/api/ca/audits", {
@@ -63,21 +93,25 @@ export default function AuditReportsUI() {
         });
 
         if (res.ok) {
-          fetchAudits(); // Refresh list to show new upload
+          toast.success("Report successfully uploaded!", { id: loadingToast });
+          fetchAudits(); 
         } else {
-          alert("Failed to upload report.");
+          const err = await res.json();
+          throw new Error(err.error || "Failed to upload report");
         }
         setIsUploading(false);
+        e.target.value = ""; // Reset input
       };
     } catch (error) {
-      console.error("Upload error:", error);
+      toast.error(error.message, { id: loadingToast });
       setIsUploading(false);
     }
   };
 
   const filteredAudits = audits.filter(audit => 
     audit.clientName?.toLowerCase().includes(search.toLowerCase()) || 
-    audit.period?.toLowerCase().includes(search.toLowerCase())
+    audit.period?.toLowerCase().includes(search.toLowerCase()) ||
+    (audit.companyId && audit.companyId.companyName?.toLowerCase().includes(search.toLowerCase()))
   );
 
   return (
@@ -92,8 +126,8 @@ export default function AuditReportsUI() {
           </p>
         </div>
         
-        <div className="flex items-center gap-3">
-          <div className="relative w-full sm:w-64">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="relative w-full sm:w-56">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input 
               type="text" 
@@ -104,6 +138,20 @@ export default function AuditReportsUI() {
             />
           </div>
           
+          <div className="relative w-full sm:w-48">
+            <Building2 className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <select 
+              value={selectedClient}
+              onChange={(e) => setSelectedClient(e.target.value)}
+              className="w-full pl-9 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-indigo-600 shadow-sm transition-all"
+            >
+              {clients.length === 0 && <option value="">No clients...</option>}
+              {clients.map(client => (
+                <option key={client.id} value={client.id}>{client.companyName}</option>
+              ))}
+            </select>
+          </div>
+
           <input 
             type="file" 
             accept="image/*,.pdf" 
@@ -113,8 +161,8 @@ export default function AuditReportsUI() {
           />
           <button 
             onClick={() => fileInputRef.current.click()}
-            disabled={isUploading}
-            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-md transition-colors disabled:opacity-50 shrink-0"
+            disabled={isUploading || clients.length === 0}
+            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-md transition-colors disabled:opacity-50 shrink-0 w-full sm:w-auto justify-center"
           >
             {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
             {isUploading ? "Uploading..." : "Upload Final Report"}
@@ -156,7 +204,9 @@ export default function AuditReportsUI() {
                       </div>
                       
                       <div>
-                        <h4 className="text-base font-black text-slate-900">{audit.clientName}</h4>
+                        <h4 className="text-base font-black text-slate-900">
+                          {audit.companyId?.companyName || audit.clientName || "Unknown Client"}
+                        </h4>
                         <div className="flex items-center gap-2 mt-1">
                           <span className="text-[10px] font-bold bg-slate-100 text-slate-500 px-2 py-0.5 rounded">
                             {audit.period}
@@ -183,7 +233,7 @@ export default function AuditReportsUI() {
                         onClick={() => {
                           const link = document.createElement("a");
                           link.href = audit.fileData;
-                          link.download = `${audit.clientName}_${audit.period}_Report`;
+                          link.download = `${audit.companyId?.companyName || audit.clientName}_${audit.period}_Report`;
                           link.click();
                         }}
                         className="flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white rounded-xl text-xs font-bold transition-colors"
