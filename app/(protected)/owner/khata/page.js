@@ -207,7 +207,7 @@ export default function OwnerKhataPage() {
         >
           <div>
             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">
-              Outstanding Due (Udhaar)
+              Payment to Collect (Udhaar)
             </p>
             <p className="text-xl sm:text-2xl font-black text-rose-600 flex items-center">
               <IndianRupee className="w-5 h-5 mr-0.5 text-rose-600" />
@@ -227,7 +227,7 @@ export default function OwnerKhataPage() {
         >
           <div>
             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">
-              Total Advances Received
+              Advance Received (To Adjust Later)
             </p>
             <p className="text-xl sm:text-2xl font-black text-emerald-600 flex items-center">
               <IndianRupee className="w-5 h-5 mr-0.5 text-emerald-600" />
@@ -275,8 +275,8 @@ export default function OwnerKhataPage() {
         <div className="flex gap-2 w-full md:w-auto overflow-x-auto pb-1 md:pb-0 scrollbar-hide">
           {[
             { id: "ALL", label: "All Accounts" },
-            { id: "DUE", label: "Udhaar Due" },
-            { id: "ADVANCE", label: "Advance Received" },
+            { id: "DUE", label: "To Collect (Udhaar)" },
+            { id: "ADVANCE", label: "Advance (To Adjust Later)" },
             { id: "SETTLED", label: "Settled (Zero)" }
           ].map((tab) => (
             <button
@@ -432,9 +432,9 @@ export default function OwnerKhataPage() {
                         }`}
                       >
                         {isDue
-                          ? "Udhaar (To Collect)"
+                          ? "Payment to Collect (Udhaar)"
                           : isAdvance
-                          ? "Advance Received"
+                          ? "Advance Received (To Adjust Later)"
                           : "Settled Balance"}
                       </p>
                       {cust.openingBalance !== undefined && cust.openingBalance !== 0 && (
@@ -615,7 +615,7 @@ export default function OwnerKhataPage() {
                       }`}
                     >
                       <ArrowUpRight className="w-4 h-4 text-rose-500" />
-                      Udhaar Due (+₹)
+                      Payment to Collect (Udhaar) (+₹)
                     </button>
                     <button
                       type="button"
@@ -627,7 +627,7 @@ export default function OwnerKhataPage() {
                       }`}
                     >
                       <ArrowDownLeft className="w-4 h-4 text-emerald-500" />
-                      Advance Received (-₹)
+                      Advance Received (To Adjust Later) (-₹)
                     </button>
                   </div>
 

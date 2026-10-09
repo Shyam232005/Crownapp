@@ -1,12 +1,11 @@
 "use client";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
-import Tesseract from "tesseract.js";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { 
   Users, Plus, Loader2, IndianRupee, ArrowDownToLine, 
-  ReceiptText, X, Sparkles
+  ReceiptText, X, AlertCircle
 } from "lucide-react";
 
 export default function EmployeeKhata() {
@@ -14,9 +13,6 @@ export default function EmployeeKhata() {
   const [customers, setCustomers] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  
-  const [isScanning, setIsScanning] = useState(false);
-  const fileInputRef = useRef(null);
 
   const { register, handleSubmit, watch, setValue, reset, formState: { errors, isSubmitting } } = useForm({
     defaultValues: { type: "Sales Invoice", partyName: "", amount: "", paymentMode: "UPI", description: "" }
@@ -28,24 +24,29 @@ export default function EmployeeKhata() {
     const fetchKhata = async () => {
       try {
         const [txRes, custRes] = await Promise.allSettled([
-          fetch("/api/employee/transactions?type=SALES"),
-          fetch("/api/khata/customer")
+          fetch("/api/employee/transactions?type=SALES", { cache: "no-store" }),
+          fetch("/api/khata/customer", { cache: "no-store" })
         ]);
 
         const custMap = {};
 
-        // 1. Seed with registered customers from DB
+        // 1. Seed strictly with registered customers belonging to the same companyId
         if (custRes.status === "fulfilled" && custRes.value.ok) {
           const custJson = await custRes.value.json();
           const dbCustomers = custJson.customers || custJson.data || [];
           dbCustomers.forEach((c) => {
             if (c.name) {
-              custMap[c.name.trim()] = { name: c.name.trim(), balance: c.balance || 0 };
+              custMap[c.name.trim()] = { 
+                name: c.name.trim(), 
+                balance: Number(c.balance || 0),
+                phone: c.phone || "",
+                gstin: c.gstin || ""
+              };
             }
           });
         }
 
-        // 2. Overlay transaction entries
+        // 2. Overlay approved / exported transactions for live running balance
         if (txRes.status === "fulfilled" && txRes.value.ok) {
           const json = await txRes.value.json();
           const customerData = json.data || [];
@@ -55,14 +56,14 @@ export default function EmployeeKhata() {
             const party = entry.metadata?.customerName || entry.metadata?.vendorName;
             if (entry.status !== "REJECTED" && party) {
               const name = party.trim();
-              if (!custMap[name]) custMap[name] = { name, balance: 0 };
-              
-              if (entry.status === "APPROVED" || entry.status === "EXPORTED") {
-                const amt = Number(entry.totalAmount || entry.amount || 0);
-                if (entry.type === "SALES") {
-                  custMap[name].balance += amt;
-                } else if (["ADVANCE_RECEIVED", "COLLECTION", "PAYMENT_IN"].includes(entry.type)) {
-                  custMap[name].balance -= amt;
+              if (custMap[name]) {
+                if (entry.status === "APPROVED" || entry.status === "EXPORTED") {
+                  const amt = Number(entry.totalAmount || entry.amount || 0);
+                  if (entry.type === "SALES") {
+                    custMap[name].balance += amt;
+                  } else if (["ADVANCE_RECEIVED", "COLLECTION", "PAYMENT_IN"].includes(entry.type)) {
+                    custMap[name].balance -= amt;
+                  }
                 }
               }
             }
@@ -72,6 +73,7 @@ export default function EmployeeKhata() {
         setCustomers(Object.values(custMap).sort((a, b) => b.balance - a.balance));
       } catch (error) {
         console.error("Fetch error:", error);
+        toast.error("Failed to load customer ledger.");
       } finally {
         setIsLoading(false);
       }
@@ -80,45 +82,13 @@ export default function EmployeeKhata() {
     fetchKhata();
   }, []);
 
-  const handleAiScan = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    setIsScanning(true);
-
-    try {
-      const result = await Tesseract.recognize(file, "eng");
-
-      const rawText = result.data.text;
-      const lines = rawText.split('\n').map(line => line.trim()).filter(line => line.length > 0);
-      
-      let extAmount = "", extParty = "";
-
-      if (lines.length > 0) extParty = lines[0].replace(/[^a-zA-Z\s\&\-]/g, "").trim();
-
-      const amountMatches = rawText.match(/\b\d+(\.\d{1,2})?\b/g);
-      if (amountMatches) {
-          const numbers = amountMatches.map(Number).filter(n => n > 10);
-          if (numbers.length > 0) extAmount = Math.max(...numbers).toString();
-      }
-
-      setValue("type", "Sales Invoice"); 
-      if (extParty) setValue("partyName", extParty);
-      if (extAmount) setValue("amount", extAmount);
-      setValue("description", "Auto-scanned Sales Entry");
-      toast.success("Document scanned & fields auto-filled!");
-
-    } catch (error) {
-      console.error("Local Scan Error:", error);
-      toast.error("Scanning failed. Please enter details manually.");
-    } finally {
-      setIsScanning(false);
-      if (fileInputRef.current) fileInputRef.current.value = ""; 
-    }
-  };
-
   const onSubmit = async (data) => {
     try {
+      if (!data.partyName || !data.partyName.trim()) {
+        toast.error("Please select a customer from the directory.");
+        return;
+      }
+
       const amountNum = Number(data.amount);
       if (!amountNum || isNaN(amountNum) || amountNum <= 0) {
         toast.error("Please enter a valid positive amount.");
@@ -133,13 +103,13 @@ export default function EmployeeKhata() {
         type: txnType,
         customerName: data.partyName.trim(),
         partyName: data.partyName.trim(),
-        invoiceNumber: `INV-AUTO-${Math.floor(Math.random() * 10000)}`,
-        receiptNumber: `REC-AUTO-${Math.floor(Math.random() * 10000)}`,
+        invoiceNumber: `INV-${Date.now().toString().slice(-6)}`,
+        receiptNumber: `REC-${Date.now().toString().slice(-6)}`,
         hsnCode: "0000",
         baseAmount: amountNum,
         totalAmount: amountNum,
         amount: amountNum,
-        description: data.description,
+        description: data.description || (isAdvance ? "Advance Received (To Adjust Later)" : "Sales Invoice Entry"),
         paymentMode: data.paymentMode || "UPI"
       };
 
@@ -171,12 +141,10 @@ export default function EmployeeKhata() {
         type: txnType,
         status: 'PENDING_OWNER_APPROVAL',
         totalAmount: payload.totalAmount,
-        metadata: { customerName: payload.customerName, vendorName: payload.customerName, description: data.description }
+        metadata: { customerName: payload.customerName, vendorName: payload.customerName, description: payload.description }
       }, ...prev]);
 
-      // Update customers balance in UI:
-      // Advance reduces outstanding due (-delta)
-      // Sales increases outstanding due (+delta)
+      // Update customers balance in UI
       setCustomers(prev => {
         const existingIdx = prev.findIndex(c => c.name.toLowerCase() === payload.customerName.toLowerCase());
         const delta = isAdvance ? -amountNum : amountNum;
@@ -187,15 +155,11 @@ export default function EmployeeKhata() {
             balance: (updated[existingIdx].balance || 0) + delta
           };
           return updated;
-        } else {
-          return [{
-            name: payload.customerName,
-            balance: delta
-          }, ...prev];
         }
+        return prev;
       });
       
-      toast.success("Entry submitted for approval!");
+      toast.success("Entry recorded and sent for Owner sign-off!");
       reset(); 
       setIsModalOpen(false);
 
@@ -209,16 +173,18 @@ export default function EmployeeKhata() {
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-4 mb-6 sm:mb-8">
         <div>
           <motion.h1 initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight mb-1 flex items-center gap-2">
-            <Users className="w-6 h-6 text-indigo-600" /> Customer Khata
+            <Users className="w-6 h-6 text-indigo-600" /> Customer Khata & Dues
           </motion.h1>
-          <p className="text-xs sm:text-sm font-medium text-slate-500">Log new sales and customer payments.</p>
+          <p className="text-xs sm:text-sm font-medium text-slate-500">
+            View customer ledgers and log sales or advance payments.
+          </p>
         </div>
         <motion.button 
           whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
           onClick={() => setIsModalOpen(true)}
-          className="w-full sm:w-auto bg-indigo-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-md shadow-indigo-200 transition-colors flex items-center justify-center gap-2 hover:bg-indigo-700"
+          className="w-full sm:w-auto bg-indigo-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-md shadow-indigo-200 transition-colors flex items-center justify-center gap-2 hover:bg-indigo-700 cursor-pointer"
         >
-          <Plus className="w-4 h-4" /> Add Khata Entry
+          <Plus className="w-4 h-4" /> Log Khata Entry
         </motion.button>
       </div>
 
@@ -242,39 +208,58 @@ export default function EmployeeKhata() {
           <div className="w-16 h-16 bg-indigo-50 rounded-2xl flex items-center justify-center mb-4">
             <Users className="w-8 h-8 text-indigo-300" />
           </div>
-          <h3 className="text-lg font-black text-slate-800 mb-2">No Customers Yet</h3>
-          <p className="text-sm font-medium text-slate-500 max-w-sm mx-auto">Record your first sale or payment to start building the customer ledger.</p>
+          <h3 className="text-lg font-black text-slate-800 mb-2">No Customers in Directory</h3>
+          <p className="text-sm font-medium text-slate-500 max-w-sm mx-auto">
+            Customers are managed by the Business Owner. Once added by the Owner, you can record sales and advances against them here.
+          </p>
         </motion.div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <AnimatePresence>
-            {customers.map((cust, idx) => (
-              <motion.div 
-                layout initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: idx * 0.05 }}
-                key={cust.name} 
-                className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow"
-              >
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center shrink-0">
-                    <span className="font-black text-slate-400">{cust.name.charAt(0).toUpperCase()}</span>
+            {customers.map((cust, idx) => {
+              const isDue = cust.balance > 0;
+              const isAdvance = cust.balance < 0;
+
+              return (
+                <motion.div 
+                  layout initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: idx * 0.05 }}
+                  key={cust.name} 
+                  className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow"
+                >
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center shrink-0">
+                      <span className="font-black text-slate-600">{cust.name.charAt(0).toUpperCase()}</span>
+                    </div>
+                    <div className="min-w-0">
+                      <h4 className="text-base font-black text-slate-900 truncate">{cust.name}</h4>
+                      {cust.phone && <p className="text-xs text-slate-400 font-medium">{cust.phone}</p>}
+                    </div>
                   </div>
-                  <h4 className="text-base font-black text-slate-900 line-clamp-1">{cust.name}</h4>
-                </div>
-                
-                <div className={`rounded-xl p-4 flex justify-between items-center border ${cust.balance > 0 ? 'bg-rose-50 border-rose-100' : cust.balance < 0 ? 'bg-emerald-50 border-emerald-100' : 'bg-slate-50 border-slate-100'}`}>
-                  <p className={`text-xs font-bold uppercase tracking-wider ${cust.balance > 0 ? 'text-rose-500' : cust.balance < 0 ? 'text-emerald-500' : 'text-slate-500'}`}>
-                    {cust.balance > 0 ? 'To Collect (Udhaar)' : cust.balance < 0 ? 'Advance Received' : 'Settled (Zero)'}
-                  </p>
-                  <p className={`text-sm font-black flex items-center ${cust.balance > 0 ? 'text-rose-600' : cust.balance < 0 ? 'text-emerald-600' : 'text-slate-700'}`}>
-                    <IndianRupee className="w-3.5 h-3.5 mr-0.5" /> {Math.abs(cust.balance).toLocaleString("en-IN")}
-                  </p>
-                </div>
-              </motion.div>
-            ))}
+                  
+                  <div className={`rounded-xl p-4 flex justify-between items-center border ${
+                    isDue ? 'bg-rose-50 border-rose-100' : isAdvance ? 'bg-emerald-50 border-emerald-100' : 'bg-slate-50 border-slate-100'
+                  }`}>
+                    <div>
+                      <p className={`text-[10px] font-black uppercase tracking-wider ${
+                        isDue ? 'text-rose-600' : isAdvance ? 'text-emerald-600' : 'text-slate-500'
+                      }`}>
+                        {isDue ? 'Payment to Collect (Udhaar)' : isAdvance ? 'Advance Received (To Adjust Later)' : 'Settled (Zero Balance)'}
+                      </p>
+                    </div>
+                    <p className={`text-sm font-black flex items-center shrink-0 ${
+                      isDue ? 'text-rose-600' : isAdvance ? 'text-emerald-600' : 'text-slate-700'
+                    }`}>
+                      <IndianRupee className="w-3.5 h-3.5 mr-0.5" /> {Math.abs(cust.balance).toLocaleString("en-IN")}
+                    </p>
+                  </div>
+                </motion.div>
+              );
+            })}
           </AnimatePresence>
         </div>
       )}
 
+      {/* New Khata Entry Modal (Owner Unified Customers Dropdown Only) */}
       <AnimatePresence>
         {isModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
@@ -283,76 +268,116 @@ export default function EmployeeKhata() {
               className="bg-white rounded-3xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]"
             >
               <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-white/80 backdrop-blur-md shrink-0">
-                <h2 className="text-lg font-black text-slate-900">New Khata Entry</h2>
-                <button onClick={() => { reset(); setIsModalOpen(false); }} className="p-2 hover:bg-slate-100 rounded-full"><X className="w-5 h-5 text-slate-500" /></button>
+                <h2 className="text-lg font-black text-slate-900">Log Khata Transaction</h2>
+                <button 
+                  type="button"
+                  onClick={() => { reset(); setIsModalOpen(false); }} 
+                  className="p-2 hover:bg-slate-100 rounded-full cursor-pointer"
+                >
+                  <X className="w-5 h-5 text-slate-500" />
+                </button>
               </div>
               
               <form onSubmit={handleSubmit(onSubmit)} className="p-6 overflow-y-auto scrollbar-hide flex-1">
                 
-                <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }} className="mb-6 bg-gradient-to-br from-indigo-50 to-blue-50 border border-indigo-100/50 rounded-2xl p-1 relative cursor-pointer group shadow-sm" onClick={() => !isScanning && fileInputRef.current?.click()}>
-                  <input type="file" accept="image/*,application/pdf" ref={fileInputRef} onChange={handleAiScan} className="hidden" />
-                  <div className="border border-dashed border-indigo-200/60 rounded-xl p-4 text-center bg-white/50 group-hover:bg-white/80 transition-all">
-                    {isScanning ? (
-                      <div className="flex flex-col items-center justify-center py-2">
-                        <Loader2 className="w-6 h-6 text-indigo-600 animate-spin mb-2" />
-                        <p className="text-xs font-bold text-indigo-800">Reading Sales Invoice...</p>
-                        <p className="text-[10px] font-medium text-indigo-500 mt-1">Extracting Customer & Amount</p>
-                      </div>
-                    ) : (
-                      <div className="flex flex-col items-center justify-center py-1">
-                        <div className="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center mb-2 shadow-md shadow-indigo-200 group-hover:-translate-y-1 transition-transform">
-                          <Sparkles className="w-5 h-5 text-white" />
-                        </div>
-                        <p className="text-xs font-bold text-indigo-900 mb-1">Auto-fill Sales Bill</p>
-                        <p className="text-[10px] font-medium text-indigo-500">Upload a photo of the invoice (100% Offline)</p>
-                      </div>
-                    )}
-                  </div>
-                </motion.div>
-
+                {/* Type Selection */}
                 <div className="grid grid-cols-2 gap-3 mb-5">
-                  <button type="button" onClick={() => setValue("type", "Sales Invoice")} className={`p-4 rounded-xl border flex flex-col items-center gap-2 transition-all ${selectedType === "Sales Invoice" ? 'bg-indigo-50 border-indigo-600 text-indigo-700 shadow-sm' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'}`}>
+                  <button 
+                    type="button" 
+                    onClick={() => setValue("type", "Sales Invoice")} 
+                    className={`p-4 rounded-xl border flex flex-col items-center gap-2 transition-all cursor-pointer ${
+                      selectedType === "Sales Invoice" ? 'bg-indigo-50 border-indigo-600 text-indigo-700 shadow-sm' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'
+                    }`}
+                  >
                     <ReceiptText className="w-6 h-6" />
-                    <span className="text-xs font-black">Sales Invoice (Given)</span>
+                    <span className="text-xs font-black">Sales Invoice (Payment to Collect)</span>
                   </button>
-                  <button type="button" onClick={() => setValue("type", "Customer Received")} className={`p-4 rounded-xl border flex flex-col items-center gap-2 transition-all ${selectedType === "Customer Received" ? 'bg-emerald-50 border-emerald-600 text-emerald-700 shadow-sm' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'}`}>
+                  <button 
+                    type="button" 
+                    onClick={() => setValue("type", "Customer Received")} 
+                    className={`p-4 rounded-xl border flex flex-col items-center gap-2 transition-all cursor-pointer ${
+                      selectedType === "Customer Received" ? 'bg-emerald-50 border-emerald-600 text-emerald-700 shadow-sm' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'
+                    }`}
+                  >
                     <ArrowDownToLine className="w-6 h-6" />
-                    <span className="text-xs font-black">Payment Received</span>
+                    <span className="text-xs font-black">Advance / Payment Received</span>
                   </button>
                 </div>
 
+                {/* Unified Customer Dropdown */}
                 <div className="mb-4">
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Customer Name</label>
-                  <input type="text" placeholder="e.g. Sharma Traders" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500" {...register("partyName", { required: true })} />
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-2">
+                    Select Customer <span className="text-rose-500">*</span>
+                  </label>
+                  {customers.length === 0 ? (
+                    <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-xs font-semibold flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4 shrink-0 text-amber-600" />
+                      <span>No customers registered yet. Only Business Owners can add customers.</span>
+                    </div>
+                  ) : (
+                    <select 
+                      {...register("partyName", { required: true })}
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+                    >
+                      <option value="">-- Choose Customer from Directory --</option>
+                      {customers.map((c) => (
+                        <option key={c.name} value={c.name}>
+                          {c.name} {c.balance > 0 ? `(Udhaar Due: ₹${c.balance.toLocaleString("en-IN")})` : c.balance < 0 ? `(Advance: ₹${Math.abs(c.balance).toLocaleString("en-IN")})` : `(Settled)`}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                  <p className="text-[11px] font-medium text-slate-400 mt-1">
+                    Directly linked to your business&apos;s verified customer directory.
+                  </p>
                 </div>
 
+                {/* Amount & Mode */}
                 <div className="grid grid-cols-2 gap-4 mb-4">
                   <div>
                     <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Amount (₹)</label>
                     <div className="relative">
                       <IndianRupee className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                      <input type="number" className="w-full pl-9 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500" {...register("amount", { required: true })} />
+                      <input 
+                        type="number" 
+                        min="1" 
+                        step="0.01" 
+                        placeholder="0.00"
+                        className="w-full pl-9 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500" 
+                        {...register("amount", { required: true })} 
+                      />
                     </div>
                   </div>
                   {selectedType === "Customer Received" && (
                     <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Mode</label>
-                      <select className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500" {...register("paymentMode")}>
+                      <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Payment Mode</label>
+                      <select className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer" {...register("paymentMode")}>
                         <option value="UPI">UPI</option>
                         <option value="Cash">Cash</option>
-                        <option value="NEFT/RTGS">NEFT / RTGS</option>
+                        <option value="Bank Transfer">Bank Transfer / NEFT</option>
+                        <option value="Cheque">Cheque</option>
                       </select>
                     </div>
                   )}
                 </div>
 
                 <div className="mb-6">
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Remarks / Bill Info</label>
-                  <input type="text" placeholder="Details..." className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500" {...register("description", { required: true })} />
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Remarks / Note</label>
+                  <input 
+                    type="text" 
+                    placeholder="Reference, bill number, or reason..." 
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500" 
+                    {...register("description")} 
+                  />
                 </div>
 
-                <motion.button whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }} type="submit" disabled={isSubmitting} className="w-full py-4 bg-slate-900 text-white text-sm font-black rounded-xl hover:bg-slate-800 transition-colors shadow-lg flex justify-center items-center gap-2">
-                  {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : "Submit for Approval"}
+                <motion.button 
+                  whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }} 
+                  type="submit" 
+                  disabled={isSubmitting || customers.length === 0} 
+                  className="w-full py-4 bg-slate-900 text-white text-sm font-black rounded-xl hover:bg-slate-800 transition-colors shadow-lg flex justify-center items-center gap-2 cursor-pointer disabled:opacity-50"
+                >
+                  {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : "Submit for Owner Sign-off"}
                 </motion.button>
               </form>
             </motion.div>

@@ -16,9 +16,11 @@ export default function StockInwardUI() {
   const [showSuccess, setShowSuccess] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
   const [recentEntries, setRecentEntries] = useState([]);
+  const [suppliers, setSuppliers] = useState([]);
   
   const [isScanning, setIsScanning] = useState(false);
   const [scanSuccess, setScanSuccess] = useState(false);
+  const [hasScanned, setHasScanned] = useState(false);
   const fileInputRef = useRef(null);
 
   const {
@@ -41,11 +43,24 @@ export default function StockInwardUI() {
     }
   });
 
-  // Setup PDF.js for offline parsing
+  // Setup PDF.js for offline parsing & fetch directories
   useEffect(() => {
     pdfjsLib.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
     fetchRecentEntries();
+    fetchSuppliers();
   }, []);
+
+  const fetchSuppliers = async () => {
+    try {
+      const res = await fetch("/api/suppliers", { cache: "no-store" });
+      if (res.ok) {
+        const json = await res.json();
+        setSuppliers(json.suppliers || json.data || []);
+      }
+    } catch (e) {
+      console.error("Failed to fetch suppliers", e);
+    }
+  };
 
   const fetchRecentEntries = async () => {
     try {
@@ -141,13 +156,22 @@ export default function StockInwardUI() {
       const quantityMatch = text.match(/(?:Qty|Quantity)[\s:]*([\d]+)/i);
       if (quantityMatch) setValue("quantity", quantityMatch[1]);
 
-      // Heuristic for Supplier Name
+      // Heuristic for Supplier Name matched against unified directory
       const lines = text.split('\n').filter(l => l.trim().length > 3);
-      if (lines.length > 0) setValue("supplierName", lines[0].trim());
+      if (lines.length > 0) {
+        const topSupplier = lines[0].trim().toLowerCase();
+        const matched = suppliers.find(s => s.name.toLowerCase().includes(topSupplier) || topSupplier.includes(s.name.toLowerCase()));
+        if (matched) {
+          setValue("supplierName", matched.name);
+        } else if (suppliers.length > 0) {
+          setValue("supplierName", suppliers[0].name);
+        }
+      }
 
-      setValue("remarks", "Auto-extracted by Offline AI. Please verify.");
+      setValue("remarks", "Auto-extracted by Offline AI. Please verify before saving.");
       setScanSuccess(true);
-      toast.success("Document scanned successfully!");
+      setHasScanned(true);
+      toast.success("Document scanned! Please review the fields below before submitting.");
     } catch (error) {
       console.error("AI Scan failed:", error);
       toast.error("Failed to scan document. Please enter manually.");
@@ -295,15 +319,18 @@ export default function StockInwardUI() {
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Supplier / Vendor</label>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Supplier / Vendor Name</label>
               <div className="relative">
-                <Building2 className="w-5 h-5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                <input 
-                  type="text" 
+                <Building2 className="w-5 h-5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <select 
                   {...register("supplierName", { required: true })} 
-                  className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-600 transition-all" 
-                  placeholder="e.g. Ramesh Traders" 
-                />
+                  className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-600 transition-all cursor-pointer"
+                >
+                  <option value="">-- Select Supplier from Directory --</option>
+                  {suppliers.map((s) => (
+                    <option key={s._id || s.name} value={s.name}>{s.name}</option>
+                  ))}
+                </select>
               </div>
             </div>
 
@@ -349,9 +376,18 @@ export default function StockInwardUI() {
             </AnimatePresence>
             <motion.button 
               whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+              animate={hasScanned ? {
+                scale: [1, 1.03, 1],
+                boxShadow: [
+                  "0 4px 6px -1px rgba(79, 70, 229, 0.2)",
+                  "0 10px 15px -3px rgba(79, 70, 229, 0.4)",
+                  "0 4px 6px -1px rgba(79, 70, 229, 0.2)"
+                ]
+              } : {}}
+              transition={hasScanned ? { repeat: Infinity, duration: 1.8 } : {}}
               type="submit" 
               disabled={isSubmitting || isScanning}
-              className={`ml-auto px-8 py-3.5 rounded-xl text-sm font-black text-white shadow-lg flex justify-center items-center gap-2 transition-colors ${(isSubmitting || isScanning) ? 'bg-indigo-400' : 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-200'}`}
+              className={`ml-auto px-8 py-3.5 rounded-xl text-sm font-black text-white shadow-lg flex justify-center items-center gap-2 transition-colors cursor-pointer ${(isSubmitting || isScanning) ? 'bg-indigo-400' : 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-200'}`}
             >
               {isSubmitting ? <><Loader2 className="w-5 h-5 animate-spin" /> Saving...</> : <><Save className="w-5 h-5" /> Save Entry</>}
             </motion.button>

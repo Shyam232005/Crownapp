@@ -2,16 +2,12 @@ import { NextResponse } from 'next/server';
 import mongoose from 'mongoose';
 import jwt from 'jsonwebtoken';
 import { cookies } from 'next/headers';
+import connectDB from '@/lib/mongodb';
 import Transaction from '@/models/Transaction';
 import LedgerEntry from '@/models/LedgerEntry';
 import Customer from '@/models/Customer';
 
 export const dynamic = 'force-dynamic';
-
-const connectDB = async () => {
-  if (mongoose.connection.readyState >= 1) return;
-  await mongoose.connect(process.env.MONGODB_URI);
-};
 
 export async function POST(request) {
   try {

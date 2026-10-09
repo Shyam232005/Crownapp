@@ -121,10 +121,10 @@ export default function EmployeeDashboardUI() {
   };
 
   const quickActions = [
-    { name: "Quick Entry", href: "/employee/submissions", icon: PlusSquare, bgClass: "bg-indigo-50 border-indigo-100", textClass: "text-indigo-600", desc: "Fast general logging & vouchers" },
-    { name: "Log Expense", href: "/employee/log-expense", icon: Receipt, bgClass: "bg-rose-50 border-rose-100", textClass: "text-rose-600", desc: "Upload bills & petty cash spend" },
-    { name: "Stock Inward", href: "/employee/inward-stock", icon: PackageOpen, bgClass: "bg-amber-50 border-amber-100", textClass: "text-amber-600", desc: "Log inward purchase goods" },
-    { name: "Customer Khata", href: "/employee/customer-khata", icon: Users, bgClass: "bg-emerald-50 border-emerald-100", textClass: "text-emerald-600", desc: "Customer ledgers & balances" },
+    { name: "Quick Entry", href: "/employee/submissions", icon: PlusSquare, bgClass: "bg-indigo-50 border-indigo-100", textClass: "text-indigo-600", desc: "Sales, receipts & vouchers" },
+    { name: "Log Expense", href: "/employee/log-expense", icon: Receipt, bgClass: "bg-rose-50 border-rose-100", textClass: "text-rose-600", desc: "Petty cash & Payment to Give (Udhaar)" },
+    { name: "Stock Inward", href: "/employee/inward-stock", icon: PackageOpen, bgClass: "bg-amber-50 border-amber-100", textClass: "text-amber-600", desc: "Inward goods & supplier bills" },
+    { name: "Customer Khata", href: "/employee/customer-khata", icon: Users, bgClass: "bg-emerald-50 border-emerald-100", textClass: "text-emerald-600", desc: "Payment to Collect (Udhaar) & Advances" },
     { name: "Stock Check", href: "/employee/stock-check", icon: ClipboardCheck, bgClass: "bg-blue-50 border-blue-100", textClass: "text-blue-600", desc: "Real-time godown audit" },
     { name: "Leave Request", href: "/employee/leaves", icon: CalendarDays, bgClass: "bg-purple-50 border-purple-100", textClass: "text-purple-600", desc: "Apply for leaves & time-off" }
   ];
@@ -376,10 +376,14 @@ export default function EmployeeDashboardUI() {
                           {getStatusBadge(item.status)}
                           <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${
                             item.type === 'SALES' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/60' :
+                            item.type === 'ADVANCE_RECEIVED' ? 'bg-teal-50 text-teal-700 border border-teal-200/60' :
                             item.type === 'PURCHASE' ? 'bg-blue-50 text-blue-700 border border-blue-200/60' :
                             'bg-slate-100 text-slate-700 border border-slate-200'
                           }`}>
-                            {item.type}
+                            {item.type === 'SALES' ? 'Sale (Payment to Collect)' :
+                             item.type === 'ADVANCE_RECEIVED' ? 'Advance Received (To Adjust Later)' :
+                             item.type === 'PURCHASE' ? 'Purchase (Payment to Give)' :
+                             item.type}
                           </span>
                           <span className="text-[11px] font-semibold text-slate-400">
                             {new Date(item.transactionDate || item.createdAt).toLocaleDateString()}

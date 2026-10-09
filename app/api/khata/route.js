@@ -84,14 +84,22 @@ export async function POST(request) {
     // Khata update logic: ADVANCE_RECEIVED or PAYMENT_IN subtracts (-$) from customer's total due
     const delta = isAdvanceOrPayment ? -amountNum : amountNum;
 
-    const customer = await Customer.findOneAndUpdate(
-      { companyId: targetCompanyId, name },
-      { 
-        $setOnInsert: { companyId: targetCompanyId, name },
-        $inc: { balance: delta }
-      },
-      { upsert: true, new: true }
-    );
+    let customer = await Customer.findOne({ companyId: targetCompanyId, name });
+    if (!customer) {
+      if (decoded.role === 'Employee') {
+        return NextResponse.json({
+          error: "Selected customer does not exist in the Owner's unified directory. Employees may only transact with registered customers."
+        }, { status: 400 });
+      }
+      customer = await Customer.create({
+        companyId: targetCompanyId,
+        name,
+        balance: delta
+      });
+    } else {
+      customer.balance = (customer.balance || 0) + delta;
+      await customer.save();
+    }
 
     const isEmployee = decoded.role === 'Employee';
     const status = isEmployee ? 'PENDING_OWNER_APPROVAL' : 'APPROVED';

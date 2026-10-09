@@ -64,6 +64,13 @@ export async function POST(request) {
       return NextResponse.json({ error: "Invalid session" }, { status: 401 });
     }
 
+    if (decoded.role === "Employee") {
+      return NextResponse.json(
+        { error: "Unauthorized: Employees cannot create new customers. Please contact the Business Owner to register new customers." },
+        { status: 403 }
+      );
+    }
+
     await connectDB();
 
     const companyId = decoded.companyId || decoded.userId;

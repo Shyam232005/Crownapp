@@ -6,6 +6,7 @@ import {
   Receipt, Sparkles, IndianRupee, Send, FileText, 
   Scan, Loader2, CheckCircle2, History, Inbox
 } from "lucide-react";
+import { toast } from "sonner";
 import confetti from "canvas-confetti";
 
 export default function LogExpenseUI() {
@@ -16,6 +17,7 @@ export default function LogExpenseUI() {
   // AI Scanner States
   const [isScanning, setIsScanning] = useState(false);
   const [scanSuccess, setScanSuccess] = useState(false);
+  const [hasScanned, setHasScanned] = useState(false);
   const fileInputRef = useRef(null);
 
   const { register, handleSubmit, reset, setValue, formState: { isSubmitting } } = useForm({
@@ -71,14 +73,16 @@ export default function LogExpenseUI() {
       }, ...recentExpenses]);
       
       setShowSuccess(true);
+      setHasScanned(false);
       try {
         confetti({ particleCount: 35, spread: 60, origin: { y: 0.7 } });
       } catch (e) {}
       setScanSuccess(false);
+      toast.success("Expense submitted for Owner approval!");
       setTimeout(() => setShowSuccess(false), 3000);
       reset(); 
     } catch (error) {
-      alert("Failed to submit expense. Please try again.");
+      toast.error(error.message || "Failed to submit expense. Please try again.");
     }
   };
 
@@ -92,12 +96,14 @@ export default function LogExpenseUI() {
     setTimeout(() => {
       setIsScanning(false);
       setScanSuccess(true);
+      setHasScanned(true);
       
       setValue("category", "Travel & Fuel");
       setValue("amount", "1250");
       setValue("paidTo", "Indian Oil Station");
       setValue("details", "Fuel for delivery van (Auto-extracted)");
-    }, 2500);
+      toast.success("Document scanned! Please review the fields below before submitting.");
+    }, 1500);
   };
 
   return (
@@ -191,8 +197,17 @@ export default function LogExpenseUI() {
             </AnimatePresence>
             <motion.button 
               whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+              animate={hasScanned ? {
+                scale: [1, 1.03, 1],
+                boxShadow: [
+                  "0 4px 6px -1px rgba(15, 23, 42, 0.2)",
+                  "0 10px 15px -3px rgba(15, 23, 42, 0.4)",
+                  "0 4px 6px -1px rgba(15, 23, 42, 0.2)"
+                ]
+              } : {}}
+              transition={hasScanned ? { repeat: Infinity, duration: 1.8 } : {}}
               type="submit" disabled={isSubmitting}
-              className={`ml-auto w-full sm:w-auto px-8 py-3.5 text-white text-sm font-black rounded-xl shadow-lg transition-colors flex justify-center items-center gap-2 ${isSubmitting ? 'bg-slate-700' : 'bg-slate-900 hover:bg-slate-800 shadow-slate-200'}`}
+              className={`ml-auto w-full sm:w-auto px-8 py-3.5 text-white text-sm font-black rounded-xl shadow-lg transition-colors flex justify-center items-center gap-2 cursor-pointer ${isSubmitting ? 'bg-slate-700' : 'bg-slate-900 hover:bg-slate-800 shadow-slate-200'}`}
             >
               {isSubmitting ? <><Loader2 className="w-4 h-4 animate-spin" /> Submitting...</> : <><Send className="w-4 h-4" /> Submit to Owner</>}
             </motion.button>
