@@ -34,10 +34,14 @@ export async function GET(request) {
     let query = {};
 
     if (isStaff) {
-      const staffMember = await CAStaff.findById(decoded.userId);
-      if (staffMember?.caFirmId) caFirmId = staffMember.caFirmId;
-      const assignedIds = (staffMember?.assignedCompanies?.length ? staffMember.assignedCompanies : (staffMember?.assignedClients || [])).map(id => id.toString());
-      if (assignedIds.length === 0) {
+      let assignedIds = decoded.assignedCompanies || [];
+      if (!assignedIds.length) {
+        const staffMember = await CAStaff.findById(decoded.userId).lean();
+        if (staffMember?.caFirmId) caFirmId = staffMember.caFirmId;
+        assignedIds = (staffMember?.assignedCompanies?.length ? staffMember.assignedCompanies : (staffMember?.assignedClients || [])).map(id => id.toString());
+      }
+
+      if (!assignedIds || assignedIds.length === 0) {
         return NextResponse.json({ success: true, data: [] }, { status: 200 });
       }
       query = { caFirmId, clientId: { $in: assignedIds } };

@@ -5,8 +5,8 @@ const CompanyLinkSchema = new mongoose.Schema({
   caFirmId: { type: mongoose.Schema.Types.ObjectId, ref: "CA", required: true, index: true },
   status: { 
     type: String, 
-    enum: ["NONE", "PENDING", "CONNECTED", "REVOKED"], 
-    default: "CONNECTED",
+    enum: ["PENDING", "CONNECTED", "NONE", "REVOKED"], 
+    default: "PENDING",
     index: true 
   },
   lastDataSyncAt: { type: Date, default: Date.now }

@@ -89,7 +89,7 @@ export async function POST(request) {
     const companyId = decoded.companyId || decoded.userId;
     const employeeId = decoded.role === "Employee" ? decoded.userId : body.employeeId || decoded.userId;
 
-    const { customerName, customerEmail, customerPhone, dealType, title, amount, items, validUntil, notes } = body;
+    const { customerId, customerName, customerEmail, customerPhone, dealType, title, amount, items, validUntil, notes, stage } = body;
 
     if (!customerName || !title || !amount) {
       return NextResponse.json(
@@ -108,14 +108,18 @@ export async function POST(request) {
       if (owner) employeeName = owner.name;
     }
 
+    const assignedStage = (stage || (dealType === "INVOICE" ? "WON" : dealType === "OFFER" ? "OFFER_SENT" : "LEAD")).toUpperCase();
+
     const newDeal = new CRMDeal({
       companyId: new mongoose.Types.ObjectId(companyId),
       employeeId: new mongoose.Types.ObjectId(employeeId),
+      customerId: customerId && mongoose.isValidObjectId(customerId) ? new mongoose.Types.ObjectId(customerId) : undefined,
       employeeName,
       customerName: customerName.trim(),
       customerEmail: (customerEmail || "").trim(),
       customerPhone: (customerPhone || "").trim(),
       dealType: (dealType || "QUOTE").toUpperCase(),
+      stage: assignedStage,
       title: title.trim(),
       amount: Number(amount),
       status: "SENT",
@@ -155,16 +159,20 @@ export async function PATCH(request) {
     await connectDB();
 
     const body = await request.json();
-    const { id, status } = body;
+    const { id, status, stage } = body;
 
-    if (!id || !status) {
-      return NextResponse.json({ success: false, error: "Deal ID and new status are required." }, { status: 400 });
+    if (!id || (!status && !stage)) {
+      return NextResponse.json({ success: false, error: "Deal ID and new stage or status are required." }, { status: 400 });
     }
 
     const companyId = decoded.companyId || decoded.userId;
+    const updateFields = {};
+    if (status) updateFields.status = status.toUpperCase();
+    if (stage) updateFields.stage = stage.toUpperCase();
+
     const updatedDeal = await CRMDeal.findOneAndUpdate(
       { _id: new mongoose.Types.ObjectId(id), companyId: new mongoose.Types.ObjectId(companyId) },
-      { $set: { status: status.toUpperCase() } },
+      { $set: updateFields },
       { new: true }
     );
 

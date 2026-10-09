@@ -38,7 +38,37 @@ export async function GET(request) {
     await connectDB();
 
     const query = {};
-    if (clientId) {
+
+    if (isStaff) {
+      let assignedCompanies = decoded.assignedCompanies || [];
+      if (!assignedCompanies.length) {
+        const staffMember = await CAStaff.findById(decoded.userId).lean();
+        assignedCompanies = (staffMember?.assignedCompanies?.length ? staffMember.assignedCompanies : (staffMember?.assignedClients || [])).map(id => id.toString());
+      }
+
+      if (!assignedCompanies || assignedCompanies.length === 0) {
+        return NextResponse.json({ success: true, data: [] }, { status: 200 });
+      }
+
+      const assignedObjectIds = assignedCompanies.filter(id => mongoose.isValidObjectId(id)).map(id => new mongoose.Types.ObjectId(id));
+
+      if (clientId) {
+        const isClientAllowed = assignedCompanies.includes(clientId.toString());
+        if (!isClientAllowed) {
+          return NextResponse.json({ success: false, error: "Unauthorized access to client." }, { status: 403 });
+        }
+        const isObjectId = mongoose.isValidObjectId(clientId);
+        query.$or = [
+          { clientId: clientId.toString() },
+          ...(isObjectId ? [{ companyId: new mongoose.Types.ObjectId(clientId) }] : [])
+        ];
+      } else {
+        query.$or = [
+          { clientId: { $in: assignedCompanies } },
+          { companyId: { $in: assignedObjectIds } }
+        ];
+      }
+    } else if (clientId) {
       const isObjectId = mongoose.isValidObjectId(clientId);
       query.$or = [
         { clientId: clientId.toString() },

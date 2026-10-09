@@ -80,11 +80,11 @@ export default function BankRecoUI() {
     setIsUploading(true);
 
     try {
-      // 1. Upload File via standard Next.js FormData parsing route
+      // 1. Upload File via standard Next.js native FormData parsing route (omits Content-Type header)
       const uploadFormData = new FormData();
       uploadFormData.append("file", file);
 
-      const uploadRes = await fetch("/api/upload", {
+      const uploadRes = await fetch("/api/upload/bank-statement", {
         method: "POST",
         body: uploadFormData
       });

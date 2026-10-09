@@ -2,8 +2,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useForm } from "react-hook-form";
-import Tesseract from "tesseract.js";
-import * as pdfjsLib from "pdfjs-dist";
 import { 
   PackageOpen, Plus, Save, Box, Building2, 
   FileText, CheckCircle2, Loader2, History, Inbox,
@@ -43,9 +41,8 @@ export default function StockInwardUI() {
     }
   });
 
-  // Setup PDF.js for offline parsing & fetch directories
+  // Fetch directories on mount
   useEffect(() => {
-    pdfjsLib.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
     fetchRecentEntries();
     fetchSuppliers();
   }, []);
@@ -122,6 +119,8 @@ export default function StockInwardUI() {
 
     try {
       if (file.type === "application/pdf") {
+        const pdfjsLib = await import("pdfjs-dist");
+        pdfjsLib.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
         const arrayBuffer = await file.arrayBuffer();
         const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
         const page = await pdf.getPage(1);
@@ -134,6 +133,8 @@ export default function StockInwardUI() {
         imageToScan = canvas.toDataURL("image/png");
       }
 
+      const TesseractModule = await import("tesseract.js");
+      const Tesseract = TesseractModule.default || TesseractModule;
       const result = await Tesseract.recognize(imageToScan, 'eng');
       const text = result.data.text;
 

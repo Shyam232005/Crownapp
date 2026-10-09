@@ -35,15 +35,23 @@ export async function GET(request) {
 
     let query = {};
     if (isStaff) {
-      const staffMember = await CAStaff.findById(decoded.userId);
-      const assignedIds = (staffMember?.assignedCompanies?.length ? staffMember.assignedCompanies : (staffMember?.assignedClients || [])).map(id => id.toString());
+      let assignedCompanies = decoded.assignedCompanies || [];
+      if (!assignedCompanies.length) {
+        const staffMember = await CAStaff.findById(decoded.userId).lean();
+        assignedCompanies = (staffMember?.assignedCompanies?.length ? staffMember.assignedCompanies : (staffMember?.assignedClients || [])).map(id => id.toString());
+      }
+
+      if (!assignedCompanies || assignedCompanies.length === 0) {
+        return NextResponse.json({ success: true, data: [] }, { status: 200 });
+      }
+
       if (clientId) {
-        if (!assignedIds.includes(clientId.toString())) {
+        if (!assignedCompanies.includes(clientId.toString())) {
           return NextResponse.json({ success: false, error: "Unauthorized client access" }, { status: 403 });
         }
         query = { clientId };
       } else {
-        query = { clientId: { $in: assignedIds } };
+        query = { clientId: { $in: assignedCompanies } };
       }
     } else if (clientId) {
       query = { clientId };

@@ -78,12 +78,12 @@ export async function POST(request) {
       );
     }
 
-    // 3. Generate Secure JWT Token with role: 'ADMIN'
+    // 3. Generate Secure JWT Token with role: 'SUPER_ADMIN'
     const payload = {
       userId: authenticatedAdmin.id,
       email: authenticatedAdmin.email,
-      role: "ADMIN",
-      normalizedRole: "ADMIN",
+      role: "SUPER_ADMIN",
+      normalizedRole: "SUPER_ADMIN",
       isSuperAdmin: true,
       name: authenticatedAdmin.name,
       companyId: null

@@ -40,8 +40,11 @@ export async function POST(request) {
 
     // 1. Authorization: Ensure CA Firm or Staff is assigned to manage this client
     if (isStaff) {
-      const staffMember = await CAStaff.findById(decoded.userId);
-      const assignedIds = (staffMember?.assignedCompanies?.length ? staffMember.assignedCompanies : (staffMember?.assignedClients || [])).map(id => id.toString());
+      let assignedIds = decoded.assignedCompanies || [];
+      if (!assignedIds.length) {
+        const staffMember = await CAStaff.findById(decoded.userId).lean();
+        assignedIds = (staffMember?.assignedCompanies?.length ? staffMember.assignedCompanies : (staffMember?.assignedClients || [])).map(id => id.toString());
+      }
       if (!assignedIds.includes(clientId.toString())) {
         return NextResponse.json({ success: false, error: "Unauthorized client access: Client company is not assigned to your staff account." }, { status: 403 });
       }

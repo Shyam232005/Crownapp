@@ -54,6 +54,17 @@ const CRMDealSchema = new mongoose.Schema(
       required: true,
       min: 0
     },
+    customerId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Customer",
+      index: true
+    },
+    stage: {
+      type: String,
+      enum: ["LEAD", "OFFER_SENT", "WON", "LOST"],
+      default: "LEAD",
+      index: true
+    },
     status: {
       type: String,
       enum: ["DRAFT", "SENT", "ACCEPTED", "REJECTED", "CONVERTED"],

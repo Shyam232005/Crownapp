@@ -35,14 +35,16 @@ export async function GET(request) {
     let clientDocs = [];
 
     if (isStaff) {
-      const staffMember = await CAStaff.findById(decoded.userId);
-      if (!staffMember) {
-        return NextResponse.json({ success: false, error: "Staff member not found" }, { status: 404 });
+      let assignedIds = decoded.assignedCompanies || [];
+      if (!assignedIds.length) {
+        const staffMember = await CAStaff.findById(decoded.userId).lean();
+        if (!staffMember) {
+          return NextResponse.json({ success: false, error: "Staff member not found" }, { status: 404 });
+        }
+        assignedIds = staffMember.assignedCompanies?.length 
+          ? staffMember.assignedCompanies 
+          : (staffMember.assignedClients || []);
       }
-
-      const assignedIds = staffMember.assignedCompanies?.length 
-        ? staffMember.assignedCompanies 
-        : (staffMember.assignedClients || []);
 
       if (!assignedIds || assignedIds.length === 0) {
         return NextResponse.json({ success: true, data: [] }, { status: 200 });

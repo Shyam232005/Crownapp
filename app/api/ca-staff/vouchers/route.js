@@ -35,13 +35,16 @@ export async function GET(request) {
 
     let assignedClientIds = [];
     if (isStaff) {
-      const staffMember = await CAStaff.findById(decoded.userId);
-      if (!staffMember) {
-        return NextResponse.json({ success: false, error: "Staff member not found" }, { status: 404 });
+      assignedClientIds = decoded.assignedCompanies || [];
+      if (!assignedClientIds.length) {
+        const staffMember = await CAStaff.findById(decoded.userId).lean();
+        if (!staffMember) {
+          return NextResponse.json({ success: false, error: "Staff member not found" }, { status: 404 });
+        }
+        assignedClientIds = staffMember.assignedCompanies?.length 
+          ? staffMember.assignedCompanies 
+          : (staffMember.assignedClients || []);
       }
-      assignedClientIds = staffMember.assignedCompanies?.length 
-        ? staffMember.assignedCompanies 
-        : (staffMember.assignedClients || []);
     } else {
       const caFirmId = decoded.caFirmId || decoded.companyId || decoded.userId;
       const caFirm = await CA.findById(caFirmId);

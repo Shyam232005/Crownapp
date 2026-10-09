@@ -57,8 +57,8 @@ export async function GET(request) {
       }, { status: 200 });
     }
 
-    // 1. Calculate Summary Metrics
-    const [pendingVouchers, openQueries] = await Promise.all([
+    // 1. Calculate Summary Metrics & Work Performance Tracker
+    const [pendingVouchers, openQueries, completedVouchers] = await Promise.all([
       Transaction.countDocuments({
         companyId: { $in: assignedClientIds },
         status: "PENDING_CA_REVIEW"
@@ -66,8 +66,23 @@ export async function GET(request) {
       Transaction.countDocuments({
         companyId: { $in: assignedClientIds },
         status: "QUERY_RAISED"
+      }),
+      Transaction.countDocuments({
+        companyId: { $in: assignedClientIds },
+        status: { $in: ["APPROVED", "EXPORTED"] }
       })
     ]);
+
+    const totalTasks = pendingVouchers + openQueries + completedVouchers;
+    const completionRate = totalTasks > 0 ? Math.round((completedVouchers / totalTasks) * 100) : 100;
+
+    const performance = {
+      pending: pendingVouchers,
+      inProgress: openQueries,
+      completed: completedVouchers,
+      total: totalTasks,
+      completionRate
+    };
 
     const assignedClients = assignedClientIds.length;
 
@@ -110,6 +125,7 @@ export async function GET(request) {
           pendingVouchers,
           openQueries
         },
+        performance,
         reviewQueue
       }
     }, { status: 200 });
