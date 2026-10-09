@@ -60,11 +60,14 @@ export async function POST(request) {
     const cookieStore = await cookies();
     const token = cookieStore.get("crown_session")?.value;
     
-    if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!token) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    if (!["CA", "CAStaff", "CA-Employee"].includes(decoded.role)) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    const isCA = decoded.role === "CA" || decoded.normalizedRole === "CA";
+    const isStaff = decoded.role === "CAStaff" || decoded.role === "CA-Employee" || decoded.role === "CA_STAFF" || decoded.normalizedRole === "CA_STAFF";
+
+    if (!isCA && !isStaff) {
+      return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
     }
 
     await connectDB();
@@ -72,18 +75,23 @@ export async function POST(request) {
     const { clientId, clientName, month, outputTax, itc, liability } = body;
 
     if (!clientId || outputTax === undefined || itc === undefined) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+      return NextResponse.json({ success: false, error: "Missing required fields" }, { status: 400 });
     }
 
-    let caFirmId = decoded.companyId || decoded.userId;
-    if (decoded.role === "CAStaff" || decoded.role === "CA-Employee") {
+    let caFirmId = decoded.caFirmId || decoded.companyId || decoded.userId;
+    if (isStaff) {
       const staffMember = await CAStaff.findById(decoded.userId);
-      if (staffMember) caFirmId = staffMember.caFirmId;
+      if (staffMember?.caFirmId) caFirmId = staffMember.caFirmId;
+      const assignedIds = (staffMember?.assignedCompanies?.length ? staffMember.assignedCompanies : (staffMember?.assignedClients || [])).map(id => id.toString());
+      if (!assignedIds.includes(clientId.toString())) {
+        return NextResponse.json({ success: false, error: "Unauthorized client access" }, { status: 403 });
+      }
     }
 
     const newDraft = await TaxDraft.create({
       caFirmId,
       companyId: clientId,
+      clientId,
       clientName,
       month,
       outputTax,
@@ -97,7 +105,7 @@ export async function POST(request) {
 
   } catch (error) {
     console.error("POST Tax Draft Error:", error);
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    return NextResponse.json({ success: false, error: error.message || "Internal Server Error" }, { status: 500 });
   }
 }
 
@@ -105,11 +113,14 @@ export async function PATCH(request) {
   try {
     const cookieStore = await cookies();
     const token = cookieStore.get("crown_session")?.value;
-    if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!token) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    if (!["CA", "CAStaff", "CA-Employee"].includes(decoded.role)) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    const isCA = decoded.role === "CA" || decoded.normalizedRole === "CA";
+    const isStaff = decoded.role === "CAStaff" || decoded.role === "CA-Employee" || decoded.role === "CA_STAFF" || decoded.normalizedRole === "CA_STAFF";
+
+    if (!isCA && !isStaff) {
+      return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
     }
 
     await connectDB();
@@ -125,6 +136,6 @@ export async function PATCH(request) {
 
   } catch (error) {
     console.error("PATCH Tax Draft Error:", error);
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    return NextResponse.json({ success: false, error: error.message || "Internal Server Error" }, { status: 500 });
   }
 }

@@ -84,9 +84,17 @@ export async function POST(request) {
       }, { status: 200 });
     }
 
+    let companyId = decoded.companyId;
+    if (!companyId) {
+      const Employee = mongoose.models.Employee || (await import("@/models/Employee")).default;
+      const emp = await Employee.findById(decoded.userId);
+      companyId = emp?.companyId;
+    }
+
     const newRecord = await Attendance.create({
       employeeId: decoded.userId.toString(),
-      companyId: decoded.companyId ? new mongoose.Types.ObjectId(decoded.companyId) : undefined,
+      companyId: companyId,
+      createdBy: decoded.userId,
       date: today,
       punchInTime: today,
       status: "punched-in"

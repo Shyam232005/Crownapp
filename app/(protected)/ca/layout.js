@@ -11,9 +11,13 @@ export default async function CaLayout({ children }) {
     if (token) {
         try {
             const decoded = jwt.decode(token);
-            const role = decoded?.role || decoded?.normalizedRole;
-            if (role === "CA-Employee" || role === "CAStaff" || role === "CA_STAFF") {
+            const role = (decoded?.normalizedRole || decoded?.role || "").toUpperCase();
+            if (role === "CA-EMPLOYEE" || role === "CASTAFF" || role === "CA_STAFF") {
                 redirect("/ca-staff/dashboard");
+            } else if (role === "OWNER") {
+                redirect("/owner/dashboard");
+            } else if (role === "EMPLOYEE") {
+                redirect("/employee/dashboard");
             }
         } catch (_) {}
     }

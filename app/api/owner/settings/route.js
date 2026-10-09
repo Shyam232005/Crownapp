@@ -4,6 +4,9 @@ import jwt from "jsonwebtoken";
 import { cookies } from "next/headers";
 import Owner from "@/models/Owner"; // Ensure you have this model
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 const connectDB = async () => {
   if (mongoose.connection.readyState >= 1) return;
   await mongoose.connect(process.env.MONGODB_URI);
@@ -14,19 +17,21 @@ export async function GET(request) {
     const cookieStore = await cookies();
     const token = cookieStore.get("crown_session")?.value;
     
-    if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!token) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    if (decoded.role !== "Owner") {
-      return NextResponse.json({ error: "Forbidden: Owner access only" }, { status: 403 });
+    const isOwner = decoded.role === "Owner" || decoded.role === "OWNER" || decoded.normalizedRole === "OWNER";
+    if (!isOwner) {
+      return NextResponse.json({ success: false, error: "Forbidden: Owner access only" }, { status: 403 });
     }
 
     await connectDB();
     
-    let owner = await Owner.findById(decoded.userId).select("-password");
+    const ownerCompanyId = decoded.companyId || decoded.userId;
+    let owner = await Owner.findById(ownerCompanyId).select("-password");
     
     if (!owner) {
-      return NextResponse.json({ error: "Owner not found" }, { status: 404 });
+      return NextResponse.json({ success: false, error: "Owner not found" }, { status: 404 });
     }
 
     if (!owner.inviteCode) {
@@ -39,7 +44,7 @@ export async function GET(request) {
 
   } catch (error) {
     console.error("GET Owner Settings Error:", error);
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    return NextResponse.json({ success: false, error: "Internal Server Error" }, { status: 500 });
   }
 }
 
@@ -48,11 +53,12 @@ export async function PATCH(request) {
     const cookieStore = await cookies();
     const token = cookieStore.get("crown_session")?.value;
     
-    if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!token) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    if (decoded.role !== "Owner") {
-      return NextResponse.json({ error: "Forbidden: Owner access only" }, { status: 403 });
+    const isOwner = decoded.role === "Owner" || decoded.role === "OWNER" || decoded.normalizedRole === "OWNER";
+    if (!isOwner) {
+      return NextResponse.json({ success: false, error: "Forbidden: Owner access only" }, { status: 403 });
     }
 
     await connectDB();

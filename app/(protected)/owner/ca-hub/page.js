@@ -16,6 +16,7 @@ export default function CAAccessManagement() {
     // CA Firm Mapping State
     const [inviteCode, setInviteCode] = useState("");
     const [isLinking, setIsLinking] = useState(false);
+    const [isSyncing, setIsSyncing] = useState(false);
     const [linkedFirm, setLinkedFirm] = useState(null);
 
     // Initial load of Firm Link status and Data Vault history
@@ -117,6 +118,33 @@ export default function CAAccessManagement() {
         }
     };
 
+    const handleManualSync = async () => {
+        setIsSyncing(true);
+        const loadingToast = toast.loading("Sending latest financial data to CA Firm...");
+        try {
+            const res = await fetch("/api/owner/ca-link/sync", {
+                method: "POST"
+            });
+            const result = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(result.error || "Failed to sync data with CA");
+
+            try {
+              confetti({ particleCount: 35, spread: 60 });
+            } catch (e) {}
+
+            setSentHistory((prev) => [{
+                month: new Date().toLocaleString('default', { month: 'long', year: 'numeric' }),
+                sentAt: new Date().toLocaleTimeString('en-IN')
+            }, ...prev]);
+
+            toast.success("Data successfully synchronized with CA Firm!", { id: loadingToast });
+        } catch (error) {
+            toast.error(error.message, { id: loadingToast });
+        } finally {
+            setIsSyncing(false);
+        }
+    };
+
     return (
         <div className="p-4 sm:p-8 max-w-6xl mx-auto w-full pb-24">
             <div className="mb-8">
@@ -137,16 +165,25 @@ export default function CAAccessManagement() {
                         </h2>
                         
                         {linkedFirm ? (
-                            <div className="bg-slate-800/50 border border-slate-700 p-4 rounded-xl flex items-center justify-between">
+                            <div className="bg-slate-800/50 border border-slate-700 p-4 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                                 <div>
                                     <p className="text-sm font-bold text-white">{linkedFirm}</p>
                                     <p className="text-xs font-medium text-emerald-400 flex items-center gap-1 mt-1">
                                         <CheckCircle2 className="w-3 h-3" /> Securely connected
                                     </p>
                                 </div>
-                                <button className="text-xs font-bold text-slate-400 hover:text-white transition-colors cursor-not-allowed" title="Contact support to unlink">
-                                    Unlink
-                                </button>
+                                <div className="flex items-center gap-2">
+                                    <motion.button
+                                        whileHover={{ scale: 1.02 }}
+                                        whileTap={{ scale: 0.98 }}
+                                        onClick={handleManualSync}
+                                        disabled={isSyncing}
+                                        className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white px-3.5 py-2 rounded-xl text-xs font-bold transition-all shadow-md shadow-indigo-600/30 cursor-pointer disabled:opacity-50"
+                                    >
+                                        {isSyncing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                                        Send Data to CA
+                                    </motion.button>
+                                </div>
                             </div>
                         ) : (
                             <form onSubmit={handleLinkFirm} className="space-y-4">

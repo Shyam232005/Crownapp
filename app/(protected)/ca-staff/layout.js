@@ -11,10 +11,12 @@ export default async function CaStaffLayout({ children }) {
     if (token) {
         try {
             const decoded = jwt.decode(token);
-            const role = decoded?.role || decoded?.normalizedRole;
-            if (role === "Owner" || role === "OWNER") {
+            const role = (decoded?.normalizedRole || decoded?.role || "").toUpperCase();
+            if (role === "CA") {
+                redirect("/ca/dashboard");
+            } else if (role === "OWNER") {
                 redirect("/owner/dashboard");
-            } else if (role === "Employee" || role === "EMPLOYEE") {
+            } else if (role === "EMPLOYEE") {
                 redirect("/employee/dashboard");
             }
         } catch (_) {}

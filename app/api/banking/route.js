@@ -5,6 +5,7 @@ import { cookies } from 'next/headers';
 import Transaction from '@/models/Transaction';
 
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 const connectDB = async () => {
   if (mongoose.connection.readyState >= 1) return;
@@ -16,7 +17,7 @@ export async function GET(request) {
     const cookieStore = await cookies();
     const token = cookieStore.get("crown_session")?.value;
     
-    if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!token) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     if (!decoded || !decoded.userId) return NextResponse.json({ error: "Invalid session" }, { status: 401 });
 

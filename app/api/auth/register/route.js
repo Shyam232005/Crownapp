@@ -154,7 +154,7 @@ export async function POST(request) {
     // 4. REGISTER CA-EMPLOYEE / CA_STAFF
     else if (role === "CA-Employee" || role === "CA_STAFF" || role === "CAStaff") {
       const codeToQuery = (body.staffInviteCode || inviteCode || joinedViaCode || "").trim();
-      if (!codeToQuery) return NextResponse.json({ error: "Invalid CA Staff Invite Code" }, { status: 400 });
+      if (!codeToQuery) return NextResponse.json({ error: "Invalid Code" }, { status: 400 });
       
       const caFirm = await CA.findOne({ 
         $or: [
@@ -163,7 +163,7 @@ export async function POST(request) {
           { caInviteCode: codeToQuery }
         ]
       });
-      if (!caFirm) return NextResponse.json({ error: "Invalid CA Staff Invite Code" }, { status: 400 });
+      if (!caFirm) return NextResponse.json({ error: "Invalid Code" }, { status: 400 });
 
       const existingStaff = await CAStaff.findOne({ $or: [{ email }, { phoneNumber }] });
       if (existingStaff) return NextResponse.json({ error: "Staff already exists." }, { status: 400 });

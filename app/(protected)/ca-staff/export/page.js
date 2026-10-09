@@ -48,7 +48,7 @@ export default function ExportDataUI() {
     const loadingToast = toast.loading("Compiling ledger data...");
     
     try {
-      const res = await fetch('/api/ca-staff/export-data', { 
+      const res = await fetch('/api/ca-staff/export', { 
         method: 'POST', 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data) 

@@ -5,6 +5,7 @@ import { cookies } from "next/headers";
 import Attendance from "@/models/Attendance";
 
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 const connectDB = async () => {
   if (mongoose.connection.readyState >= 1) return;
@@ -106,10 +107,18 @@ export async function POST(request) {
         }, { status: 200 });
       }
 
+      let companyId = decoded.companyId;
+      if (!companyId) {
+        const Employee = mongoose.models.Employee || (await import("@/models/Employee")).default;
+        const emp = await Employee.findById(decoded.userId);
+        companyId = emp?.companyId;
+      }
+
       // Create new record for today with server-side dates
       const newRecord = await Attendance.create({
         employeeId: decoded.userId.toString(),
-        companyId: decoded.companyId ? new mongoose.Types.ObjectId(decoded.companyId) : undefined,
+        companyId: companyId,
+        createdBy: decoded.userId,
         date: today,
         punchInTime: today,
         status: "punched-in"

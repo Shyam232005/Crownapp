@@ -13,29 +13,32 @@ const connectDB = async () => {
   await mongoose.connect(process.env.MONGODB_URI);
 };
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export async function POST(request) {
   try {
     const cookieStore = await cookies();
     const token = cookieStore.get("crown_session")?.value;
     
-    if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!token) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    if (!["CA", "CAStaff", "CA-Employee"].includes(decoded.role)) {
-      return NextResponse.json({ error: "Forbidden: Staff access only" }, { status: 403 });
+    const isCA = decoded.role === "CA" || decoded.normalizedRole === "CA";
+    const isStaff = decoded.role === "CAStaff" || decoded.role === "CA-Employee" || decoded.role === "CA_STAFF" || decoded.normalizedRole === "CA_STAFF";
+
+    if (!isCA && !isStaff) {
+      return NextResponse.json({ success: false, error: "Forbidden: Staff access only" }, { status: 403 });
     }
 
     await connectDB();
     const { clientId, period, format } = await request.json();
 
     if (!clientId) {
-      return NextResponse.json({ error: "Client ID is required" }, { status: 400 });
+      return NextResponse.json({ success: false, error: "Client ID is required" }, { status: 400 });
     }
 
     // 1. Authorization: Ensure CA Firm or Staff is assigned to manage this client
-    const isCA = decoded.role === "CA" || decoded.normalizedRole === "CA";
-    const isStaff = decoded.role === "CAStaff" || decoded.role === "CA-Employee" || decoded.role === "CA_STAFF" || decoded.normalizedRole === "CA_STAFF";
-
     if (isStaff) {
       const staffMember = await CAStaff.findById(decoded.userId);
       const assignedIds = (staffMember?.assignedCompanies?.length ? staffMember.assignedCompanies : (staffMember?.assignedClients || [])).map(id => id.toString());
@@ -96,7 +99,7 @@ export async function POST(request) {
     }).sort({ transactionDate: 1 });
 
     if (exportData.length === 0) {
-        return NextResponse.json({ error: `No verified entries found for ${period}` }, { status: 404 });
+        return NextResponse.json({ success: false, error: `No verified entries found for ${period}` }, { status: 404 });
     }
 
     // 4. Construct CSV File String
@@ -125,6 +128,6 @@ export async function POST(request) {
 
   } catch (error) {
     console.error("POST Export Data Error:", error);
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    return NextResponse.json({ success: false, error: "Internal Server Error" }, { status: 500 });
   }
 }

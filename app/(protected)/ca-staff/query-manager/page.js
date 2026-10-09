@@ -24,10 +24,10 @@ function ScrutinyContent() {
       if (!clientId) return;
       const fetchClientName = async () => {
           try {
-              const res = await fetch(`/api/ca/clients`);
+              const res = await fetch(`/api/ca-staff/clients`);
               const json = await res.json();
-              const clients = json.data?.clients || [];
-              const target = clients.find(c => c.id === clientId);
+              const clients = Array.isArray(json.data) ? json.data : (json.data?.clients || []);
+              const target = clients.find(c => (c.id || c._id) === clientId);
               if (target) setClientName(target.companyName || target.name);
           } catch (e) {
               console.error("Failed to load client name");
@@ -94,14 +94,11 @@ function ScrutinyContent() {
     setIsLoadingData(true);
     
     try {
-      // Fetch ONLY Pending CA Review or Queried submissions
-      const res = await fetch(`/api/ca/export?clientId=${clientId}`);
+      const res = await fetch(`/api/ca-staff/vouchers`);
       if (res.ok) {
         const json = await res.json();
-        // Since the CA export API returns APPROVED entries, we need an endpoint specifically for scrutiny
-        // For this UI, we will hit the same API but filter locally for demonstration (or use a dedicated scrutiny endpoint)
         const allData = json.data || [];
-        setVouchers(allData); // Ideally, fetch from a dedicated `/api/ca-staff/scrutiny-queue`
+        setVouchers(allData.filter(v => (v.companyId?._id || v.companyId) === clientId));
       }
     } catch (error) {
       console.error("Failed to fetch vouchers", error);
@@ -114,14 +111,20 @@ function ScrutinyContent() {
   const handleAction = async (voucherId, actionType) => {
       const loadingToast = toast.loading(`${actionType === 'APPROVED' ? 'Verifying' : 'Raising query'}...`);
       try {
-          // This would ideally hit an endpoint like `/api/ca-staff/scrutiny-action`
-          // which updates the Transaction status to APPROVED or QUERY_RAISED
+          const res = await fetch('/api/ca-staff/vouchers', {
+            method: 'PATCH',
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ transactionId: voucherId, status: actionType })
+          });
+          if (!res.ok) {
+            const errData = await res.json().catch(() => ({}));
+            throw new Error(errData.error || "Failed to update voucher status");
+          }
           
-          // Optimistic UI update
           setVouchers(prev => prev.filter(v => v._id !== voucherId));
           toast.success(`Voucher updated successfully!`, { id: loadingToast });
       } catch (error) {
-          toast.error("Failed to update voucher status", { id: loadingToast });
+          toast.error(error.message || "Failed to update voucher status", { id: loadingToast });
       }
   };
 

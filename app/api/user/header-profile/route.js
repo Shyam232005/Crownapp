@@ -7,6 +7,9 @@ import Employee from "@/models/Employee";
 import CA from "@/models/CA";
 import CAStaff from "@/models/CAStaff";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 const connectDB = async () => {
   if (mongoose.connection.readyState >= 1) return;
   await mongoose.connect(process.env.MONGODB_URI);
@@ -18,7 +21,7 @@ export async function GET(request) {
     const token = cookieStore.get("crown_session")?.value;
 
     if (!token) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
@@ -126,7 +129,7 @@ export async function GET(request) {
       }
     } 
     // 4. CA Staff Profile
-    else if (decoded.role === "CAStaff" || decoded.role === "CA-Employee") {
+    else if (decoded.role === "CAStaff" || decoded.role === "CA-Employee" || decoded.role === "CA_STAFF" || decoded.normalizedRole === "CA_STAFF") {
       const staff = await CAStaff.findById(decoded.userId);
       if (staff) {
         userData.name = staff.name;

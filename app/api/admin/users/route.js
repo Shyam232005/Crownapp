@@ -11,6 +11,9 @@ import LedgerEntry from "@/models/LedgerEntry";
 import Submission from "@/models/Submission";
 import AuditLog from "@/models/AuditLog";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 const connectDB = async () => {
   if (mongoose.connection.readyState >= 1) return;
   await mongoose.connect(process.env.MONGODB_URI);

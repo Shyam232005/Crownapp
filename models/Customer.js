@@ -8,6 +8,10 @@ const CustomerSchema = new mongoose.Schema(
       required: [true, 'Company ID is required'],
       index: true,
     },
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      index: true,
+    },
     name: {
       type: String,
       required: [true, 'Customer name is required'],

@@ -10,6 +10,7 @@ const connectDB = async () => {
 };
 
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 // Owner GET: View Pending Approvals for their company
 export async function GET(request) {

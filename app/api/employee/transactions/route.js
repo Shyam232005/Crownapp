@@ -5,6 +5,7 @@ import { cookies } from 'next/headers';
 import Transaction from '@/models/Transaction';
 
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 const connectDB = async () => {
   if (mongoose.connection.readyState >= 1) return;

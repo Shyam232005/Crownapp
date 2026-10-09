@@ -1,3 +1,5 @@
+import { NextResponse } from "next/server";
+import mongoose from "mongoose";
 import jwt from "jsonwebtoken";
 import { cookies } from "next/headers";
 import CAStaff from "@/models/CAStaff";
@@ -5,6 +7,11 @@ import { AuditReport } from "@/models/Compliance";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
+
+const connectDB = async () => {
+  if (mongoose.connection.readyState >= 1) return;
+  await mongoose.connect(process.env.MONGODB_URI);
+};
 
 export async function GET(request) {
   try {
@@ -57,12 +64,31 @@ export async function GET(request) {
 
 export async function POST(request) {
   try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get("crown_session")?.value;
+    if (!token) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const isCA = decoded.role === "CA" || decoded.normalizedRole === "CA";
+    const isStaff = decoded.role === "CAStaff" || decoded.role === "CA-Employee" || decoded.role === "CA_STAFF" || decoded.normalizedRole === "CA_STAFF";
+    if (!isCA && !isStaff) {
+      return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
+    }
+
     await connectDB();
     const body = await request.json();
 
+    if (isStaff && body.clientId) {
+      const staffMember = await CAStaff.findById(decoded.userId);
+      const assignedIds = (staffMember?.assignedCompanies?.length ? staffMember.assignedCompanies : (staffMember?.assignedClients || [])).map(id => id.toString());
+      if (!assignedIds.includes(body.clientId.toString())) {
+        return NextResponse.json({ success: false, error: "Unauthorized client access" }, { status: 403 });
+      }
+    }
+
     const newAudit = await AuditReport.create({
-      clientId: body.clientId || "client-temp-123",
-      caStaffId: body.caStaffId || "staff-temp-123",
+      clientId: body.clientId,
+      caStaffId: decoded.userId,
       period: body.period,
       issuesFound: Number(body.issuesFound) || 0,
       status: body.status || "In Progress",
@@ -76,7 +102,7 @@ export async function POST(request) {
   } catch (error) {
     console.error("POST Audit Error:", error);
     return NextResponse.json(
-      { success: false, error: "Failed to create audit report" }, 
+      { success: false, error: error.message || "Failed to create audit report" }, 
       { status: 400 }
     );
   }

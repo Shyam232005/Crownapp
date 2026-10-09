@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import mongoose from "mongoose";
 import Owner from "@/models/Owner";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 const connectDB = async () => {
     if (mongoose.connection.readyState >= 1) return;
     await mongoose.connect(process.env.MONGODB_URI);
@@ -26,14 +29,14 @@ export async function GET(request) {
         }
 
         if (!userId) {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+            return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
         }
 
         // 2. Find Owner by userId
         let owner = await Owner.findById(userId).select("inviteCode companyName name email");
 
         if (!owner) {
-            return NextResponse.json({ error: "Owner not found" }, { status: 404 });
+            return NextResponse.json({ success: false, error: "Owner not found" }, { status: 404 });
         }
 
         if (!owner.inviteCode) {
@@ -44,6 +47,7 @@ export async function GET(request) {
 
         // 3. Return Owner Profile and inviteCode
         return NextResponse.json({
+            success: true,
             inviteCode: owner.inviteCode,
             companyName: owner.companyName,
             name: owner.name,
@@ -52,6 +56,6 @@ export async function GET(request) {
 
     } catch (error) {
         console.error("Profile Fetch Error:", error);
-        return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+        return NextResponse.json({ success: false, error: "Internal Server Error" }, { status: 500 });
     }
 }

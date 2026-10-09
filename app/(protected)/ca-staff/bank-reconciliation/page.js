@@ -22,13 +22,13 @@ export default function BankRecoUI() {
   useEffect(() => {
     const fetchClients = async () => {
       try {
-        const res = await fetch("/api/ca/clients");
+        const res = await fetch("/api/ca-staff/clients");
         if (res.ok) {
           const json = await res.json();
-          const clientList = json.data.clients || [];
+          const clientList = Array.isArray(json.data) ? json.data : (json.data?.clients || []);
           setClients(clientList);
           if (clientList.length > 0) {
-            setSelectedClient(clientList[0].id);
+            setSelectedClient(clientList[0].id || clientList[0]._id);
           }
         }
       } catch (error) {
@@ -45,7 +45,7 @@ export default function BankRecoUI() {
     const fetchRecoData = async () => {
       setIsLoading(true);
       try {
-        const res = await fetch(`/api/ca/bank-reco?clientId=${selectedClient}`);
+        const res = await fetch(`/api/ca-staff/bank-reco?clientId=${selectedClient}`);
         if (res.ok) {
           const json = await res.json();
           setRecoData(json.data || []);
@@ -86,7 +86,7 @@ export default function BankRecoUI() {
         bookAmt: null
       };
 
-      const res = await fetch('/api/ca/bank-reco', {
+      const res = await fetch('/api/ca-staff/bank-reco', {
         method: 'POST',
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
@@ -97,7 +97,7 @@ export default function BankRecoUI() {
       toast.success("Statement processed successfully!", { id: loadingToast });
       
       // Refresh the table
-      const refreshRes = await fetch(`/api/ca/bank-reco?clientId=${selectedClient}`);
+      const refreshRes = await fetch(`/api/ca-staff/bank-reco?clientId=${selectedClient}`);
       const json = await refreshRes.json();
       setRecoData(json.data || []);
 
