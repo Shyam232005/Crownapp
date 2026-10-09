@@ -184,7 +184,7 @@ export default function OwnerKhataPage() {
             transition={{ delay: 0.1 }}
             className="text-xs sm:text-sm font-medium text-slate-500"
           >
-            Manage customer accounts, track outstanding Udhaar, advance receipts, and GSTIN compliance.
+            Manage customer accounts, track outstanding Payment to Collect, advance receipts, and GSTIN compliance.
           </motion.p>
         </div>
 
@@ -207,7 +207,7 @@ export default function OwnerKhataPage() {
         >
           <div>
             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">
-              Payment to Collect (Udhaar)
+              Payment to Collect
             </p>
             <p className="text-xl sm:text-2xl font-black text-rose-600 flex items-center">
               <IndianRupee className="w-5 h-5 mr-0.5 text-rose-600" />
@@ -227,7 +227,7 @@ export default function OwnerKhataPage() {
         >
           <div>
             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">
-              Advance Received (To Adjust Later)
+              Advance Received from Customer
             </p>
             <p className="text-xl sm:text-2xl font-black text-emerald-600 flex items-center">
               <IndianRupee className="w-5 h-5 mr-0.5 text-emerald-600" />
@@ -275,8 +275,8 @@ export default function OwnerKhataPage() {
         <div className="flex gap-2 w-full md:w-auto overflow-x-auto pb-1 md:pb-0 scrollbar-hide">
           {[
             { id: "ALL", label: "All Accounts" },
-            { id: "DUE", label: "To Collect (Udhaar)" },
-            { id: "ADVANCE", label: "Advance (To Adjust Later)" },
+            { id: "DUE", label: "Payment to Collect" },
+            { id: "ADVANCE", label: "Advance Received from Customer" },
             { id: "SETTLED", label: "Settled (Zero)" }
           ].map((tab) => (
             <button
@@ -432,9 +432,9 @@ export default function OwnerKhataPage() {
                         }`}
                       >
                         {isDue
-                          ? "Payment to Collect (Udhaar)"
+                          ? "Payment to Collect"
                           : isAdvance
-                          ? "Advance Received (To Adjust Later)"
+                          ? "Advance Received from Customer"
                           : "Settled Balance"}
                       </p>
                       {cust.openingBalance !== undefined && cust.openingBalance !== 0 && (
@@ -615,7 +615,7 @@ export default function OwnerKhataPage() {
                       }`}
                     >
                       <ArrowUpRight className="w-4 h-4 text-rose-500" />
-                      Payment to Collect (Udhaar) (+₹)
+                      Payment to Collect (+₹)
                     </button>
                     <button
                       type="button"
@@ -627,7 +627,7 @@ export default function OwnerKhataPage() {
                       }`}
                     >
                       <ArrowDownLeft className="w-4 h-4 text-emerald-500" />
-                      Advance Received (To Adjust Later) (-₹)
+                      Advance Received from Customer (-₹)
                     </button>
                   </div>
 

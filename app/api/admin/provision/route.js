@@ -17,7 +17,7 @@ async function verifySuperAdmin() {
   if (!token) return null;
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    if (decoded.isSuperAdmin || decoded.role === "Admin") {
+    if (decoded.isSuperAdmin || decoded.role === "Admin" || decoded.role === "ADMIN" || decoded.role === "SUPER_ADMIN") {
       return decoded;
     }
     return null;

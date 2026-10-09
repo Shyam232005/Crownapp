@@ -12,6 +12,7 @@ export default function CAAccessManagement() {
     const [dataRequests, setDataRequests] = useState([]);
     const [sentHistory, setSentHistory] = useState([]);
     const [isApproving, setIsApproving] = useState(false);
+    const [pendingFirmRequests, setPendingFirmRequests] = useState([]);
     
     // CA Firm Mapping State
     const [inviteCode, setInviteCode] = useState("");
@@ -39,12 +40,54 @@ export default function CAAccessManagement() {
                     
                     setSentHistory(data.history || []);
                 }
+
+                // Also fetch pending firm access approval requests
+                const approvalsRes = await fetch("/api/owner/ca-approvals");
+                if (approvalsRes.ok) {
+                    const approvalsData = await approvalsRes.json();
+                    setPendingFirmRequests(approvalsData.data || []);
+                }
             } catch (error) {
                 console.error("Failed to fetch hub data:", error);
             }
         };
         fetchHubData();
     }, []);
+
+    const handleApproveFirmRequest = async (request, action) => {
+        setIsApproving(true);
+        const loadingToast = toast.loading(action === "APPROVE" ? "Approving CA access request..." : "Rejecting CA request...");
+        try {
+            const res = await fetch("/api/owner/ca-approvals", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    linkId: request.linkId,
+                    caFirmId: request.caFirmId,
+                    action: action
+                })
+            });
+
+            const result = await res.json();
+            if (!res.ok) throw new Error(result.error || "Action failed");
+
+            if (action === "APPROVE") {
+                setLinkedFirm(request.firmName || "CA Firm");
+                try {
+                  confetti({ particleCount: 40, spread: 70 });
+                } catch (e) {}
+                toast.success(`CA access approved for ${request.firmName}!`, { id: loadingToast });
+            } else {
+                toast.success("CA access request rejected.", { id: loadingToast });
+            }
+
+            setPendingFirmRequests(prev => prev.filter(r => r.linkId !== request.linkId));
+        } catch (error) {
+            toast.error(error.message, { id: loadingToast });
+        } finally {
+            setIsApproving(false);
+        }
+    };
 
     const handleApprove = async (request) => {
         setIsApproving(true);
@@ -219,7 +262,7 @@ export default function CAAccessManagement() {
                             <LockKeyhole className="w-4 h-4 text-amber-500" /> Pending Access Requests
                         </h2>
 
-                        {dataRequests.length === 0 ? (
+                        {pendingFirmRequests.length === 0 && dataRequests.length === 0 ? (
                             <div className="bg-slate-50 rounded-xl p-8 text-center border border-slate-100 border-dashed">
                                 <ShieldCheck className="w-8 h-8 text-slate-300 mx-auto mb-2" />
                                 <p className="text-sm font-bold text-slate-600">Your data is locked & secure.</p>
@@ -227,6 +270,42 @@ export default function CAAccessManagement() {
                             </div>
                         ) : (
                             <AnimatePresence>
+                                {pendingFirmRequests.map((req) => (
+                                    <motion.div
+                                        layout initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }}
+                                        key={req.linkId}
+                                        className="bg-indigo-50/70 border border-indigo-100 p-4 rounded-xl mb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                                    >
+                                        <div>
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <span className="bg-indigo-600 text-white text-[10px] font-black px-2 py-0.5 rounded uppercase">New CA Firm</span>
+                                                <p className="text-sm font-black text-slate-900">{req.firmName}</p>
+                                            </div>
+                                            <p className="text-xs font-semibold text-slate-500">
+                                                {req.email || req.phoneNumber || "Chartered Accountant"} requested access to audit your books.
+                                            </p>
+                                        </div>
+                                        <div className="flex items-center gap-2 shrink-0">
+                                            <motion.button
+                                                whileHover={{ scale: 1.02 }} 
+                                                whileTap={{ scale: 0.98 }}
+                                                onClick={() => handleApproveFirmRequest(req, "APPROVE")}
+                                                disabled={isApproving}
+                                                className="flex items-center justify-center gap-1.5 bg-emerald-600 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-emerald-700 shadow-md shadow-emerald-600/20 disabled:opacity-50 cursor-pointer"
+                                            >
+                                                {isApproving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />} 
+                                                Approve
+                                            </motion.button>
+                                            <button
+                                                onClick={() => handleApproveFirmRequest(req, "REJECT")}
+                                                disabled={isApproving}
+                                                className="px-3 py-2 bg-white text-slate-600 border border-slate-200 rounded-xl text-xs font-bold hover:bg-slate-100 transition-colors"
+                                            >
+                                                Reject
+                                            </button>
+                                        </div>
+                                    </motion.div>
+                                ))}
                                 {dataRequests.map((req) => (
                                     <motion.div
                                         layout initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }}

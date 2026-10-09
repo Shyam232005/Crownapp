@@ -109,7 +109,7 @@ export default function SalesAndCustomers() {
 
                 <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between border-l-4 border-l-rose-500">
                     <div>
-                        <p className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Payment to Collect (Udhaar)</p>
+                        <p className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Payment to Collect</p>
                         <p className="text-xl sm:text-2xl font-black text-rose-600 flex items-center">
                             <IndianRupee className="w-4 h-4 sm:w-5 sm:h-5 mr-0.5 text-rose-600" />
                             {stats.totalPending.toLocaleString("en-IN")}
@@ -204,7 +204,7 @@ export default function SalesAndCustomers() {
                                     </div>
 
                                     <div className="flex justify-between items-center bg-slate-50 rounded-xl p-3 border border-slate-100">
-                                        <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Payment to Collect (Udhaar)</p>
+                                        <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Payment to Collect</p>
                                         <p className={`text-sm font-black flex items-center ${cust.pending > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
                                             <IndianRupee className="w-3.5 h-3.5 mr-0.5" /> {cust.pending > 0 ? cust.pending.toLocaleString("en-IN") : "Settled"}
                                         </p>

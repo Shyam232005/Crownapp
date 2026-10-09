@@ -4,6 +4,7 @@ import jwt from "jsonwebtoken";
 import { cookies } from "next/headers";
 import Transaction from "@/models/Transaction";
 import Leave from "@/models/Leave";
+import Stock from "@/models/Stock";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -71,12 +72,33 @@ export async function GET(request) {
       if (group._id === "PURCHASE" || group._id === "EXPENSE") totalExpense += group.total;
     });
 
+    // 5. Query Today's Inward Stock Live from Stock.js
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date();
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const todayInwardStock = await Stock.find({
+      companyId: objectId,
+      date: { $gte: startOfDay, $lte: endOfDay }
+    })
+      .sort({ date: -1, createdAt: -1 })
+      .lean();
+
+    const inwardCount = todayInwardStock.length;
+    const inwardTotalQty = todayInwardStock.reduce((acc, item) => acc + (item.quantity || 0), 0);
+
     return NextResponse.json({
       success: true,
       data: {
         pendingApprovals,
         totalIncome,
-        totalExpense
+        totalExpense,
+        todayInward: {
+          count: inwardCount,
+          totalQuantity: inwardTotalQty,
+          items: todayInwardStock
+        }
       }
     }, {
       status: 200,

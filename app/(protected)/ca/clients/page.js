@@ -14,6 +14,9 @@ export default function CAClientsDirectoryUI() {
   const [inviteCode, setInviteCode] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [isCopied, setIsCopied] = useState(false);
+  const [requestInviteCode, setRequestInviteCode] = useState("");
+  const [isSubmittingRequest, setIsSubmittingRequest] = useState(false);
+  const [showRequestInput, setShowRequestInput] = useState(false);
 
   useEffect(() => {
     const fetchClients = async () => {
@@ -43,6 +46,29 @@ export default function CAClientsDirectoryUI() {
     setTimeout(() => setIsCopied(false), 2000);
   };
 
+  const handleSendAccessRequest = async (e) => {
+    e.preventDefault();
+    if (!requestInviteCode.trim()) return;
+    setIsSubmittingRequest(true);
+    const toastId = toast.loading("Sending access request to SME Owner...");
+    try {
+      const res = await fetch('/api/ca/request-access', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ inviteCode: requestInviteCode.trim() })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to request access");
+      toast.success(data.message || "Request sent! Status is PENDING Owner approval.", { id: toastId });
+      setRequestInviteCode("");
+      setShowRequestInput(false);
+    } catch (err) {
+      toast.error(err.message, { id: toastId });
+    } finally {
+      setIsSubmittingRequest(false);
+    }
+  };
+
   const filteredClients = clients.filter(client => 
     client.companyName.toLowerCase().includes(searchQuery.toLowerCase()) ||
     client.ownerName.toLowerCase().includes(searchQuery.toLowerCase())
@@ -61,17 +87,61 @@ export default function CAClientsDirectoryUI() {
           </p>
         </div>
         
-        <div className="relative w-full md:w-80">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-          <input 
-            type="text" 
-            placeholder="Search clients..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-600 transition-all shadow-sm"
-          />
+        <div className="flex items-center gap-3 w-full md:w-auto">
+          <div className="relative flex-1 md:w-72">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <input 
+              type="text" 
+              placeholder="Search clients..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-600 transition-all shadow-sm"
+            />
+          </div>
+          <button
+            onClick={() => setShowRequestInput(!showRequestInput)}
+            className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-bold shadow-sm transition-all shrink-0 cursor-pointer"
+          >
+            + Connect Client
+          </button>
         </div>
       </div>
+
+      {/* Connect Client Modal / Drawer */}
+      <AnimatePresence>
+        {showRequestInput && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            className="overflow-hidden mb-6"
+          >
+            <div className="bg-white border-2 border-indigo-200 rounded-3xl p-6 shadow-sm">
+              <h3 className="text-sm font-black text-slate-900 mb-1">Request Audit Access</h3>
+              <p className="text-xs font-medium text-slate-500 mb-4">
+                Enter the SME Owner's Invite Code to request access to their financial ledger.
+              </p>
+              <form onSubmit={handleSendAccessRequest} className="flex flex-col sm:flex-row gap-3">
+                <input
+                  type="text"
+                  placeholder="e.g. CROWN-A1B2C3"
+                  value={requestInviteCode}
+                  onChange={(e) => setRequestInviteCode(e.target.value.toUpperCase())}
+                  className="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold uppercase tracking-wider focus:outline-none focus:ring-2 focus:ring-indigo-600"
+                />
+                <button
+                  type="submit"
+                  disabled={isSubmittingRequest || !requestInviteCode.trim()}
+                  className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-bold disabled:opacity-50 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+                >
+                  {isSubmittingRequest ? <Loader2 className="w-4 h-4 animate-spin" /> : <KeyRound className="w-4 h-4" />}
+                  Submit Request
+                </button>
+              </form>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Invite Code Banner */}
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-indigo-50 border border-indigo-100 rounded-3xl p-6 sm:p-8 mb-8 flex flex-col sm:flex-row items-center justify-between gap-6">

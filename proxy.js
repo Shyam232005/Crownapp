@@ -3,11 +3,16 @@ import { jwtVerify } from "jose";
 
 const ROLE_DASHBOARDS = {
   Owner: "/owner/dashboard",
+  OWNER: "/owner/dashboard",
   Employee: "/employee/dashboard",
+  EMPLOYEE: "/employee/dashboard",
   CA: "/ca/dashboard",
   "CA-Employee": "/ca-staff/dashboard",
   CAStaff: "/ca-staff/dashboard",
-  Admin: "/console"
+  CA_STAFF: "/ca-staff/dashboard",
+  Admin: "/console",
+  ADMIN: "/console",
+  SUPER_ADMIN: "/console"
 };
 
 export async function proxy(request) {
@@ -64,12 +69,23 @@ export async function proxy(request) {
     }
   }
 
-  // 5. Secret Super-Admin Portal Cloaking & Protection (/console)
-  const isConsoleRoute = pathname === "/console" || pathname.startsWith("/console/");
-  if (isConsoleRoute) {
-    if (!user || (!user.isSuperAdmin && user.role !== "Admin")) {
+  const isAdmin = user && (user.isSuperAdmin || user.role === "Admin" || user.role === "ADMIN" || user.role === "SUPER_ADMIN");
+
+  // 5. Secret Super-Admin Portal Cloaking & Protection (/admin/* and /console/*)
+  const isAdminRoute =
+    pathname === "/admin" ||
+    pathname.startsWith("/admin/") ||
+    pathname === "/console" ||
+    pathname.startsWith("/console/");
+
+  if (isAdminRoute) {
+    if (!isAdmin) {
       // Immediate cloaked redirect to login to obscure admin console existence
       return NextResponse.redirect(new URL("/login", request.url));
+    }
+    // Prevent redirect loop if admin visits /admin root
+    if (pathname === "/admin" || pathname === "/admin/dashboard") {
+      return NextResponse.redirect(new URL("/console", request.url));
     }
     return NextResponse.next();
   }
@@ -84,7 +100,7 @@ export async function proxy(request) {
 
   // 7. If already authenticated and accessing login or signup, redirect to appropriate portal
   if (isAuthPage && user) {
-    if (user.isSuperAdmin || user.role === "Admin") {
+    if (isAdmin) {
       return NextResponse.redirect(new URL("/console", request.url));
     }
     const dest = ROLE_DASHBOARDS[user.role] || "/owner/dashboard";
@@ -100,18 +116,18 @@ export async function proxy(request) {
     }
 
     // Super-Admin has master audit bypass across all portals
-    if (user.isSuperAdmin || user.role === "Admin") {
+    if (isAdmin) {
       return NextResponse.next();
     }
 
     const userRole = user.role;
 
-    if (isOwnerRoute && userRole !== "Owner") {
+    if (isOwnerRoute && userRole !== "Owner" && userRole !== "OWNER") {
       const dest = ROLE_DASHBOARDS[userRole] || "/login";
       return NextResponse.redirect(new URL(dest, request.url));
     }
 
-    if (isEmployeeRoute && userRole !== "Employee") {
+    if (isEmployeeRoute && userRole !== "Employee" && userRole !== "EMPLOYEE") {
       const dest = ROLE_DASHBOARDS[userRole] || "/login";
       return NextResponse.redirect(new URL(dest, request.url));
     }
@@ -121,7 +137,7 @@ export async function proxy(request) {
       return NextResponse.redirect(new URL(dest, request.url));
     }
 
-    if (isCaStaffRoute && userRole !== "CA-Employee" && userRole !== "CAStaff") {
+    if (isCaStaffRoute && userRole !== "CA-Employee" && userRole !== "CAStaff" && userRole !== "CA_STAFF") {
       const dest = ROLE_DASHBOARDS[userRole] || "/login";
       return NextResponse.redirect(new URL(dest, request.url));
     }
@@ -134,6 +150,8 @@ export const middleware = proxy;
 
 export const config = {
   matcher: [
+    "/admin",
+    "/admin/:path*",
     "/console",
     "/console/:path*",
     "/owner/:path*",

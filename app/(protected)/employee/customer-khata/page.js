@@ -109,7 +109,7 @@ export default function EmployeeKhata() {
         baseAmount: amountNum,
         totalAmount: amountNum,
         amount: amountNum,
-        description: data.description || (isAdvance ? "Advance Received (To Adjust Later)" : "Sales Invoice Entry"),
+        description: data.description || (isAdvance ? "Advance Received from Customer" : "Sales Invoice Entry"),
         paymentMode: data.paymentMode || "UPI"
       };
 
@@ -243,7 +243,7 @@ export default function EmployeeKhata() {
                       <p className={`text-[10px] font-black uppercase tracking-wider ${
                         isDue ? 'text-rose-600' : isAdvance ? 'text-emerald-600' : 'text-slate-500'
                       }`}>
-                        {isDue ? 'Payment to Collect (Udhaar)' : isAdvance ? 'Advance Received (To Adjust Later)' : 'Settled (Zero Balance)'}
+                        {isDue ? 'Payment to Collect' : isAdvance ? 'Advance Received from Customer' : 'Settled (Zero Balance)'}
                       </p>
                     </div>
                     <p className={`text-sm font-black flex items-center shrink-0 ${
@@ -300,7 +300,7 @@ export default function EmployeeKhata() {
                     }`}
                   >
                     <ArrowDownToLine className="w-6 h-6" />
-                    <span className="text-xs font-black">Advance / Payment Received</span>
+                    <span className="text-xs font-black">Advance Received from Customer</span>
                   </button>
                 </div>
 
@@ -322,7 +322,7 @@ export default function EmployeeKhata() {
                       <option value="">-- Choose Customer from Directory --</option>
                       {customers.map((c) => (
                         <option key={c.name} value={c.name}>
-                          {c.name} {c.balance > 0 ? `(Udhaar Due: ₹${c.balance.toLocaleString("en-IN")})` : c.balance < 0 ? `(Advance: ₹${Math.abs(c.balance).toLocaleString("en-IN")})` : `(Settled)`}
+                          {c.name} {c.balance > 0 ? `(Payment to Collect: ₹${c.balance.toLocaleString("en-IN")})` : c.balance < 0 ? `(Advance Received: ₹${Math.abs(c.balance).toLocaleString("en-IN")})` : `(Settled)`}
                         </option>
                       ))}
                     </select>

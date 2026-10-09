@@ -15,7 +15,8 @@ import {
   Users,
   Clock,
   CalendarRange,
-  X
+  X,
+  FileText
 } from "lucide-react";
 import SignOutModal from "@/components/global/SignOutModal";
 
@@ -24,6 +25,7 @@ const navConfig = [
     category: "Daily Tasks",
     items: [
       { name: "Quick Entry", icon: PlusSquare, pathname: "/employee/dashboard" },
+      { name: "CRM Deals", icon: FileText, pathname: "/employee/crm" },
       { name: "Inward Stock", icon: Package, pathname: "/employee/inward-stock" },
       { name: "Log Expense", icon: Receipt, pathname: "/employee/log-expense" },
     ],

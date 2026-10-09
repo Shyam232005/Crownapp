@@ -3,8 +3,10 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   ShoppingBag, Building2, Receipt, Filter, 
-  Loader2, IndianRupee, FileText, Search, ChevronRight 
+  Loader2, IndianRupee, FileText, Search, ChevronRight,
+  ChevronLeft, Plus, CheckCircle2, ArrowRight
 } from "lucide-react";
+import { toast } from "sonner";
 
 export default function PurchasesAndVendors() {
   const [purchases, setPurchases] = useState([]);
@@ -13,50 +15,68 @@ export default function PurchasesAndVendors() {
   const [activeTab, setActiveTab] = useState("Bills");
   const [searchQuery, setSearchQuery] = useState("");
 
-  useEffect(() => {
-    const fetchPurchases = async () => {
-      try {
-        // Updated to call our new secure Transactions API
-        const res = await fetch("/api/owner/transactions?type=PURCHASE");
-        if (res.ok) {
-          const json = await res.json();
-          
-          const purchaseData = json.data || [];
-          setPurchases(purchaseData);
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 8;
 
-          // Auto-generate Vendor Directory based on bills
-          const vendorMap = {};
-          purchaseData.forEach((bill) => {
-            const vendorName = bill.metadata?.vendorName;
-            if (vendorName) {
-              const name = vendorName.trim();
-              if (!vendorMap[name]) {
-                vendorMap[name] = { 
-                  name, 
-                  gstin: bill.metadata?.gstin || "Not Provided", 
-                  totalVolume: 0, 
-                  billCount: 0 
-                };
-              }
-              vendorMap[name].totalVolume += (bill.totalAmount || 0);
-              vendorMap[name].billCount += 1;
-              
-              if (bill.metadata?.gstin && vendorMap[name].gstin === "Not Provided") {
-                vendorMap[name].gstin = bill.metadata.gstin;
-              }
+  // New Purchase Bill Modal & Step-Logic
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [step, setStep] = useState(1);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [billForm, setBillForm] = useState({
+    vendorName: "",
+    gstin: "",
+    invoiceNumber: "",
+    billDate: new Date().toISOString().split("T")[0],
+    itemName: "",
+    amount: "",
+    gstRate: "18",
+    paymentMode: "Payment to Give", // "Payment to Give" (Payable) or "Advance Paid to Vendor"
+    notes: ""
+  });
+
+  const fetchPurchases = async () => {
+    try {
+      setIsLoading(true);
+      const res = await fetch("/api/owner/transactions?type=PURCHASE");
+      if (res.ok) {
+        const json = await res.json();
+        const purchaseData = json.data || [];
+        setPurchases(purchaseData);
+
+        // Auto-generate Vendor Directory based on bills
+        const vendorMap = {};
+        purchaseData.forEach((bill) => {
+          const vendorName = bill.metadata?.vendorName;
+          if (vendorName) {
+            const name = vendorName.trim();
+            if (!vendorMap[name]) {
+              vendorMap[name] = { 
+                name, 
+                gstin: bill.metadata?.gstin || "Not Provided", 
+                totalVolume: 0, 
+                billCount: 0 
+              };
             }
-          });
-          
-          // Convert object to array and sort by highest volume
-          setVendors(Object.values(vendorMap).sort((a, b) => b.totalVolume - a.totalVolume));
-        }
-      } catch (error) {
-        console.error("Failed to fetch purchases:", error);
-      } finally {
-        setIsLoading(false);
+            vendorMap[name].totalVolume += (bill.totalAmount || 0);
+            vendorMap[name].billCount += 1;
+            
+            if (bill.metadata?.gstin && vendorMap[name].gstin === "Not Provided") {
+              vendorMap[name].gstin = bill.metadata.gstin;
+            }
+          }
+        });
+        
+        setVendors(Object.values(vendorMap).sort((a, b) => b.totalVolume - a.totalVolume));
       }
-    };
+    } catch (error) {
+      console.error("Failed to fetch purchases:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
+  useEffect(() => {
     fetchPurchases();
   }, []);
 
@@ -75,8 +95,88 @@ export default function PurchasesAndVendors() {
     v.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredPurchases.length / itemsPerPage) || 1;
+  const paginatedPurchases = filteredPurchases.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  const handleNextStep = (e) => {
+    e.preventDefault();
+    if (step === 1) {
+      if (!billForm.vendorName.trim()) {
+        toast.error("Please enter Vendor / Supplier Name.");
+        return;
+      }
+      setStep(2);
+    } else if (step === 2) {
+      if (!billForm.amount || Number(billForm.amount) <= 0) {
+        toast.error("Please enter a valid bill amount.");
+        return;
+      }
+      setStep(3);
+    }
+  };
+
+  const handlePrevStep = (e) => {
+    e.preventDefault();
+    setStep((prev) => Math.max(1, prev - 1));
+  };
+
+  const handleSaveBill = async (e) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    const toastId = toast.loading("Saving vendor purchase bill...");
+    try {
+      const payload = {
+        type: "PURCHASE",
+        totalAmount: Number(billForm.amount),
+        status: "APPROVED",
+        transactionDate: billForm.billDate,
+        description: billForm.itemName || "Vendor Purchase Bill",
+        metadata: {
+          vendorName: billForm.vendorName.trim(),
+          gstin: billForm.gstin.trim(),
+          invoiceNumber: billForm.invoiceNumber.trim(),
+          paymentMode: billForm.paymentMode,
+          gstRate: Number(billForm.gstRate)
+        }
+      };
+
+      const res = await fetch("/api/owner/transactions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to record bill");
+
+      toast.success("Vendor bill recorded successfully!", { id: toastId });
+      setIsModalOpen(false);
+      setStep(1);
+      setBillForm({
+        vendorName: "",
+        gstin: "",
+        invoiceNumber: "",
+        billDate: new Date().toISOString().split("T")[0],
+        itemName: "",
+        amount: "",
+        gstRate: "18",
+        paymentMode: "Payment to Give",
+        notes: ""
+      });
+      fetchPurchases();
+    } catch (err) {
+      toast.error(err.message, { id: toastId });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
-    <div className="p-4 sm:p-8 max-w-7xl mx-auto w-full">
+    <div className="p-4 sm:p-8 max-w-7xl mx-auto w-full pb-24">
       {/* Header Section */}
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-4 mb-6 sm:mb-8">
         <div>
@@ -84,7 +184,7 @@ export default function PurchasesAndVendors() {
             <ShoppingBag className="w-6 h-6 text-indigo-600" /> Purchases & Vendors
           </motion.h1>
           <motion.p initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.1 }} className="text-xs sm:text-sm font-medium text-slate-500">
-            Track your business expenses and supplier directory.
+            Track your supplier purchases, Payment to Give (Payables), and vendor directory.
           </motion.p>
         </div>
         
@@ -93,14 +193,22 @@ export default function PurchasesAndVendors() {
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input 
               type="text" 
-              placeholder="Search..."
+              placeholder="Search bills, vendors..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setCurrentPage(1);
+              }}
               className="w-full sm:w-64 pl-9 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-600 transition-all shadow-sm"
             />
           </div>
-          <button className="flex items-center justify-center gap-2 text-sm font-bold text-slate-600 bg-white border border-slate-200 px-4 py-2.5 rounded-xl hover:bg-slate-50 transition-colors shadow-sm shrink-0">
-            <Filter className="w-4 h-4" />
+
+          <button 
+            type="button"
+            onClick={() => { setIsModalOpen(true); setStep(1); }}
+            className="flex items-center justify-center gap-2 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 px-4 py-2.5 rounded-xl transition-all shadow-md shadow-indigo-600/20 shrink-0 cursor-pointer"
+          >
+            <Plus className="w-4 h-4" /> Log Bill
           </button>
         </div>
       </div>
@@ -109,7 +217,7 @@ export default function PurchasesAndVendors() {
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 mb-6 sm:mb-8">
         <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between border-l-4 border-l-indigo-500 col-span-2 md:col-span-1">
           <div>
-            <p className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Total Purchase Value</p>
+            <p className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Total Purchases</p>
             <p className="text-xl sm:text-2xl font-black text-slate-900 flex items-center">
               <IndianRupee className="w-4 h-4 sm:w-5 sm:h-5 text-slate-900 mr-0.5" />
               {stats.totalValue.toLocaleString("en-IN")}
@@ -147,7 +255,7 @@ export default function PurchasesAndVendors() {
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`relative px-5 py-2.5 rounded-xl text-sm font-black transition-all ${
+            className={`relative px-5 py-2.5 rounded-xl text-sm font-black transition-all cursor-pointer ${
               activeTab === tab ? "text-slate-900" : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
             }`}
           >
@@ -183,58 +291,103 @@ export default function PurchasesAndVendors() {
                 <Receipt className="w-8 h-8 text-indigo-300" />
               </div>
               <h3 className="text-lg font-black text-slate-800 mb-2">No Purchase Bills Yet</h3>
-              <p className="text-sm font-medium text-slate-500 max-w-sm mx-auto">
-                Once employee submits vendor payments and you approve them, they will automatically appear here.
+              <p className="text-sm font-medium text-slate-500 max-w-sm mx-auto mb-4">
+                Log your vendor purchase bills or approve staff-submitted expenses to track payments.
               </p>
+              <button
+                type="button"
+                onClick={() => { setIsModalOpen(true); setStep(1); }}
+                className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:bg-indigo-700 transition-colors cursor-pointer"
+              >
+                + Log First Bill
+              </button>
             </motion.div>
           ) : (
-            <AnimatePresence mode="popLayout">
-              {filteredPurchases.map((item) => (
-                <motion.div 
-                  layout initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }}
-                  key={item._id} 
-                  className="w-full bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between transition-shadow gap-4 md:gap-0"
-                >
-                  <div className="flex items-start md:items-center gap-4 sm:gap-5">
-                    <div className="w-12 h-12 shrink-0 rounded-2xl bg-indigo-50 flex items-center justify-center border border-indigo-100">
-                      <Receipt className="w-6 h-6 text-indigo-600" />
-                    </div>
-                    <div>
-                      <h4 className="text-sm sm:text-base font-black text-slate-900 mb-1">{item.metadata?.vendorName || "Unknown Vendor"}</h4>
-                      <div className="flex flex-wrap items-center gap-2">
-                        {item.metadata?.invoiceNumber && (
-                          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
-                            Bill: {item.metadata.invoiceNumber}
+            <>
+              <AnimatePresence mode="popLayout">
+                {paginatedPurchases.map((item) => (
+                  <motion.div 
+                    layout initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }}
+                    key={item._id} 
+                    className="w-full bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between transition-shadow gap-4 md:gap-0"
+                  >
+                    <div className="flex items-start md:items-center gap-4 sm:gap-5">
+                      <div className="w-12 h-12 shrink-0 rounded-2xl bg-indigo-50 flex items-center justify-center border border-indigo-100">
+                        <Receipt className="w-6 h-6 text-indigo-600" />
+                      </div>
+                      <div>
+                        <h4 className="text-sm sm:text-base font-black text-slate-900 mb-1">{item.metadata?.vendorName || "Unknown Vendor"}</h4>
+                        <div className="flex flex-wrap items-center gap-2">
+                          {item.metadata?.invoiceNumber && (
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
+                              Bill: {item.metadata.invoiceNumber}
+                            </span>
+                          )}
+                          <span className="text-[10px] font-bold text-slate-400">
+                            {new Date(item.transactionDate || item.createdAt).toLocaleDateString('en-IN')}
                           </span>
-                        )}
-                        <span className="text-[10px] font-bold text-slate-400">
-                          {new Date(item.transactionDate || item.createdAt).toLocaleDateString('en-IN')}
-                        </span>
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
-                          item.status === 'APPROVED' || item.status === 'EXPORTED' 
-                            ? 'bg-emerald-100 text-emerald-700' 
-                            : 'bg-orange-100 text-orange-700'
-                        }`}>
-                          {item.status.replace(/_/g, ' ')}
-                        </span>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
+                            item.status === 'APPROVED' || item.status === 'EXPORTED' 
+                              ? 'bg-emerald-100 text-emerald-700' 
+                              : 'bg-orange-100 text-orange-700'
+                          }`}>
+                            {item.status.replace(/_/g, ' ')}
+                          </span>
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  <div className="flex items-center justify-between md:justify-end gap-6 border-t md:border-0 border-slate-100 pt-4 md:pt-0">
-                    <div className="text-left md:text-right">
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Paid Via {item.metadata?.paymentMode || 'Bank/Cash'}</p>
-                      <p className="text-lg font-black text-slate-900 flex items-center">
-                        <IndianRupee className="w-4 h-4 mr-0.5" /> {item.totalAmount?.toLocaleString("en-IN")}
-                      </p>
+                    <div className="flex items-center justify-between md:justify-end gap-6 border-t md:border-0 border-slate-100 pt-4 md:pt-0">
+                      <div className="text-left md:text-right">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">
+                          {item.metadata?.paymentMode || 'Payment to Give'}
+                        </p>
+                        <p className="text-lg font-black text-slate-900 flex items-center">
+                          <IndianRupee className="w-4 h-4 mr-0.5 text-slate-600" /> {item.totalAmount?.toLocaleString("en-IN")}
+                        </p>
+                      </div>
+                      <button 
+                        type="button"
+                        aria-label="View Details"
+                        className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-50 text-slate-400 hover:bg-slate-900 hover:text-white transition-colors cursor-pointer"
+                      >
+                        <ChevronRight className="w-5 h-5" />
+                      </button>
                     </div>
-                    <button className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-50 text-slate-400 hover:bg-slate-900 hover:text-white transition-colors">
-                      <ChevronRight className="w-5 h-5" />
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+
+              {/* Fixed Pagination Controls */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between pt-4 border-t border-slate-100 px-2">
+                  <p className="text-xs font-semibold text-slate-500">
+                    Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, filteredPurchases.length)} of {filteredPurchases.length} bills
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={(e) => { e.preventDefault(); setCurrentPage(p => Math.max(1, p - 1)); }}
+                      disabled={currentPage === 1}
+                      className="px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1 cursor-pointer"
+                    >
+                      <ChevronLeft className="w-3.5 h-3.5" /> Previous
+                    </button>
+                    <span className="text-xs font-black text-slate-800 px-2">
+                      {currentPage} / {totalPages}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={(e) => { e.preventDefault(); setCurrentPage(p => Math.min(totalPages, p + 1)); }}
+                      disabled={currentPage === totalPages}
+                      className="px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1 cursor-pointer"
+                    >
+                      Next <ChevronRight className="w-3.5 h-3.5" />
                     </button>
                   </div>
-                </motion.div>
-              ))}
-            </AnimatePresence>
+                </div>
+              )}
+            </>
           )
         ) : (
           filteredVendors.length === 0 ? (
@@ -284,6 +437,200 @@ export default function PurchasesAndVendors() {
           )
         )}
       </div>
+
+      {/* Multi-Step Purchase Wizard Modal with Step-Increment and e.preventDefault() */}
+      <AnimatePresence>
+        {isModalOpen && (
+          <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl border border-slate-100"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-black text-slate-900">Log Vendor Purchase Bill</h3>
+                <span className="text-xs font-black bg-indigo-50 text-indigo-600 px-3 py-1 rounded-full">
+                  Step {step} of 3
+                </span>
+              </div>
+
+              {/* Progress bar */}
+              <div className="w-full bg-slate-100 h-1.5 rounded-full mb-6 overflow-hidden">
+                <div 
+                  className="bg-indigo-600 h-full transition-all duration-300"
+                  style={{ width: `${(step / 3) * 100}%` }}
+                />
+              </div>
+
+              <form onSubmit={step === 3 ? handleSaveBill : handleNextStep} className="space-y-4">
+                {step === 1 && (
+                  <div className="space-y-3">
+                    <p className="text-xs font-bold text-slate-500">Step 1: Supplier / Vendor Identification</p>
+                    <div>
+                      <label className="text-xs font-bold text-slate-700 block mb-1">Vendor / Party Name *</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Apex Textiles Ltd"
+                        value={billForm.vendorName}
+                        onChange={(e) => setBillForm({ ...billForm, vendorName: e.target.value })}
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:ring-2 focus:ring-indigo-600"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-slate-700 block mb-1">Vendor GSTIN (Optional)</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. 24ABCDE1234F1Z5"
+                        value={billForm.gstin}
+                        onChange={(e) => setBillForm({ ...billForm, gstin: e.target.value.toUpperCase() })}
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:ring-2 focus:ring-indigo-600"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-slate-700 block mb-1">Invoice / Bill Number</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. INV-2026-904"
+                        value={billForm.invoiceNumber}
+                        onChange={(e) => setBillForm({ ...billForm, invoiceNumber: e.target.value })}
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:ring-2 focus:ring-indigo-600"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {step === 2 && (
+                  <div className="space-y-3">
+                    <p className="text-xs font-bold text-slate-500">Step 2: Bill Amount & Item Details</p>
+                    <div>
+                      <label className="text-xs font-bold text-slate-700 block mb-1">Item / Expense Description</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Raw Material Batch #4"
+                        value={billForm.itemName}
+                        onChange={(e) => setBillForm({ ...billForm, itemName: e.target.value })}
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:ring-2 focus:ring-indigo-600"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs font-bold text-slate-700 block mb-1">Total Bill Amount (₹) *</label>
+                        <input
+                          type="number"
+                          placeholder="0.00"
+                          min="1"
+                          value={billForm.amount}
+                          onChange={(e) => setBillForm({ ...billForm, amount: e.target.value })}
+                          className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:ring-2 focus:ring-indigo-600"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-bold text-slate-700 block mb-1">GST Tax Bracket</label>
+                        <select
+                          value={billForm.gstRate}
+                          onChange={(e) => setBillForm({ ...billForm, gstRate: e.target.value })}
+                          className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:ring-2 focus:ring-indigo-600"
+                        >
+                          <option value="0">0% (Nil Rated)</option>
+                          <option value="5">5% GST</option>
+                          <option value="12">12% GST</option>
+                          <option value="18">18% GST (Standard)</option>
+                          <option value="28">28% GST</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-slate-700 block mb-1">Bill Date</label>
+                      <input
+                        type="date"
+                        value={billForm.billDate}
+                        onChange={(e) => setBillForm({ ...billForm, billDate: e.target.value })}
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:ring-2 focus:ring-indigo-600"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {step === 3 && (
+                  <div className="space-y-3">
+                    <p className="text-xs font-bold text-slate-500">Step 3: Payment Classification & Confirmation</p>
+                    <div>
+                      <label className="text-xs font-bold text-slate-700 block mb-1">Accounting Classification</label>
+                      <select
+                        value={billForm.paymentMode}
+                        onChange={(e) => setBillForm({ ...billForm, paymentMode: e.target.value })}
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:ring-2 focus:ring-indigo-600"
+                      >
+                        <option value="Payment to Give">Payment to Give (Accounts Payable)</option>
+                        <option value="Advance Paid to Vendor">Advance Paid to Vendor (Asset Advance)</option>
+                        <option value="Bank Transfer">Paid via Bank (Immediate)</option>
+                        <option value="Cash">Paid via Cash (Petty Cash)</option>
+                      </select>
+                    </div>
+
+                    <div className="bg-slate-50 rounded-xl p-4 border border-slate-100 text-xs space-y-1.5">
+                      <div className="flex justify-between text-slate-600">
+                        <span>Vendor:</span>
+                        <span className="font-bold text-slate-900">{billForm.vendorName}</span>
+                      </div>
+                      <div className="flex justify-between text-slate-600">
+                        <span>Invoice Ref:</span>
+                        <span className="font-bold">{billForm.invoiceNumber || "N/A"}</span>
+                      </div>
+                      <div className="flex justify-between text-slate-600">
+                        <span>Total Due:</span>
+                        <span className="font-black text-rose-600 text-sm">₹{Number(billForm.amount || 0).toLocaleString("en-IN")}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between pt-4 border-t border-slate-100">
+                  {step > 1 ? (
+                    <button
+                      type="button"
+                      onClick={handlePrevStep}
+                      className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+                    >
+                      Back
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setIsModalOpen(false)}
+                      className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                  )}
+
+                  {step < 3 ? (
+                    <button
+                      type="button"
+                      onClick={handleNextStep}
+                      className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-md shadow-indigo-600/20"
+                    >
+                      Next <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
+                  ) : (
+                    <button
+                      type="submit"
+                      disabled={isSubmitting}
+                      className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 disabled:opacity-50 cursor-pointer shadow-md shadow-emerald-600/20"
+                    >
+                      {isSubmitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                      Save & Post Bill
+                    </button>
+                  )}
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

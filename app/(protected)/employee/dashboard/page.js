@@ -122,9 +122,9 @@ export default function EmployeeDashboardUI() {
 
   const quickActions = [
     { name: "Quick Entry", href: "/employee/submissions", icon: PlusSquare, bgClass: "bg-indigo-50 border-indigo-100", textClass: "text-indigo-600", desc: "Sales, receipts & vouchers" },
-    { name: "Log Expense", href: "/employee/log-expense", icon: Receipt, bgClass: "bg-rose-50 border-rose-100", textClass: "text-rose-600", desc: "Petty cash & Payment to Give (Udhaar)" },
+    { name: "Log Expense", href: "/employee/log-expense", icon: Receipt, bgClass: "bg-rose-50 border-rose-100", textClass: "text-rose-600", desc: "Petty cash & Payment to Give" },
     { name: "Stock Inward", href: "/employee/inward-stock", icon: PackageOpen, bgClass: "bg-amber-50 border-amber-100", textClass: "text-amber-600", desc: "Inward goods & supplier bills" },
-    { name: "Customer Khata", href: "/employee/customer-khata", icon: Users, bgClass: "bg-emerald-50 border-emerald-100", textClass: "text-emerald-600", desc: "Payment to Collect (Udhaar) & Advances" },
+    { name: "Customer Khata", href: "/employee/customer-khata", icon: Users, bgClass: "bg-emerald-50 border-emerald-100", textClass: "text-emerald-600", desc: "Payment to Collect & Advances" },
     { name: "Stock Check", href: "/employee/stock-check", icon: ClipboardCheck, bgClass: "bg-blue-50 border-blue-100", textClass: "text-blue-600", desc: "Real-time godown audit" },
     { name: "Leave Request", href: "/employee/leaves", icon: CalendarDays, bgClass: "bg-purple-50 border-purple-100", textClass: "text-purple-600", desc: "Apply for leaves & time-off" }
   ];
@@ -381,7 +381,7 @@ export default function EmployeeDashboardUI() {
                             'bg-slate-100 text-slate-700 border border-slate-200'
                           }`}>
                             {item.type === 'SALES' ? 'Sale (Payment to Collect)' :
-                             item.type === 'ADVANCE_RECEIVED' ? 'Advance Received (To Adjust Later)' :
+                             item.type === 'ADVANCE_RECEIVED' ? 'Advance Received from Customer' :
                              item.type === 'PURCHASE' ? 'Purchase (Payment to Give)' :
                              item.type}
                           </span>
