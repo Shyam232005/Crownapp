@@ -20,39 +20,50 @@ export async function GET(request) {
     const cookieStore = await cookies();
     const token = cookieStore.get("crown_session")?.value;
     
-    if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!token) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    if (!["CA", "CAStaff", "CA-Employee"].includes(decoded.role)) {
-      return NextResponse.json({ error: "Forbidden: CA staff access only" }, { status: 403 });
+    const isCA = decoded.role === "CA" || decoded.normalizedRole === "CA";
+    const isStaff = decoded.role === "CAStaff" || decoded.role === "CA-Employee" || decoded.role === "CA_STAFF" || decoded.normalizedRole === "CA_STAFF";
+
+    if (!isCA && !isStaff) {
+      return NextResponse.json({ success: false, error: "Forbidden: CA staff access only" }, { status: 403 });
     }
 
     await connectDB();
 
-    let caFirmId = decoded.companyId || decoded.userId;
-    if (decoded.role === "CAStaff" || decoded.role === "CA-Employee") {
+    let assignedClientIds = [];
+    if (isStaff) {
       const staffMember = await CAStaff.findById(decoded.userId);
-      if (staffMember) caFirmId = staffMember.caFirmId;
+      if (!staffMember) {
+        return NextResponse.json({ success: false, error: "Staff member not found" }, { status: 404 });
+      }
+      assignedClientIds = staffMember.assignedCompanies?.length 
+        ? staffMember.assignedCompanies 
+        : (staffMember.assignedClients || []);
+    } else {
+      const caFirmId = decoded.caFirmId || decoded.companyId || decoded.userId;
+      const caFirm = await CA.findById(caFirmId);
+      assignedClientIds = caFirm ? [...(caFirm.clientCompanies || []), ...(caFirm.clients || [])] : [];
     }
 
-    const caFirm = await CA.findById(caFirmId);
-    if (!caFirm || !caFirm.clients || caFirm.clients.length === 0) {
+    if (!assignedClientIds || assignedClientIds.length === 0) {
       return NextResponse.json({ success: true, data: [] }, { status: 200 });
     }
 
-    // Fetch transactions across ALL connected clients
+    // Fetch transactions strictly across assigned clients
     const vouchers = await Transaction.find({
-      companyId: { $in: caFirm.clients },
+      companyId: { $in: assignedClientIds },
       status: { $in: ["PENDING_CA_REVIEW", "QUERY_RAISED", "APPROVED", "EXPORTED"] }
     })
-    .populate("companyId", "companyName")
+    .populate("companyId", "companyName gstin")
     .sort({ updatedAt: -1 });
 
     return NextResponse.json({ success: true, data: vouchers }, { status: 200 });
 
   } catch (error) {
     console.error("GET Global Vouchers Error:", error);
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    return NextResponse.json({ success: false, error: error.message || "Internal Server Error" }, { status: 500 });
   }
 }
 
@@ -61,35 +72,47 @@ export async function PATCH(request) {
     const cookieStore = await cookies();
     const token = cookieStore.get("crown_session")?.value;
     
-    if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!token) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    if (!["CA", "CAStaff", "CA-Employee"].includes(decoded.role)) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    const isCA = decoded.role === "CA" || decoded.normalizedRole === "CA";
+    const isStaff = decoded.role === "CAStaff" || decoded.role === "CA-Employee" || decoded.role === "CA_STAFF" || decoded.normalizedRole === "CA_STAFF";
+
+    if (!isCA && !isStaff) {
+      return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
     }
 
     await connectDB();
-    const { transactionId, status } = await request.json();
+    const { transactionId, status } = await request.json().catch(() => ({}));
 
     if (!transactionId || !status) {
-      return NextResponse.json({ error: "Transaction ID and status are required" }, { status: 400 });
+      return NextResponse.json({ success: false, error: "Transaction ID and status are required" }, { status: 400 });
     }
 
-    // Find the transaction and verify it belongs to one of the CA's clients
+    // Find the transaction and verify it belongs to one of the assigned clients
     const transaction = await Transaction.findById(transactionId);
     if (!transaction) {
-      return NextResponse.json({ error: "Transaction not found" }, { status: 404 });
+      return NextResponse.json({ success: false, error: "Transaction not found" }, { status: 404 });
     }
 
-    let caFirmId = decoded.companyId || decoded.userId;
-    if (decoded.role === "CAStaff" || decoded.role === "CA-Employee") {
+    let assignedClientIds = [];
+    if (isStaff) {
       const staffMember = await CAStaff.findById(decoded.userId);
-      if (staffMember) caFirmId = staffMember.caFirmId;
+      assignedClientIds = staffMember 
+        ? (staffMember.assignedCompanies?.length ? staffMember.assignedCompanies : staffMember.assignedClients || [])
+        : [];
+    } else {
+      const caFirmId = decoded.caFirmId || decoded.companyId || decoded.userId;
+      const caFirm = await CA.findById(caFirmId);
+      assignedClientIds = caFirm ? [...(caFirm.clientCompanies || []), ...(caFirm.clients || [])] : [];
     }
 
-    const caFirm = await CA.findById(caFirmId);
-    if (!caFirm.clients.includes(transaction.companyId.toString())) {
-      return NextResponse.json({ error: "Unauthorized access to client data" }, { status: 403 });
+    const isAuthorized = assignedClientIds.some(
+      cId => cId.toString() === transaction.companyId.toString()
+    );
+
+    if (!isAuthorized) {
+      return NextResponse.json({ success: false, error: "Unauthorized access to client data" }, { status: 403 });
     }
 
     // Update the transaction status
@@ -98,10 +121,10 @@ export async function PATCH(request) {
 
     // Log the audit event so the Owner sees it in their CA-Hub
     await AuditLog.create({
-      entityId: transaction.companyId,
+      entityId: transaction.companyId.toString(),
       entityName: "Transaction",
       action: status === "APPROVED" ? "CA_AUDIT_APPROVED" : "QUERY_RAISED",
-      performedBy: decoded.userId,
+      performedBy: decoded.userId.toString(),
       changes: { transactionId, status }
     });
 
@@ -109,6 +132,6 @@ export async function PATCH(request) {
 
   } catch (error) {
     console.error("PATCH Global Vouchers Error:", error);
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    return NextResponse.json({ success: false, error: error.message || "Internal Server Error" }, { status: 500 });
   }
 }

@@ -29,9 +29,14 @@ export async function POST(request) {
       if (body?.month) month = body.month;
     } catch (_) {}
 
-    // 1. Update Owner vaultStatus to Unlocked
+    const now = new Date();
+    // 1. Update Owner vaultStatus to Unlocked & record lastDataSyncAt
     await Owner.findByIdAndUpdate(decoded.companyId, {
-      $set: { vaultStatus: "Unlocked" }
+      $set: { 
+        vaultStatus: "Unlocked",
+        lastDataSyncAt: now,
+        dataSharingStatus: "CONNECTED"
+      }
     });
 
     // 2. Write immutable AuditLog for the unlock action
@@ -40,13 +45,14 @@ export async function POST(request) {
       entityName: "DataVault",
       action: "VAULT_UNLOCKED",
       performedBy: decoded.userId,
-      changes: { status: "Unlocked", month, unlockedAt: new Date() }
+      changes: { status: "Unlocked", month, unlockedAt: now }
     });
 
     return NextResponse.json({ 
       success: true, 
       message: `Zero-Trust Data Vault unlocked for ${month}. CA access granted.`,
-      month
+      month,
+      lastDataSyncAt: now
     }, { status: 200 });
 
   } catch (error) {

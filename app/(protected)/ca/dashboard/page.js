@@ -77,7 +77,7 @@ export default function CADashboardUI() {
             Client portfolio compliance, verification queues, and audit readiness.
           </p>
         </div>
-        <Link href="/ca-staff/export">
+        <Link href="/ca/data-sync">
           <motion.button 
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.97 }}
@@ -126,8 +126,8 @@ export default function CADashboardUI() {
               </h2>
             )}
           </div>
-          <Link href="/ca-staff/voucher-scrutiny" className="text-amber-600 text-xs font-black uppercase tracking-wider hover:text-amber-700 flex items-center gap-1.5 w-max">
-            Scrutiny Pipeline <ArrowRight className="w-3.5 h-3.5" />
+          <Link href="/ca/audit-reports" className="text-amber-600 text-xs font-black uppercase tracking-wider hover:text-amber-700 flex items-center gap-1.5 w-max">
+            Audit Pipeline <ArrowRight className="w-3.5 h-3.5" />
           </Link>
         </div>
 
@@ -147,7 +147,7 @@ export default function CADashboardUI() {
               </h2>
             )}
           </div>
-          <Link href="/ca-staff/export" className="text-white text-xs font-black uppercase tracking-wider hover:text-emerald-100 flex items-center gap-1.5 w-max bg-white/15 hover:bg-white/20 px-3.5 py-2 rounded-xl backdrop-blur-md transition-colors relative z-10 cursor-pointer">
+          <Link href="/ca/data-sync" className="text-white text-xs font-black uppercase tracking-wider hover:text-emerald-100 flex items-center gap-1.5 w-max bg-white/15 hover:bg-white/20 px-3.5 py-2 rounded-xl backdrop-blur-md transition-colors relative z-10 cursor-pointer">
             Export XML/CSV <ArrowRight className="w-3.5 h-3.5" />
           </Link>
         </div>

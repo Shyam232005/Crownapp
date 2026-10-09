@@ -14,12 +14,19 @@ export default function StaffAssignmentsUI() {
   const [staffMembers, setStaffMembers] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
+  // Client Assignment State
+  const [availableClients, setAvailableClients] = useState([]);
+  const [selectedStaffForAssignment, setSelectedStaffForAssignment] = useState(null);
+  const [assignedCompanyIds, setAssignedCompanyIds] = useState([]);
+  const [isAssigning, setIsAssigning] = useState(false);
+
   const { register, handleSubmit, reset, formState: { isSubmitting } } = useForm({
     defaultValues: { name: "", email: "", role: "Audit Assistant", clientsCount: 0 }
   });
 
   useEffect(() => {
     fetchStaff();
+    fetchClients();
   }, []);
 
   const fetchStaff = async () => {
@@ -39,6 +46,70 @@ export default function StaffAssignmentsUI() {
     }
   };
 
+  const fetchClients = async () => {
+    try {
+      const res = await fetch('/api/ca/clients');
+      if (res.ok) {
+        const json = await res.json();
+        setAvailableClients(json.data?.clients || []);
+      }
+    } catch (error) {
+      console.error("Failed to fetch clients:", error);
+    }
+  };
+
+  const openAssignmentModal = (staff) => {
+    setSelectedStaffForAssignment(staff);
+    const existingIds = (staff.assignedCompanies || []).map(c => typeof c === 'object' ? (c._id || c.id) : c);
+    setAssignedCompanyIds(existingIds);
+  };
+
+  const toggleCompanySelection = (companyId) => {
+    setAssignedCompanyIds(prev => 
+      prev.includes(companyId) 
+        ? prev.filter(id => id !== companyId) 
+        : [...prev, companyId]
+    );
+  };
+
+  const handleSaveAssignments = async () => {
+    if (!selectedStaffForAssignment) return;
+    setIsAssigning(true);
+    const loadingToast = toast.loading("Saving client assignments...");
+    try {
+      const res = await fetch('/api/ca/staff/assign', {
+        method: 'POST',
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          staffId: selectedStaffForAssignment._id,
+          companyIds: assignedCompanyIds
+        })
+      });
+
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Failed to update assignments");
+
+      setStaffMembers(prev => prev.map(s => {
+        if (s._id === selectedStaffForAssignment._id) {
+          return {
+            ...s,
+            assignedCompanies: json.data?.assignedCompanies || [],
+            clientsCount: assignedCompanyIds.length
+          };
+        }
+        return s;
+      }));
+
+      try { confetti({ particleCount: 60, spread: 60 }); } catch (_) {}
+      toast.success("Client assignments successfully updated!", { id: loadingToast });
+      setSelectedStaffForAssignment(null);
+    } catch (err) {
+      toast.error(err.message, { id: loadingToast });
+    } finally {
+      setIsAssigning(false);
+    }
+  };
+
   const onSubmit = async (data) => {
     const loadingToast = toast.loading("Adding staff member...");
     try {
@@ -55,7 +126,7 @@ export default function StaffAssignmentsUI() {
 
       const json = await res.json();
       setStaffMembers([json.data, ...staffMembers]);
-      confetti({ particleCount: 75, spread: 65, origin: { y: 0.6 } });
+      try { confetti({ particleCount: 75, spread: 65, origin: { y: 0.6 } }); } catch (_) {}
       toast.success("Staff member added!", { id: loadingToast });
       reset();
       setIsModalOpen(false);
@@ -128,8 +199,11 @@ export default function StaffAssignmentsUI() {
                     <span className="text-lg font-black text-slate-900">{staff.clientsCount || 0}</span>
                   </div>
                   
-                  <button className="w-full py-2.5 bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 rounded-xl text-sm font-bold transition-colors flex items-center justify-center gap-2">
-                    Manage Workload <ChevronRight className="w-4 h-4" />
+                  <button 
+                    onClick={() => openAssignmentModal(staff)}
+                    className="w-full py-2.5 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-indigo-300 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+                  >
+                    Manage Workload <ChevronRight className="w-4 h-4 text-indigo-500" />
                   </button>
                 </motion.div>
               ))}
@@ -218,6 +292,113 @@ export default function StaffAssignmentsUI() {
                   {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : "Save Staff Member"}
                 </motion.button>
               </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Manage Workload & Delegate Clients Modal */}
+      <AnimatePresence>
+        {selectedStaffForAssignment && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, y: 20, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, scale: 0.95 }}
+              className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]"
+            >
+              <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-black text-slate-900">Delegate Clients</h2>
+                  <p className="text-xs font-semibold text-indigo-600 mt-0.5">
+                    Assigning workload to: <span className="text-slate-900 font-bold">{selectedStaffForAssignment.name}</span>
+                  </p>
+                </div>
+                <button 
+                  onClick={() => setSelectedStaffForAssignment(null)} 
+                  className="p-2 hover:bg-slate-100 rounded-full cursor-pointer transition-colors"
+                >
+                  <X className="w-5 h-5 text-slate-500" />
+                </button>
+              </div>
+
+              <div className="p-6 overflow-y-auto space-y-4 flex-1">
+                <p className="text-xs font-medium text-slate-500">
+                  Select the client companies this staff member is authorized to audit. They will strictly access vouchers and accounts only for assigned companies.
+                </p>
+
+                {availableClients.length === 0 ? (
+                  <div className="bg-slate-50 border border-slate-200 border-dashed rounded-2xl p-6 text-center">
+                    <Briefcase className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                    <p className="text-sm font-bold text-slate-700">No Connected Clients Found</p>
+                    <p className="text-xs text-slate-500 mt-1">
+                      Link client companies from your <span className="font-semibold text-indigo-600">Client Directory</span> or share your CA Invite Code with SME Owners.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-2.5 max-h-72 overflow-y-auto pr-1">
+                    {availableClients.map((client) => {
+                      const clientId = (client._id || client.id || "").toString();
+                      const isChecked = assignedCompanyIds.map(id => id.toString()).includes(clientId);
+                      return (
+                        <div
+                          key={clientId}
+                          onClick={() => toggleCompanySelection(clientId)}
+                          className={`flex items-center justify-between p-3.5 rounded-xl border transition-all cursor-pointer ${
+                            isChecked 
+                              ? "bg-indigo-50/70 border-indigo-300 shadow-sm" 
+                              : "bg-slate-50 border-slate-200 hover:bg-slate-100/60"
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              readOnly
+                              className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300 pointer-events-none"
+                            />
+                            <div>
+                              <p className="text-sm font-bold text-slate-900">{client.companyName || client.name}</p>
+                              <p className="text-[11px] font-medium text-slate-500">
+                                GSTIN: {client.gstin || "N/A"}
+                              </p>
+                            </div>
+                          </div>
+                          <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider ${
+                            isChecked ? "bg-indigo-600 text-white" : "bg-white border border-slate-200 text-slate-600"
+                          }`}>
+                            {isChecked ? "Assigned" : "Available"}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
+                <p className="text-xs font-bold text-slate-600">
+                  Selected: <span className="text-indigo-600">{assignedCompanyIds.length}</span> companies
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedStaffForAssignment(null)}
+                    className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-200 transition-colors cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSaveAssignments}
+                    disabled={isAssigning}
+                    className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-md shadow-indigo-600/20 flex items-center gap-2 cursor-pointer disabled:opacity-50 transition-colors"
+                  >
+                    {isAssigning ? <Loader2 className="w-4 h-4 animate-spin" /> : <ClipboardCheck className="w-4 h-4" />}
+                    Save Workload
+                  </button>
+                </div>
+              </div>
             </motion.div>
           </div>
         )}

@@ -94,13 +94,18 @@ export async function POST(request) {
       ]
     };
 
-    if (role === "Owner") {
+    const isOwner = role === "Owner" || role === "OWNER";
+    const isEmployee = role === "Employee" || role === "EMPLOYEE";
+    const isCA = role === "CA";
+    const isCAStaff = role === "CA-Employee" || role === "CAStaff" || role === "CA_STAFF";
+
+    if (isOwner) {
       user = await Owner.findOne(identifierQuery);
-    } else if (role === "Employee") {
+    } else if (isEmployee) {
       user = await Employee.findOne(identifierQuery);
-    } else if (role === "CA") {
+    } else if (isCA) {
       user = await CA.findOne(identifierQuery);
-    } else if (role === "CA-Employee") {
+    } else if (isCAStaff) {
       user = await CAStaff.findOne(identifierQuery);
     } else {
       return NextResponse.json({ error: "Invalid role selected." }, { status: 400 });
@@ -118,17 +123,31 @@ export async function POST(request) {
       return NextResponse.json({ error: "Galat password! Kripya sahi password daalein." }, { status: 401 });
     }
 
-    // 5. Generate Secure Session Token (JWT)
+    // 5. Generate Secure Session Token (JWT) with 4-Tier Operational Context
+    const normalizedRole = isOwner ? "OWNER" : isEmployee ? "EMPLOYEE" : isCA ? "CA" : "CA_STAFF";
     let companyId = null;
-    if (role === "Owner") companyId = user._id;
-    else if (role === "Employee") companyId = user.companyId || user.ownerId;
-    else if (role === "CA") companyId = user._id;
-    else if (role === "CA-Employee") companyId = user.caId;
+    let caFirmId = null;
+    let assignedCompanies = [];
+
+    if (isOwner) {
+      companyId = user._id;
+      caFirmId = user.linkedCA || null;
+    } else if (isEmployee) {
+      companyId = user.companyId || user.ownerId;
+    } else if (isCA) {
+      caFirmId = user._id;
+    } else if (isCAStaff) {
+      caFirmId = user.caFirmId || user.caId;
+      assignedCompanies = (user.assignedCompanies || user.assignedClients || []).map(id => id.toString());
+    }
 
     const payload = {
       userId: user._id.toString(),
       role: role,
-      companyId: (companyId || user.companyId || user._id).toString()
+      normalizedRole: normalizedRole,
+      companyId: companyId ? companyId.toString() : null,
+      caFirmId: caFirmId ? caFirmId.toString() : null,
+      assignedCompanies: assignedCompanies
     };
 
     const token = jwt.sign(payload, process.env.JWT_SECRET, {

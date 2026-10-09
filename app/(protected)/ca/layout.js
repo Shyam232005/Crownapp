@@ -1,7 +1,23 @@
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+import jwt from "jsonwebtoken";
 import CASidebar from "@/components/ca/sidebar";
-import GlobalHeader from "@/components/global/header"
+import GlobalHeader from "@/components/global/header";
 
-export default function CaLayout({ children }) {
+export default async function CaLayout({ children }) {
+    const cookieStore = await cookies();
+    const token = cookieStore.get("crown_session")?.value;
+
+    if (token) {
+        try {
+            const decoded = jwt.decode(token);
+            const role = decoded?.role || decoded?.normalizedRole;
+            if (role === "CA-Employee" || role === "CAStaff" || role === "CA_STAFF") {
+                redirect("/ca-staff/dashboard");
+            }
+        } catch (_) {}
+    }
+
     return (
         <div className="flex h-screen overflow-hidden bg-slate-50">
             <CASidebar />

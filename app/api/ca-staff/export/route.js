@@ -32,31 +32,39 @@ export async function POST(request) {
       return NextResponse.json({ error: "Client ID is required" }, { status: 400 });
     }
 
-    // 1. Authorization: Ensure CA Firm manages this client
-    let caFirmId = decoded.companyId || decoded.userId;
-    if (decoded.role === "CAStaff" || decoded.role === "CA-Employee") {
-      const staffMember = await CAStaff.findById(decoded.userId);
-      if (staffMember) caFirmId = staffMember.caFirmId;
-    }
+    // 1. Authorization: Ensure CA Firm or Staff is assigned to manage this client
+    const isCA = decoded.role === "CA" || decoded.normalizedRole === "CA";
+    const isStaff = decoded.role === "CAStaff" || decoded.role === "CA-Employee" || decoded.role === "CA_STAFF" || decoded.normalizedRole === "CA_STAFF";
 
-    const caFirm = await CA.findById(caFirmId);
-    if (!caFirm || !caFirm.clients.includes(clientId)) {
-      return NextResponse.json({ error: "Unauthorized client access" }, { status: 403 });
+    if (isStaff) {
+      const staffMember = await CAStaff.findById(decoded.userId);
+      const assignedIds = (staffMember?.assignedCompanies?.length ? staffMember.assignedCompanies : (staffMember?.assignedClients || [])).map(id => id.toString());
+      if (!assignedIds.includes(clientId.toString())) {
+        return NextResponse.json({ success: false, error: "Unauthorized client access: Client company is not assigned to your staff account." }, { status: 403 });
+      }
+    } else {
+      const caFirmId = decoded.caFirmId || decoded.companyId || decoded.userId;
+      const caFirm = await CA.findById(caFirmId);
+      const allIds = (caFirm ? [...(caFirm.clientCompanies || []), ...(caFirm.clients || [])] : []).map(id => id.toString());
+      if (!allIds.includes(clientId.toString())) {
+        return NextResponse.json({ success: false, error: "Unauthorized client access" }, { status: 403 });
+      }
     }
 
     // Fetch the client to get the business name for the filename
     const client = await Owner.findById(clientId);
     const companyName = client?.companyName || "Unknown_Client";
 
-    // Zero-Trust Vault API-level Blocking
+    // Zero-Trust Vault API-level Blocking (allow if dataSharingStatus === 'CONNECTED' or Unlocked)
     const latestUnlockLog = await AuditLog.findOne({
-      entityId: clientId,
-      action: "VAULT_UNLOCKED"
+      entityId: clientId.toString(),
+      action: { $in: ["VAULT_UNLOCKED", "DATA_SYNC_DISPATCHED"] }
     }).sort({ createdAt: -1 });
 
-    const isVaultUnlocked = (client && client.vaultStatus === "Unlocked") || !!latestUnlockLog;
+    const isVaultUnlocked = (client && (client.vaultStatus === "Unlocked" || client.dataSharingStatus === "CONNECTED")) || !!latestUnlockLog;
     if (!isVaultUnlocked) {
       return NextResponse.json({ 
+        success: false,
         error: "Zero-Trust Vault Locked: Data export blocked. The SME Owner must explicitly unlock the Data Vault for this period." 
       }, { status: 423 });
     }

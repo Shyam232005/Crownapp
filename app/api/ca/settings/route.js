@@ -9,16 +9,20 @@ const connectDB = async () => {
   await mongoose.connect(process.env.MONGODB_URI);
 };
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export async function GET(request) {
   try {
     const cookieStore = await cookies();
     const token = cookieStore.get("crown_session")?.value;
     
-    if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!token) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    if (decoded.role !== "CA") {
-      return NextResponse.json({ error: "Forbidden: CA Firm Owner access only" }, { status: 403 });
+    const role = (decoded.normalizedRole || decoded.role || "").toUpperCase();
+    if (role !== "CA") {
+      return NextResponse.json({ success: false, error: "Forbidden: CA Firm Owner access only" }, { status: 403 });
     }
 
     await connectDB();
@@ -27,14 +31,14 @@ export async function GET(request) {
     const caFirm = await CA.findById(decoded.userId).select("-password");
 
     if (!caFirm) {
-      return NextResponse.json({ error: "CA Firm not found" }, { status: 404 });
+      return NextResponse.json({ success: false, error: "CA Firm not found" }, { status: 404 });
     }
 
     return NextResponse.json({ success: true, data: caFirm }, { status: 200 });
 
   } catch (error) {
     console.error("GET CA Settings Error:", error);
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    return NextResponse.json({ success: false, error: "Internal Server Error" }, { status: 500 });
   }
 }
 
@@ -43,11 +47,12 @@ export async function PATCH(request) {
     const cookieStore = await cookies();
     const token = cookieStore.get("crown_session")?.value;
     
-    if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!token) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    if (decoded.role !== "CA") {
-      return NextResponse.json({ error: "Forbidden: CA Firm Owner access only" }, { status: 403 });
+    const role = (decoded.normalizedRole || decoded.role || "").toUpperCase();
+    if (role !== "CA") {
+      return NextResponse.json({ success: false, error: "Forbidden: CA Firm Owner access only" }, { status: 403 });
     }
 
     await connectDB();
@@ -55,6 +60,7 @@ export async function PATCH(request) {
 
     // Map UI payload to DB fields
     const updatePayload = {
+      firmName: body.firmName,
       companyName: body.firmName,
       frn: body.frn,
       gstin: body.gstin,
@@ -76,13 +82,13 @@ export async function PATCH(request) {
     ).select("-password");
 
     if (!updatedCA) {
-      return NextResponse.json({ error: "Failed to update firm settings" }, { status: 400 });
+      return NextResponse.json({ success: false, error: "Failed to update firm settings" }, { status: 400 });
     }
 
     return NextResponse.json({ success: true, data: updatedCA }, { status: 200 });
 
   } catch (error) {
     console.error("PATCH CA Settings Error:", error);
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    return NextResponse.json({ success: false, error: "Internal Server Error" }, { status: 500 });
   }
 }

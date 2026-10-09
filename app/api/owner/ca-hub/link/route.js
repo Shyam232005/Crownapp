@@ -29,6 +29,8 @@ export async function POST(request) {
     // Look up CA firm by inviteCode (supports CA-XXXXXX or direct code)
     const caFirm = await CA.findOne({ 
       $or: [ 
+        { caInviteCode: cleanCode },
+        { staffInviteCode: cleanCode },
         { inviteCode: cleanCode }, 
         { inviteCode: `CA-${cleanCode}` },
         { _id: cleanCode.length === 24 ? cleanCode : null } 
@@ -41,14 +43,23 @@ export async function POST(request) {
 
     // M:N Handshake Mapping:
     // 1. Add SME to CA's client portfolio
-    if (!caFirm.clients.some(cId => cId.toString() === decoded.companyId.toString())) {
-      caFirm.clients.push(decoded.companyId);
-      await caFirm.save();
-    }
+    await CA.findByIdAndUpdate(caFirm._id, {
+      $addToSet: {
+        clientCompanies: decoded.companyId,
+        clients: decoded.companyId
+      }
+    });
 
     // 2. Add CA to SME Owner's linked CA network
     await Owner.findByIdAndUpdate(decoded.companyId, {
-      $addToSet: { linkedCaFirm: caFirm._id }
+      $set: {
+        linkedCA: caFirm._id,
+        dataSharingStatus: "CONNECTED"
+      },
+      $addToSet: { 
+        linkedCaFirm: caFirm._id,
+        linkedCAs: caFirm._id
+      }
     });
 
     const firmDisplayName = caFirm.firmName || caFirm.name;

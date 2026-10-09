@@ -115,48 +115,73 @@ export async function POST(request) {
       const existingCA = await CA.findOne({ $or: [{ email }, { phoneNumber }, { icaiNumber }] });
       if (existingCA) return NextResponse.json({ error: "CA Firm already exists." }, { status: 400 });
 
-      const codeToLink = joinedViaCode || inviteCode;
-      if (!codeToLink) return NextResponse.json({ error: "Invite code is required to register CA." }, { status: 400 });
+      const codeToLink = (joinedViaCode || inviteCode || "").trim();
+      const caInvite = `CA-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+      const staffInvite = `STF-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
 
       newUser = new CA({
         name, phoneNumber, email, password: hashedPassword,
-        firmName, icaiNumber, joinedViaCode: codeToLink 
+        firmName, icaiNumber, 
+        joinedViaCode: codeToLink,
+        caInviteCode: caInvite,
+        staffInviteCode: staffInvite,
+        inviteCode: staffInvite,
+        clientCompanies: [],
+        clients: []
       });
       await newUser.save();
       
-      const owner = await Owner.findOne({ inviteCode: codeToLink });
-      if (owner) {
-         if (!owner.linkedCAs) owner.linkedCAs = [];
-         if (!owner.linkedCaFirm) owner.linkedCaFirm = [];
-         owner.linkedCAs.push(newUser._id);
-         owner.linkedCaFirm.push(newUser._id);
-         await owner.save();
-         if (!newUser.clients) newUser.clients = [];
-         newUser.clients.push(owner._id);
-         await newUser.save();
+      if (codeToLink) {
+        const owner = await Owner.findOne({ inviteCode: codeToLink });
+        if (owner) {
+          owner.linkedCA = newUser._id;
+          owner.dataSharingStatus = "CONNECTED";
+          if (!owner.linkedCAs) owner.linkedCAs = [];
+          if (!owner.linkedCaFirm) owner.linkedCaFirm = [];
+          owner.linkedCAs.push(newUser._id);
+          owner.linkedCaFirm.push(newUser._id);
+          await owner.save();
+
+          newUser.clientCompanies.push(owner._id);
+          newUser.clients.push(owner._id);
+          await newUser.save();
+        }
       }
       companyId = newUser._id;
       successMessage = "CA Firm registered successfully!";
     }
 
-    // 4. REGISTER CA-EMPLOYEE (Staff)
-    else if (role === "CA-Employee") {
-      if (!inviteCode) return NextResponse.json({ error: "Invite code is required." }, { status: 400 });
+    // 4. REGISTER CA-EMPLOYEE / CA_STAFF
+    else if (role === "CA-Employee" || role === "CA_STAFF" || role === "CAStaff") {
+      const codeToQuery = (body.staffInviteCode || inviteCode || joinedViaCode || "").trim();
+      if (!codeToQuery) return NextResponse.json({ error: "Invalid CA Staff Invite Code" }, { status: 400 });
       
-      const caFirm = await CA.findOne({ inviteCode });
-      if (!caFirm) return NextResponse.json({ error: "Invalid Firm Invite Code." }, { status: 400 });
+      const caFirm = await CA.findOne({ 
+        $or: [
+          { staffInviteCode: codeToQuery },
+          { inviteCode: codeToQuery },
+          { caInviteCode: codeToQuery }
+        ]
+      });
+      if (!caFirm) return NextResponse.json({ error: "Invalid CA Staff Invite Code" }, { status: 400 });
 
       const existingStaff = await CAStaff.findOne({ $or: [{ email }, { phoneNumber }] });
       if (existingStaff) return NextResponse.json({ error: "Staff already exists." }, { status: 400 });
 
       newUser = new CAStaff({
         name, phoneNumber, email, password: hashedPassword,
-        caId: caFirm._id
+        caFirmId: caFirm._id,
+        caId: caFirm._id,
+        role: "CA_STAFF",
+        assignedCompanies: [],
+        assignedClients: []
       });
       await newUser.save();
 
+      if (!caFirm.staff) caFirm.staff = [];
       caFirm.staff.push(newUser._id);
       await caFirm.save();
+
       companyId = caFirm._id;
       successMessage = "Audit Staff joined successfully!";
     }
@@ -166,10 +191,18 @@ export async function POST(request) {
     }
 
     // 5. Generate Secure Session Token (Auto-Login on Registration)
+    const normalizedRole = 
+      (role === "Owner" || role === "OWNER") ? "OWNER" :
+      (role === "Employee" || role === "EMPLOYEE") ? "EMPLOYEE" :
+      (role === "CA") ? "CA" : "CA_STAFF";
+
     const payload = {
       userId: newUser._id.toString(),
       role: role,
-      companyId: (companyId || newUser._id).toString()
+      normalizedRole: normalizedRole,
+      companyId: (companyId || newUser.companyId || (normalizedRole === 'OWNER' ? newUser._id : null))?.toString() || null,
+      caFirmId: (newUser.caFirmId || newUser.caId || (normalizedRole === 'CA' ? newUser._id : null))?.toString() || null,
+      assignedCompanies: (newUser.assignedCompanies || newUser.assignedClients || []).map(id => id.toString())
     };
 
     const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '7d' });

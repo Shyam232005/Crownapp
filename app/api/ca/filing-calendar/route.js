@@ -9,25 +9,30 @@ const connectDB = async () => {
   await mongoose.connect(process.env.MONGODB_URI);
 };
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export async function GET(request) {
   try {
     const cookieStore = await cookies();
     const token = cookieStore.get("crown_session")?.value;
     
-    if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!token) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    if (decoded.role !== "CA" && decoded.role !== "CA-Employee") {
-      return NextResponse.json({ error: "Forbidden: CA Firm access only" }, { status: 403 });
+    const role = (decoded.normalizedRole || decoded.role || "").toUpperCase();
+    if (role !== "CA" && role !== "CA-EMPLOYEE" && role !== "CA_STAFF") {
+      return NextResponse.json({ success: false, error: "Forbidden: CA Firm access only" }, { status: 403 });
     }
 
     await connectDB();
     
     // Fetch the CA to get their active client count
-    const caFirmId = decoded.companyId || decoded.userId;
+    const caFirmId = decoded.caFirmId || decoded.companyId || decoded.userId;
     const caFirm = await CA.findById(caFirmId);
     
-    const clientCount = caFirm && caFirm.clients ? caFirm.clients.length : 0;
+    const clientList = caFirm?.clientCompanies || caFirm?.clients || [];
+    const clientCount = clientList.length;
 
     // If no clients, return an empty array to trigger the empty state UI
     if (clientCount === 0) {
@@ -72,6 +77,6 @@ export async function GET(request) {
 
   } catch (error) {
     console.error("GET Filing Calendar Error:", error);
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    return NextResponse.json({ success: false, error: "Internal Server Error" }, { status: 500 });
   }
 }

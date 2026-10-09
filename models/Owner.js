@@ -45,6 +45,14 @@ const OwnerSchema = new mongoose.Schema({
 
   // Relationships & Vault State (Updated for Vercel Serverless & 1-to-1 Mapping)
   employees: [{ type: mongoose.Schema.Types.ObjectId, ref: "Employee" }],
+  linkedCA: { type: mongoose.Schema.Types.ObjectId, ref: "CA", default: null, index: true },
+  dataSharingStatus: { 
+    type: String, 
+    enum: ["NONE", "PENDING", "CONNECTED", "REVOKED"], 
+    default: "NONE",
+    index: true 
+  },
+  lastDataSyncAt: { type: Date },
   linkedCaFirm: [{ type: mongoose.Schema.Types.ObjectId, ref: "CA" }],
   linkedCAs: [{ type: mongoose.Schema.Types.ObjectId, ref: "CA" }],
   vaultStatus: { 
@@ -59,12 +67,44 @@ OwnerSchema.pre("validate", function () {
     const randomHex = Math.random().toString(36).substring(2, 8).toUpperCase();
     this.inviteCode = `BIZ-${randomHex}`;
   }
+  if (this.linkedCA) {
+    if (!this.linkedCaFirm) this.linkedCaFirm = [];
+    if (!this.linkedCaFirm.some(id => id.toString() === this.linkedCA.toString())) {
+      this.linkedCaFirm.push(this.linkedCA);
+    }
+    if (!this.linkedCAs) this.linkedCAs = [];
+    if (!this.linkedCAs.some(id => id.toString() === this.linkedCA.toString())) {
+      this.linkedCAs.push(this.linkedCA);
+    }
+    if (this.dataSharingStatus === "NONE") {
+      this.dataSharingStatus = "CONNECTED";
+    }
+  } else if (this.linkedCaFirm && this.linkedCaFirm.length > 0 && !this.linkedCA) {
+    this.linkedCA = this.linkedCaFirm[0];
+    if (this.dataSharingStatus === "NONE") {
+      this.dataSharingStatus = "CONNECTED";
+    }
+  }
 });
 
 OwnerSchema.pre("save", function () {
   if (!this.inviteCode) {
     const randomHex = Math.random().toString(36).substring(2, 8).toUpperCase();
     this.inviteCode = `BIZ-${randomHex}`;
+  }
+
+  if (this.linkedCA) {
+    if (!this.linkedCaFirm) this.linkedCaFirm = [];
+    if (!this.linkedCaFirm.some(id => id.toString() === this.linkedCA.toString())) {
+      this.linkedCaFirm.push(this.linkedCA);
+    }
+    if (!this.linkedCAs) this.linkedCAs = [];
+    if (!this.linkedCAs.some(id => id.toString() === this.linkedCA.toString())) {
+      this.linkedCAs.push(this.linkedCA);
+    }
+    if (this.dataSharingStatus === "NONE") {
+      this.dataSharingStatus = "CONNECTED";
+    }
   }
 
   if (this.isModified('subscription.status') && this.subscription?.status === 'trialing') {

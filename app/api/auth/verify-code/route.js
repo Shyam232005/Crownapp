@@ -24,10 +24,21 @@ export async function POST(request) {
       return NextResponse.json({ message: "Code verified", entityName: owner.companyName }, { status: 200 });
     } 
     else if (type === "ca") {
-      const caFirm = await CA.findOne({ inviteCode: code });
+      const caFirm = await CA.findOne({
+        $or: [
+          { staffInviteCode: code },
+          { caInviteCode: code },
+          { inviteCode: code }
+        ]
+      });
       if (!caFirm) return NextResponse.json({ error: "Invalid CA Firm Invite Code" }, { status: 404 });
       
-      return NextResponse.json({ message: "Code verified", entityName: caFirm.firmName }, { status: 200 });
+      const isStaffCode = caFirm.staffInviteCode === code;
+      return NextResponse.json({ 
+        message: "Code verified", 
+        entityName: caFirm.firmName,
+        codeType: isStaffCode ? "STAFF" : "CLIENT"
+      }, { status: 200 });
     }
 
     return NextResponse.json({ error: "Invalid verification type" }, { status: 400 });

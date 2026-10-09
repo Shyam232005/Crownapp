@@ -7,6 +7,7 @@ import Transaction from "@/models/Transaction";
 import Owner from "@/models/Owner"; // Ensures the ref works properly
 
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 const connectDB = async () => {
   if (mongoose.connection.readyState >= 1) return;
@@ -18,21 +19,32 @@ export async function GET(request) {
     const cookieStore = await cookies();
     const token = cookieStore.get("crown_session")?.value;
     
-    if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!token) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    // Note: Staff can also view this if you expand roles later
-    if (decoded.role !== "CA" && decoded.role !== "CA-Employee") {
-      return NextResponse.json({ error: "Forbidden: CA Firm access only" }, { status: 403 });
+    const role = (decoded.normalizedRole || decoded.role || "").toUpperCase();
+    if (role !== "CA" && role !== "CA-EMPLOYEE" && role !== "CA_STAFF") {
+      return NextResponse.json({ success: false, error: "Forbidden: CA Firm access only" }, { status: 403 });
     }
 
     await connectDB();
     
-    // Fetch the CA Firm's data to get their connected clients array
-    const caFirmId = decoded.companyId || decoded.userId;
+    // Fetch the CA Firm's data
+    const caFirmId = decoded.caFirmId || decoded.companyId || decoded.userId;
     const caFirm = await CA.findById(caFirmId);
     
-    if (!caFirm || !caFirm.clients || caFirm.clients.length === 0) {
+    // Find all connected clients (explicitly linked or in client arrays)
+    const connectedOwners = await Owner.find({
+      $or: [
+        { linkedCA: caFirm?._id, dataSharingStatus: 'CONNECTED' },
+        { _id: { $in: caFirm?.clientCompanies || [] } },
+        { _id: { $in: caFirm?.clients || [] } }
+      ]
+    }).select('_id companyName');
+
+    const clientIds = connectedOwners.map(o => o._id);
+
+    if (clientIds.length === 0) {
       return NextResponse.json({
         success: true,
         data: {
@@ -41,8 +53,6 @@ export async function GET(request) {
         }
       }, { status: 200 });
     }
-
-    const clientIds = caFirm.clients;
 
     // Calculate Dashboard Metrics
     const activeClients = clientIds.length;
@@ -87,6 +97,6 @@ export async function GET(request) {
 
   } catch (error) {
     console.error("GET CA Dashboard Error:", error);
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    return NextResponse.json({ success: false, error: "Internal Server Error" }, { status: 500 });
   }
 }

@@ -7,6 +7,7 @@ import Leave from '@/models/Leave';
 import LedgerEntry from '@/models/LedgerEntry';
 
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 const connectDB = async () => {
   if (mongoose.connection.readyState >= 1) return;
@@ -18,15 +19,16 @@ export async function GET(request) {
     const cookieStore = await cookies();
     const token = cookieStore.get("crown_session")?.value;
     
-    if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!token) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     if (!decoded || !decoded.userId) {
-      return NextResponse.json({ error: "Invalid session" }, { status: 401 });
+      return NextResponse.json({ success: false, error: "Invalid session" }, { status: 401 });
     }
 
-    if (decoded.role !== "Owner") {
-      return NextResponse.json({ error: "Forbidden: Owner access only" }, { status: 403 });
+    const isOwner = decoded.role === "Owner" || decoded.role === "OWNER" || decoded.normalizedRole === "OWNER";
+    if (!isOwner) {
+      return NextResponse.json({ success: false, error: "Forbidden: Owner access only" }, { status: 403 });
     }
 
     await connectDB();

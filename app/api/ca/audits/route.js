@@ -7,6 +7,7 @@ import Report from "@/models/Report";
 import Owner from "@/models/Owner";
 
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 const connectDB = async () => {
   if (mongoose.connection.readyState >= 1) return;
@@ -18,25 +19,30 @@ export async function GET(request) {
     const cookieStore = await cookies();
     const token = cookieStore.get("crown_session")?.value;
     
-    if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!token) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    if (decoded.role !== "CA" && decoded.role !== "CA-Employee") {
-      return NextResponse.json({ error: "Forbidden: CA access only" }, { status: 403 });
+    const role = (decoded.normalizedRole || decoded.role || "").toUpperCase();
+    if (role !== "CA" && role !== "CA-EMPLOYEE" && role !== "CA_STAFF") {
+      return NextResponse.json({ success: false, error: "Forbidden: CA access only" }, { status: 403 });
     }
 
     await connectDB();
     
     // Fetch the CA Firm's mapped clients
-    const caFirmId = decoded.companyId || decoded.userId;
+    const caFirmId = decoded.caFirmId || decoded.companyId || decoded.userId;
     const caFirm = await CA.findById(caFirmId);
 
-    if (!caFirm || !caFirm.clients || caFirm.clients.length === 0) {
+    const clientIds = (caFirm?.clientCompanies && caFirm.clientCompanies.length > 0)
+      ? caFirm.clientCompanies
+      : (caFirm?.clients || []);
+
+    if (!caFirm || clientIds.length === 0) {
       return NextResponse.json({ success: true, data: [] }, { status: 200 });
     }
 
     // Fetch reports uploaded specifically for this CA's clients
-    const reports = await Report.find({ companyId: { $in: caFirm.clients } })
+    const reports = await Report.find({ companyId: { $in: clientIds } })
       .populate('companyId', 'companyName')
       .sort({ createdAt: -1 });
 
@@ -44,7 +50,7 @@ export async function GET(request) {
 
   } catch (error) {
     console.error("GET CA Audits Error:", error);
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    return NextResponse.json({ success: false, error: "Internal Server Error" }, { status: 500 });
   }
 }
 
@@ -53,11 +59,12 @@ export async function POST(request) {
     const cookieStore = await cookies();
     const token = cookieStore.get("crown_session")?.value;
     
-    if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!token) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    if (decoded.role !== "CA" && decoded.role !== "CA-Employee") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    const role = (decoded.normalizedRole || decoded.role || "").toUpperCase();
+    if (role !== "CA" && role !== "CA-EMPLOYEE" && role !== "CA_STAFF") {
+      return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
     }
 
     await connectDB();
@@ -65,15 +72,20 @@ export async function POST(request) {
     const { companyId, clientName, period, reportType, fileData, status } = body;
 
     if (!companyId || !fileData) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+      return NextResponse.json({ success: false, error: "Missing required fields" }, { status: 400 });
     }
 
     // Verify CA owns the requested companyId mapping
-    const caFirmId = decoded.companyId || decoded.userId;
+    const caFirmId = decoded.caFirmId || decoded.companyId || decoded.userId;
     const caFirm = await CA.findById(caFirmId);
 
-    if (!caFirm.clients.includes(companyId)) {
-        return NextResponse.json({ error: "Unauthorized client modification" }, { status: 403 });
+    const clientIds = [
+      ...(caFirm?.clientCompanies || []).map(id => id.toString()),
+      ...(caFirm?.clients || []).map(id => id.toString())
+    ];
+
+    if (!clientIds.includes(companyId.toString())) {
+      return NextResponse.json({ success: false, error: "Unauthorized client modification" }, { status: 403 });
     }
 
     // Save the Base64 document
@@ -92,6 +104,6 @@ export async function POST(request) {
 
   } catch (error) {
     console.error("POST CA Audit Error:", error);
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    return NextResponse.json({ success: false, error: "Internal Server Error" }, { status: 500 });
   }
 }

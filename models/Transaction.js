@@ -2,7 +2,7 @@ import mongoose from 'mongoose';
 
 const TransactionSchema = new mongoose.Schema({
   companyId: { type: mongoose.Schema.Types.ObjectId, ref: 'Owner', required: true, index: true },
-  createdBy: { type: String, required: true, index: true }, // User ID (Employee or Owner)
+  createdBy: { type: mongoose.Schema.Types.ObjectId, required: true, index: true }, // User ID (Employee or Owner)
   type: { 
     type: String, 
     required: true,

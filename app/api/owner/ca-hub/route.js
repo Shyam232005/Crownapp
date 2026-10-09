@@ -12,6 +12,9 @@ const connectDB = async () => {
   await mongoose.connect(process.env.MONGODB_URI);
 };
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export async function GET(request) {
   try {
     const cookieStore = await cookies();
@@ -20,35 +23,54 @@ export async function GET(request) {
     if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    if (decoded.role !== "Owner") {
+    const isOwner = decoded.role === "Owner" || decoded.role === "OWNER" || decoded.normalizedRole === "OWNER";
+    if (!isOwner) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     await connectDB();
+    const ownerId = decoded.companyId || decoded.userId;
+    const owner = await Owner.findById(ownerId);
     
     // 1. Check if the Owner is linked to a CA firm
-    // We check the CA collection to see if any firm has this companyId in their clients array
-    const caFirm = await CA.findOne({ clients: decoded.companyId });
+    let caFirm = null;
+    if (owner?.linkedCA) {
+      caFirm = await CA.findById(owner.linkedCA);
+    }
+    if (!caFirm) {
+      caFirm = await CA.findOne({
+        $or: [
+          { clientCompanies: ownerId },
+          { clients: ownerId }
+        ]
+      });
+    }
     
     // 2. Count how many items are APPROVED but not yet unlocked/exported
     const pendingExportCount = await Transaction.countDocuments({
-      companyId: decoded.companyId,
+      companyId: ownerId,
       status: "APPROVED" 
     });
 
     // 3. Fetch past unlocks from the Audit Log
     const unlockHistoryLogs = await AuditLog.find({
-      entityId: decoded.companyId,
-      action: 'VAULT_UNLOCKED'
-    }).sort({ createdAt: -1 }).limit(5);
+      entityId: ownerId.toString(),
+      action: { $in: ['VAULT_UNLOCKED', 'DATA_SYNC_DISPATCHED'] }
+    }).sort({ createdAt: -1 }).limit(10);
 
     const history = unlockHistoryLogs.map(log => ({
-      month: new Date(log.createdAt).toLocaleString('default', { month: 'long', year: 'numeric' }),
+      month: log.changes?.month || new Date(log.createdAt).toLocaleString('default', { month: 'long', year: 'numeric' }),
       sentAt: new Date(log.createdAt).toLocaleTimeString('en-IN')
     }));
 
+    const firmName = caFirm ? (caFirm.firmName || caFirm.name || caFirm.companyName) : null;
+
     return NextResponse.json({
-      linkedFirm: caFirm ? caFirm.companyName : null,
+      success: true,
+      linkedFirm: firmName,
+      caInviteCode: caFirm?.caInviteCode || null,
+      dataSharingStatus: owner?.dataSharingStatus || "NONE",
+      lastDataSyncAt: owner?.lastDataSyncAt || null,
       pendingExportCount,
       history
     }, { status: 200 });

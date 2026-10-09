@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import mongoose from "mongoose";
+import jwt from "jsonwebtoken";
+import { cookies } from "next/headers";
 import CA from "@/models/CA";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 const connectDB = async () => {
   if (mongoose.connection.readyState >= 1) return;
@@ -11,37 +16,58 @@ export async function GET(request) {
   try {
     await connectDB();
 
-    // 1. Get cookies to identify the logged-in user
-    const userIdCookie = request.cookies.get("fineops_user_id");
-    const roleCookie = request.cookies.get("fineops_role");
+    const cookieStore = await cookies();
+    const token = cookieStore.get("crown_session")?.value;
     
-    if (!userIdCookie || !roleCookie) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    let userId = null;
+    let role = null;
+
+    if (token) {
+      try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        userId = decoded.userId;
+        role = (decoded.normalizedRole || decoded.role || "").toUpperCase();
+      } catch (e) {
+        // Token invalid
+      }
     }
 
-    const userId = userIdCookie.value;
-    const role = roleCookie.value;
-
-    // 2. Security Check: Make sure only a Firm Admin (CA) is accessing this
-    if (role !== "CA") {
-         return NextResponse.json({ error: "Access denied. Not a CA Firm Admin." }, { status: 403 });
+    if (!userId) {
+      const userIdCookie = request.cookies.get("fineops_user_id");
+      const roleCookie = request.cookies.get("fineops_role");
+      if (userIdCookie && roleCookie) {
+        userId = userIdCookie.value;
+        role = roleCookie.value.toUpperCase();
+      }
+    }
+    
+    if (!userId || !role) {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     }
 
-    // 3. Fetch CA details from Database
-    const caProfile = await CA.findById(userId).select("inviteCode firmName");
+    // Security Check: Make sure only a Firm Admin (CA) or Staff is accessing this
+    if (role !== "CA" && role !== "CA_STAFF" && role !== "CA-EMPLOYEE") {
+      return NextResponse.json({ success: false, error: "Access denied. Not a CA Firm user." }, { status: 403 });
+    }
+
+    // Fetch CA details from Database
+    const caProfile = await CA.findById(userId).select("inviteCode caInviteCode staffInviteCode firmName companyName");
     
     if (!caProfile) {
-        return NextResponse.json({ error: "CA Profile not found" }, { status: 404 });
+      return NextResponse.json({ success: false, error: "CA Profile not found" }, { status: 404 });
     }
 
-    // 4. Send the invite code to the frontend sidebar
+    // Send the invite codes and firm name
     return NextResponse.json({ 
-        inviteCode: caProfile.inviteCode,
-        firmName: caProfile.firmName 
+      success: true,
+      inviteCode: caProfile.caInviteCode || caProfile.inviteCode,
+      caInviteCode: caProfile.caInviteCode || caProfile.inviteCode,
+      staffInviteCode: caProfile.staffInviteCode,
+      firmName: caProfile.firmName || caProfile.companyName 
     }, { status: 200 });
 
   } catch (error) {
     console.error("CA Profile API Error:", error);
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    return NextResponse.json({ success: false, error: "Internal Server Error" }, { status: 500 });
   }
 }

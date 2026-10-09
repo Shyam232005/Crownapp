@@ -170,10 +170,10 @@ export default function CAClientsDirectoryUI() {
                 </div>
 
                 <Link 
-                  href={`/ca-staff/voucher-scrutiny?client=${client.id}`}
+                  href={`/ca/audit-reports?client=${client.id}`}
                   className="w-full py-3 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 transition-colors flex items-center justify-center gap-2"
                 >
-                  Audit Ledger <ArrowRight className="w-4 h-4" />
+                  Audit Reports <ArrowRight className="w-4 h-4" />
                 </Link>
               </motion.div>
             ))}

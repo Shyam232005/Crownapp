@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 
 const leaveSchema = new mongoose.Schema({
   companyId: { type: mongoose.Schema.Types.ObjectId, ref: "Owner", required: true, index: true },
+  createdBy: { type: mongoose.Schema.Types.ObjectId, index: true },
   employeeId: { type: String, required: true, index: true },
   employeeName: { type: String, default: "Staff Member" },
   leaveType: { 
@@ -20,10 +21,17 @@ const leaveSchema = new mongoose.Schema({
   }
 }, { timestamps: true });
 
-// Normalize status to uppercase for consistent querying
+// Normalize status to uppercase for consistent querying and sync createdBy
 leaveSchema.pre("validate", function() {
   if (this.status) {
     this.status = this.status.toUpperCase();
+  }
+  if (!this.createdBy && this.employeeId) {
+    try {
+      this.createdBy = new mongoose.Types.ObjectId(this.employeeId);
+    } catch {
+      // not a valid ObjectId hex
+    }
   }
 });
 

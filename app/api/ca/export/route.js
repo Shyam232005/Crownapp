@@ -12,38 +12,52 @@ const connectDB = async () => {
   await mongoose.connect(process.env.MONGODB_URI);
 };
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 // Handles fetching the actual export data (Tally CSV generation) with Zero-Trust enforcement
 export async function GET(request) {
   try {
     const cookieStore = await cookies();
     const token = cookieStore.get("crown_session")?.value;
     
-    if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!token) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    if (decoded.role !== "CA" && decoded.role !== "CA-Employee" && decoded.role !== "CAStaff") {
-      return NextResponse.json({ error: "Forbidden: CA access only" }, { status: 403 });
+    const role = (decoded.normalizedRole || decoded.role || "").toUpperCase();
+    if (role !== "CA" && role !== "CA-EMPLOYEE" && role !== "CA_STAFF") {
+      return NextResponse.json({ success: false, error: "Forbidden: CA access only" }, { status: 403 });
     }
 
     const { searchParams } = new URL(request.url);
     const clientId = searchParams.get("clientId");
 
     if (!clientId) {
-      return NextResponse.json({ error: "Client ID required" }, { status: 400 });
+      return NextResponse.json({ success: false, error: "Client ID required" }, { status: 400 });
     }
 
     await connectDB();
 
     // 1. Verify CA owns the requested client mapping
-    const caFirmId = decoded.companyId || decoded.userId;
+    const caFirmId = decoded.caFirmId || decoded.companyId || decoded.userId;
     const caFirm = await CA.findById(caFirmId);
 
-    if (!caFirm || !caFirm.clients.some(cId => cId.toString() === clientId.toString())) {
-      return NextResponse.json({ error: "Unauthorized client access: client not linked to this firm" }, { status: 403 });
+    const isFirmLinked = caFirm && (
+      (caFirm.clientCompanies && caFirm.clientCompanies.some(cId => cId.toString() === clientId.toString())) ||
+      (caFirm.clients && caFirm.clients.some(cId => cId.toString() === clientId.toString()))
+    );
+
+    const ownerDoc = await Owner.findById(clientId);
+    const isOwnerLinked = ownerDoc && (
+      (ownerDoc.linkedCA && ownerDoc.linkedCA.toString() === caFirmId.toString() && ownerDoc.dataSharingStatus === 'CONNECTED') ||
+      (ownerDoc.linkedCaFirm && ownerDoc.linkedCaFirm.toString() === caFirmId.toString())
+    );
+
+    if (!isFirmLinked && !isOwnerLinked) {
+      return NextResponse.json({ success: false, error: "Unauthorized client access: client not linked to this firm" }, { status: 403 });
     }
 
     // 2. Zero-Trust Vault API-level Blocking
-    const ownerDoc = await Owner.findById(clientId).select("vaultStatus");
     const latestUnlockLog = await AuditLog.findOne({
       entityId: clientId,
       action: "VAULT_UNLOCKED"
@@ -53,6 +67,7 @@ export async function GET(request) {
 
     if (!isVaultUnlocked) {
       return NextResponse.json({ 
+        success: false,
         error: "Zero-Trust Vault Locked: Access blocked. The SME Owner must explicitly unlock the Data Vault before vouchers can be exported." 
       }, { status: 423 });
     }
@@ -67,6 +82,6 @@ export async function GET(request) {
 
   } catch (error) {
     console.error("GET CA Export Error:", error);
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    return NextResponse.json({ success: false, error: "Internal Server Error" }, { status: 500 });
   }
 }

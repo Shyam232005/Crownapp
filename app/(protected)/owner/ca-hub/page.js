@@ -47,14 +47,24 @@ export default function CAAccessManagement() {
 
     const handleApprove = async (request) => {
         setIsApproving(true);
-        const loadingToast = toast.loading("Unlocking data vault...");
+        const loadingToast = toast.loading("Unlocking data vault and syncing with CA...");
         try {
-            // Unlocks the database for the CA
-            const res = await fetch("/api/owner/ca-hub/unlock", {
+            // Unlocks the database and syncs for the CA
+            let res = await fetch("/api/owner/ca-link/sync", {
                 method: "POST"
             });
 
-            if (!res.ok) throw new Error("Failed to unlock vault");
+            if (!res.ok) {
+                // Fallback to legacy endpoint if needed
+                res = await fetch("/api/owner/ca-hub/unlock", {
+                    method: "POST"
+                });
+            }
+
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                throw new Error(errData.error || "Failed to unlock vault");
+            }
 
             // Update UI
             setDataRequests((prev) => prev.filter((r) => r.id !== request.id));
@@ -62,7 +72,7 @@ export default function CAAccessManagement() {
             try {
               confetti({ particleCount: 35, spread: 60 });
             } catch (e) {}
-            toast.success(`${request.month} data securely unlocked for your CA!`, { id: loadingToast });
+            toast.success(`${request.month} data securely synchronized with your CA!`, { id: loadingToast });
             
         } catch (error) {
             toast.error(error.message, { id: loadingToast });
@@ -78,18 +88,28 @@ export default function CAAccessManagement() {
         setIsLinking(true);
         const loadingToast = toast.loading("Verifying CA invite code...");
         try {
-            const res = await fetch("/api/owner/ca-hub/link", {
+            let res = await fetch("/api/owner/ca-link", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ inviteCode })
+                body: JSON.stringify({ inviteCode: inviteCode.trim() })
             });
+
+            if (!res.ok) {
+                // Fallback to legacy route if needed
+                res = await fetch("/api/owner/ca-hub/link", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ inviteCode: inviteCode.trim() })
+                });
+            }
             
             const result = await res.json();
-            if (!res.ok) throw new Error(result.error);
+            if (!res.ok) throw new Error(result.error || "Failed to link CA Firm");
             
-            setLinkedFirm(result.firmName);
+            const connectedName = result.data?.firmName || result.firmName || "CA Firm";
+            setLinkedFirm(connectedName);
             setInviteCode("");
-            toast.success(`Successfully connected to ${result.firmName}!`, { id: loadingToast });
+            toast.success(`Successfully connected to ${connectedName}!`, { id: loadingToast });
         } catch (error) {
             toast.error(error.message, { id: loadingToast });
         } finally {

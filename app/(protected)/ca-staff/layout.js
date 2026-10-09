@@ -1,7 +1,25 @@
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+import jwt from "jsonwebtoken";
 import CAEmployeeSidebar from "@/components/employees/ca/sidebar";
-import GlobalHeader from "@/components/global/header"
+import GlobalHeader from "@/components/global/header";
 
-export default function CaStaffLayout({ children }) {
+export default async function CaStaffLayout({ children }) {
+    const cookieStore = await cookies();
+    const token = cookieStore.get("crown_session")?.value;
+
+    if (token) {
+        try {
+            const decoded = jwt.decode(token);
+            const role = decoded?.role || decoded?.normalizedRole;
+            if (role === "Owner" || role === "OWNER") {
+                redirect("/owner/dashboard");
+            } else if (role === "Employee" || role === "EMPLOYEE") {
+                redirect("/employee/dashboard");
+            }
+        } catch (_) {}
+    }
+
     return (
         <div className="flex h-screen overflow-hidden bg-slate-50">
             <CAEmployeeSidebar />

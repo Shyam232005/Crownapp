@@ -10,34 +10,48 @@ const connectDB = async () => {
   await mongoose.connect(process.env.MONGODB_URI);
 };
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export async function GET(request) {
   try {
     const cookieStore = await cookies();
     const token = cookieStore.get("crown_session")?.value;
     
-    if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!token) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    if (!["CA", "CAStaff", "CA-Employee"].includes(decoded.role)) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    const isCA = decoded.role === "CA" || decoded.normalizedRole === "CA";
+    const isStaff = decoded.role === "CAStaff" || decoded.role === "CA-Employee" || decoded.role === "CA_STAFF" || decoded.normalizedRole === "CA_STAFF";
+
+    if (!isCA && !isStaff) {
+      return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
     }
 
     await connectDB();
     
-    // Get Firm ID
-    let caFirmId = decoded.companyId || decoded.userId;
-    if (decoded.role === "CAStaff" || decoded.role === "CA-Employee") {
+    let caFirmId = decoded.caFirmId || decoded.companyId || decoded.userId;
+    let query = {};
+
+    if (isStaff) {
       const staffMember = await CAStaff.findById(decoded.userId);
-      if (staffMember) caFirmId = staffMember.caFirmId;
+      if (staffMember?.caFirmId) caFirmId = staffMember.caFirmId;
+      const assignedIds = (staffMember?.assignedCompanies?.length ? staffMember.assignedCompanies : (staffMember?.assignedClients || [])).map(id => id.toString());
+      if (assignedIds.length === 0) {
+        return NextResponse.json({ success: true, data: [] }, { status: 200 });
+      }
+      query = { caFirmId, clientId: { $in: assignedIds } };
+    } else {
+      query = { caFirmId };
     }
 
-    const drafts = await TaxDraft.find({ caFirmId }).sort({ createdAt: -1 });
+    const drafts = await TaxDraft.find(query).sort({ createdAt: -1 });
 
     return NextResponse.json({ success: true, data: drafts }, { status: 200 });
 
   } catch (error) {
     console.error("GET Tax Drafts Error:", error);
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    return NextResponse.json({ success: false, error: error.message || "Internal Server Error" }, { status: 500 });
   }
 }
 

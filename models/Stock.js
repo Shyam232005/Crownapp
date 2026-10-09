@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 
 const stockSchema = new mongoose.Schema({
   companyId: { type: mongoose.Schema.Types.ObjectId, ref: "Owner", required: true, index: true },
-  createdBy: { type: String, index: true },
+  createdBy: { type: mongoose.Schema.Types.ObjectId, required: true, index: true },
   employeeId: { type: String, index: true },
   itemName: { type: String, required: true, trim: true, index: true },
   sku: { type: String, trim: true, default: "" },
@@ -16,5 +16,11 @@ const stockSchema = new mongoose.Schema({
   type: { type: String, default: "INWARD" },
   date: { type: Date, default: Date.now }
 }, { timestamps: true });
+
+stockSchema.pre("validate", function() {
+  if (!this.createdBy && this.employeeId) {
+    this.createdBy = this.employeeId;
+  }
+});
 
 export default mongoose.models.Stock || mongoose.model("Stock", stockSchema);

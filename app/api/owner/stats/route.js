@@ -6,6 +6,7 @@ import Transaction from "@/models/Transaction";
 import Leave from "@/models/Leave";
 
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 const connectDB = async () => {
   if (mongoose.connection.readyState >= 1) return;

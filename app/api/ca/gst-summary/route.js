@@ -12,29 +12,41 @@ const connectDB = async () => {
   await mongoose.connect(process.env.MONGODB_URI);
 };
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export async function GET(request) {
   try {
     const cookieStore = await cookies();
     const token = cookieStore.get("crown_session")?.value;
     
-    if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!token) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    if (decoded.role !== "CA" && decoded.role !== "CA-Employee") {
-      return NextResponse.json({ error: "Forbidden: CA Firm access only" }, { status: 403 });
+    const role = (decoded.normalizedRole || decoded.role || "").toUpperCase();
+    if (role !== "CA" && role !== "CA-EMPLOYEE" && role !== "CA_STAFF") {
+      return NextResponse.json({ success: false, error: "Forbidden: CA Firm access only" }, { status: 403 });
     }
 
     await connectDB();
     
     // 1. Fetch CA Firm and mapped clients
-    const caFirmId = decoded.companyId || decoded.userId;
+    const caFirmId = decoded.caFirmId || decoded.companyId || decoded.userId;
     const caFirm = await CA.findById(caFirmId).populate({
+      path: 'clientCompanies',
+      model: Owner,
+      select: 'companyName'
+    }).populate({
       path: 'clients',
       model: Owner,
       select: 'companyName'
     });
 
-    if (!caFirm || !caFirm.clients || caFirm.clients.length === 0) {
+    const clients = (caFirm?.clientCompanies && caFirm.clientCompanies.length > 0)
+      ? caFirm.clientCompanies
+      : (caFirm?.clients || []);
+
+    if (!caFirm || clients.length === 0) {
       return NextResponse.json({ success: true, data: [] }, { status: 200 });
     }
 
@@ -45,7 +57,7 @@ export async function GET(request) {
     const currentPeriodString = new Date().toLocaleString('default', { month: 'long', year: 'numeric' });
 
     // 2. Resolve stats for each client concurrently
-    const gstSummaryPromises = caFirm.clients.map(async (client) => {
+    const gstSummaryPromises = clients.map(async (client) => {
       
       // Calculate total Sales for the current month to estimate turnover
       const salesAggregation = await Transaction.aggregate([
@@ -89,6 +101,6 @@ export async function GET(request) {
 
   } catch (error) {
     console.error("GET GST Summary Error:", error);
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    return NextResponse.json({ success: false, error: "Internal Server Error" }, { status: 500 });
   }
 }

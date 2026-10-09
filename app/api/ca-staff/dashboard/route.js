@@ -22,28 +22,31 @@ export async function GET(request) {
     if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const allowedRoles = ["CA", "CAStaff", "CA-Employee"];
+    const isCA = decoded.role === "CA" || decoded.normalizedRole === "CA";
+    const isStaff = decoded.role === "CAStaff" || decoded.role === "CA-Employee" || decoded.role === "CA_STAFF" || decoded.normalizedRole === "CA_STAFF";
     
-    if (!allowedRoles.includes(decoded.role)) {
-      return NextResponse.json({ error: "Forbidden: CA staff access only" }, { status: 403 });
+    if (!isCA && !isStaff) {
+      return NextResponse.json({ success: false, error: "Forbidden: CA staff access only" }, { status: 403 });
     }
 
     await connectDB();
 
-    // Determine the CA Firm ID and which client IDs to pull from
-    let caFirmId = decoded.companyId || decoded.userId;
     let assignedClientIds = [];
 
-    if (decoded.role === "CAStaff" || decoded.role === "CA-Employee") {
+    if (isStaff) {
       const staffMember = await CAStaff.findById(decoded.userId);
-      if (staffMember) {
-        caFirmId = staffMember.caFirmId;
+      if (!staffMember) {
+        return NextResponse.json({ success: false, error: "Staff profile not found" }, { status: 404 });
       }
+      assignedClientIds = staffMember.assignedCompanies?.length ? staffMember.assignedCompanies : (staffMember.assignedClients || []);
+    } else {
+      // CA Admin viewing staff dashboard: show all connected client companies
+      const caFirmId = decoded.caFirmId || decoded.companyId || decoded.userId;
+      const caFirm = await CA.findById(caFirmId);
+      assignedClientIds = caFirm ? [...(caFirm.clientCompanies || []), ...(caFirm.clients || [])] : [];
     }
 
-    // Pull the parent firm to get all connected client company IDs
-    const caFirm = await CA.findById(caFirmId);
-    if (!caFirm || !caFirm.clients || caFirm.clients.length === 0) {
+    if (!assignedClientIds || assignedClientIds.length === 0) {
       return NextResponse.json({
         success: true,
         data: {
@@ -52,8 +55,6 @@ export async function GET(request) {
         }
       }, { status: 200 });
     }
-
-    assignedClientIds = caFirm.clients;
 
     // 1. Calculate Summary Metrics
     const [pendingVouchers, openQueries] = await Promise.all([
