@@ -19,6 +19,13 @@ const TransactionSchema = new mongoose.Schema({
   receiptNumber: { type: String, trim: true, default: '' },
   paymentMethod: { type: String, trim: true, default: '' },
   transactionDate: { type: Date, default: Date.now },
+  department: { 
+    type: String, 
+    enum: ['FINANCE', 'SALES', 'OPERATIONS', 'HR'], 
+    default: 'FINANCE', 
+    uppercase: true, 
+    index: true 
+  },
   metadata: {
     vendorName: String,
     customerName: String,
@@ -69,6 +76,15 @@ TransactionSchema.pre('validate', function () {
     ];
     if (validTypes.includes(upper)) {
       this.type = upper;
+    }
+  }
+
+  // Auto-assign department based on transaction type if not already set
+  if (!this.department || this.department === 'FINANCE') {
+    if (['SALES', 'ADVANCE_RECEIVED', 'COLLECTION', 'PAYMENT_IN', 'INCOME'].includes(this.type)) {
+      this.department = 'SALES';
+    } else {
+      this.department = 'FINANCE';
     }
   }
 });

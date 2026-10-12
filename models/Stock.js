@@ -14,6 +14,7 @@ const stockSchema = new mongoose.Schema({
   challanNumber: { type: String, trim: true, default: "" },
   remarks: { type: String, default: "" },
   type: { type: String, default: "INWARD" },
+  department: { type: String, default: "OPERATIONS", uppercase: true, index: true },
   date: { type: Date, default: Date.now }
 }, { timestamps: true });
 
