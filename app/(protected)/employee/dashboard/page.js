@@ -9,6 +9,7 @@ import {
   ChevronRight, CheckCircle2, AlertCircle, Lock, LogIn
 } from "lucide-react";
 import { toast } from "sonner";
+import DynamicDashboardLayout from "@/components/employees/departmental/DynamicDashboardLayout";
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -300,9 +301,20 @@ export default function EmployeeDashboardUI() {
           </Link>
         </motion.div>
 
-        {/* Quick Actions Grid (Staggered Children) */}
+        {/* ========================================================================= */}
+        {/* DYNAMIC ROLE & DEPARTMENT DASHBOARD TERMINAL                              */}
+        {/* ========================================================================= */}
+        <motion.div variants={itemVariants} className="mb-10">
+          <DynamicDashboardLayout
+            attendanceStatus={attendanceStatus}
+            isPunchedIn={isPunchedIn}
+            vouchers={vouchers}
+          />
+        </motion.div>
+
+        {/* Quick Actions Grid (Staggered Children - Legacy Preserved) */}
         <motion.div variants={itemVariants} className="mb-4">
-          <h3 className="text-sm font-black text-slate-800 tracking-tight mb-4 px-1">Daily Operations</h3>
+          <h3 className="text-sm font-black text-slate-800 tracking-tight mb-4 px-1">Additional Staff Quick Links</h3>
         </motion.div>
 
         <motion.div variants={itemVariants} className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-4 mb-8">

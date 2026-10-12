@@ -9,6 +9,8 @@ import {
     TrendingUp, ArrowUpRight, FolderCheck, Copy, Package
 } from "lucide-react";
 import { toast } from "sonner";
+import DepartmentCardsGrid from "@/components/owner/departmental/DepartmentCardsGrid";
+import OwnerStocksWidget from "@/components/owner/departmental/OwnerStocksWidget";
 
 const containerVariants = {
     hidden: { opacity: 0 },
@@ -248,6 +250,20 @@ export default function OwnerDashboardUI() {
                         </motion.button>
                     </Link>
                 </div>
+            </motion.div>
+
+            {/* ========================================================================= */}
+            {/* MODULAR DEPARTMENT CARDS GRID (Sales Health, Operational Stocks, Finance) */}
+            {/* ========================================================================= */}
+            <motion.div variants={itemVariants} className="mb-8">
+                <DepartmentCardsGrid />
+            </motion.div>
+
+            {/* ========================================================================= */}
+            {/* DEDICATED OPERATIONAL STOCKS MONITORING WIDGET                            */}
+            {/* ========================================================================= */}
+            <motion.div variants={itemVariants} className="mb-8">
+                <OwnerStocksWidget initialStocks={todayInward.items || []} todayInward={todayInward} />
             </motion.div>
 
             {/* Bottom Split Layout */}

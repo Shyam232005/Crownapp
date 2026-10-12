@@ -18,7 +18,38 @@ const ROLE_DASHBOARDS = {
 export async function proxy(request) {
   const { pathname } = request.nextUrl;
 
-  // 1. Bypass Next.js assets, API routes, and static files
+  // 1. Check API Route RBAC for restricted departmental endpoints
+  if (pathname.startsWith("/api/sales")) {
+    const token = request.cookies.get("crown_session")?.value;
+    if (!token) {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    }
+    try {
+      const secret = new TextEncoder().encode(process.env.JWT_SECRET || "default_fallback_secret");
+      const { payload } = await jwtVerify(token, secret);
+      const isOwner = payload.role === "Owner" || payload.role === "OWNER" || payload.isSuperAdmin;
+      if (!isOwner) {
+        const isEmployee = payload.role === "Employee" || payload.role === "EMPLOYEE";
+        const dept = (payload.department || "OPERATIONS").toUpperCase();
+        if (isEmployee && dept !== "SALES") {
+          return NextResponse.json(
+            { 
+              success: false, 
+              error: `Forbidden: Department access restricted. Your department (${dept}) cannot access Sales API.`,
+              code: "DEPARTMENT_FORBIDDEN",
+              currentDepartment: dept,
+              requiredDepartment: "SALES"
+            },
+            { status: 403 }
+          );
+        }
+      }
+    } catch (_) {
+      return NextResponse.json({ success: false, error: "Invalid session token" }, { status: 401 });
+    }
+  }
+
+  // 1b. Bypass remaining Next.js assets, API routes, and static files
   if (
     pathname.startsWith("/_next") ||
     pathname.startsWith("/api") ||
@@ -164,6 +195,8 @@ export const config = {
     "/owner",
     "/employee",
     "/ca",
-    "/ca-staff"
+    "/ca-staff",
+    "/api/sales",
+    "/api/sales/:path*"
   ]
 };

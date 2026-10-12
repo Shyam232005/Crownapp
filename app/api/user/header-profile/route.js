@@ -90,6 +90,9 @@ export async function GET(request) {
       if (emp) {
         userData.name = emp.name;
         userData.email = emp.email;
+        userData.department = (emp.department || decoded.department || "OPERATIONS").toUpperCase();
+        userData.departmentRole = (emp.role || decoded.departmentRole || "EMPLOYEE").toUpperCase();
+        userData.departmentId = emp.departmentId ? emp.departmentId.toString() : null;
 
         if (emp.ownerId) {
           const owner = await Owner.findById(emp.ownerId);

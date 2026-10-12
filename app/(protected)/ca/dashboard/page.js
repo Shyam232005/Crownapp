@@ -7,6 +7,7 @@ import {
   ArrowRight, DownloadCloud, Clock, Building2,
   Loader2, Inbox, ShieldCheck, Sparkles
 } from "lucide-react";
+import CATaxTablesView from "@/components/ca/departmental/CATaxTablesView";
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -151,6 +152,14 @@ export default function CADashboardUI() {
             Export XML/CSV <ArrowRight className="w-3.5 h-3.5" />
           </Link>
         </div>
+      </motion.div>
+
+      {/* ========================================================================= */}
+      {/* TAX-READY STRUCTURED TABLES (INCOME, EXPENSES, RECONCILIATIONS)           */}
+      {/* STRICT FUNNEL: ONLY FINANCE & SALES DATA (OPERATIONAL & HR EXCLUDED)      */}
+      {/* ========================================================================= */}
+      <motion.div variants={itemVariants} className="mb-8">
+        <CATaxTablesView />
       </motion.div>
 
       {/* Client Alerts List */}

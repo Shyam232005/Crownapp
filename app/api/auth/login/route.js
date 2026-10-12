@@ -145,6 +145,8 @@ export async function POST(request) {
       userId: user._id.toString(),
       role: role,
       normalizedRole: normalizedRole,
+      department: isEmployee ? (user.department || "OPERATIONS").toUpperCase() : null,
+      departmentRole: isEmployee ? (user.role || "EMPLOYEE").toUpperCase() : null,
       companyId: companyId ? companyId.toString() : null,
       caFirmId: caFirmId ? caFirmId.toString() : null,
       assignedCompanies: assignedCompanies
@@ -171,7 +173,9 @@ export async function POST(request) {
       id: user._id,
       name: user.name,
       email: user.email,
-      role: role
+      role: role,
+      department: isEmployee ? (user.department || "OPERATIONS").toUpperCase() : null,
+      departmentRole: isEmployee ? (user.role || "EMPLOYEE").toUpperCase() : null
     };
 
     return NextResponse.json({ 
